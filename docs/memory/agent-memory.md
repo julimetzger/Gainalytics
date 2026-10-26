@@ -810,3 +810,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Baseline plans still store planned sets of exercises that were removed from a training
 **Observation (GH-527):** `training.plannedWorkouts` keeps workouts whose exercise is no longer in `training.exercises` (plan 5: M1 SA lat pulldown + Machine chest press, M2 three more; plan 1: ~25 trainings). The Plan tab lists only `exercises`. Since GH-527, the overviews count only listed exercises (`plannedWorkoutIdsOf` in `app/utils/overview-comparison.ts`). Any new plan sum must use that helper, or its numbers won't match the Plan tab.
 **Apply when:** summing planned sets/volume anywhere (overviews, hero cards, AI context).
+
+### "Import done" waits on a Settings button break when the section heights change — wait for the imported value
+**Problem (GH-589):** `start_existing_data` opened the import through the onboarding ("Show Introduction" scrolled into view, not the Data buttons). After the SAF pick it waited for `'Import Data'`. On the nightly emulator the Health Connect card shows "Connected" + a write toggle, which makes it taller, so the button sat just below the fold. The flow failed on both attempts while the import itself had worked. Same class: `scrollUntilVisible` to a row's star while the asserted `plan-meta-N` line under it is still clipped by the bottom bar (`home_new_plan_current`, 1 of 3 fresh runs).
+**Fix / Rule:** after a pick, wait for `tab-training` and then `extendedWaitUntil` on the imported value (`micro-hero-plan-name` = `Push pull`). Scroll to the exact element you assert, not to a neighbour.
+**Apply when:** a flow waits for a static screen element as a proxy for "operation finished", or passes in the suite but fails on a fresh emulator.
+
+### Maestro can hang host-side inside `launchApp` (stopApp: false) — only the per-flow timeout ends it
+**Observation (GH-589):** in a fresh shard-2 run, `plan_overflow_actions` stopped logging at `Launch app … without stopping app` (inside `goto_micro69_push.yaml`). The app stayed RESUMED, logcat had no FATAL/ANR and no `START` for the app. It did not recover in 10+ min. The nightly's 900 s `timeout` + one retry covers this. When running by hand, wrap every `tool.sh flow` in `timeout 900`.
+**Apply when:** a flow is silent for minutes. Check `debug/.maestro/tests/<ts>/maestro.log` for the last RUNNING command before you suspect the app.
