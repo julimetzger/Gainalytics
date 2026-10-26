@@ -32,6 +32,8 @@ jest.mock('sharingan-rn-modal-dropdown', () => {
       autoOpen,
       selectionHeader,
       onBlur,
+      hideChip,
+      open,
     }: {
       label: string;
       value: string[];
@@ -39,9 +41,13 @@ jest.mock('sharingan-rn-modal-dropdown', () => {
       autoOpen?: boolean;
       selectionHeader?: boolean;
       onBlur?: () => void;
+      hideChip?: boolean;
+      open?: boolean;
     }) => (
       <View>
         <Text testID="dropdown-label">{label}</Text>
+        <Text testID="dropdown-hide-chip">{String(hideChip)}</Text>
+        <Text testID="dropdown-open">{String(open)}</Text>
         <Text testID="dropdown-value">{JSON.stringify(value)}</Text>
         <Text testID="dropdown-auto-open">{String(autoOpen)}</Text>
         <Text testID="dropdown-selection-header">{String(selectionHeader)}</Text>
@@ -186,6 +192,23 @@ describe('TrainingElementPicker', () => {
 
     fireEvent.press(getByTestId('toggle-picker'));
     expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  // GH-617: Records starts collapsed but keeps the "N selected" anchor row.
+  it('collapseToSummary keeps the anchor (summary) visible and only hides the chips while collapsed', () => {
+    const setExercise = jest.fn();
+    const {getByTestId} = render(<TrainingElementPicker exercise={[]} setExercise={setExercise} visible={false} collapseToSummary />);
+
+    expect(getByTestId('dropdown-label').props.children).toBe('Select Exercises, Metrics, Accumulation Mode');
+    expect(getByTestId('dropdown-hide-chip').props.children).toBe('true');
+    // The anchor stays tappable: the modal must not be force-closed.
+    expect(getByTestId('dropdown-open').props.children).toBe('true');
+
+    fireEvent.press(getByTestId('toggle-picker'));
+    expect(getByTestId('dropdown-hide-chip').props.children).toBe('false');
+
+    fireEvent.press(getByTestId('toggle-picker'));
+    expect(getByTestId('dropdown-hide-chip').props.children).toBe('true');
   });
 
   // GH-403 (UX audit M7): with openListOnShow the "+" tile must land the user

@@ -4,7 +4,7 @@ import {Icon, SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
 import {Accumulation} from '../../picker/elements/TrainingElementPicker';
-import {buildHeatmapModel, buildMuscleLaneModel, countRecordsThisWeek, statusLine, unitForAccumulation} from '../../../utils/RecordsAnalysis';
+import {buildHeatmapModel, buildMuscleLaneModel, countRecordsThisWeek, RecordsSelection, statusLine, unitForAccumulation} from '../../../utils/RecordsAnalysis';
 import RecordsHeatmap from './RecordsHeatmap';
 import RecordsMuscleLanes from './RecordsMuscleLanes';
 
@@ -17,9 +17,13 @@ interface Props {
   rangeEnd: Date;
   accumulation?: Accumulation;
   now: Date;
+  /** Key of the tile/bar whose records the list shows (GH-617). */
+  selectedKey?: string;
+  /** Tap on a tile/bar; `undefined` clears the selection (view switch). */
+  onSelect: (selection?: RecordsSelection) => void;
 }
 
-const RecordsOverTimeCard = ({recordWorkouts, exercises, rangeStart, rangeEnd, accumulation, now}: Props) => {
+const RecordsOverTimeCard = ({recordWorkouts, exercises, rangeStart, rangeEnd, accumulation, now, selectedKey, onSelect}: Props) => {
   const theme = useTheme();
   const [view, setView] = useState<'heatmap' | 'muscle'>('heatmap');
 
@@ -46,7 +50,11 @@ const RecordsOverTimeCard = ({recordWorkouts, exercises, rangeStart, rangeEnd, a
       </View>
       <SegmentedButtons
         value={view}
-        onValueChange={(value) => setView(value as 'heatmap' | 'muscle')}
+        onValueChange={(value) => {
+          // The selected tile/bar only exists in its own view.
+          setView(value as 'heatmap' | 'muscle');
+          onSelect(undefined);
+        }}
         style={styles.segmented}
         buttons={[
           {value: 'heatmap', label: 'Heatmap', icon: 'view-grid-outline', testID: 'records-view-heatmap'},
@@ -73,7 +81,11 @@ const RecordsOverTimeCard = ({recordWorkouts, exercises, rangeStart, rangeEnd, a
           <Text style={[styles.kpiLabel, {color: theme.colors.onSurfaceVariant}]}>this week</Text>
         </View>
       </View>
-      {view === 'heatmap' ? <RecordsHeatmap model={heatmap} /> : <RecordsMuscleLanes model={lanes} />}
+      {view === 'heatmap' ? (
+        <RecordsHeatmap model={heatmap} selectedKey={selectedKey} onSelect={onSelect} />
+      ) : (
+        <RecordsMuscleLanes model={lanes} selectedKey={selectedKey} onSelect={onSelect} />
+      )}
     </View>
   );
 };

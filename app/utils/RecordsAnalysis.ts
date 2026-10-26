@@ -5,7 +5,7 @@ import {WorkoutSet} from '../models/entities/WorkoutSet';
 import {Accumulation} from '../components/picker/elements/TrainingElementPicker';
 import {AccumulationMode} from '../models/AccumulationMode';
 import {TrainingsPlan} from '../models/entities/TrainingsPlan';
-import {firstDayOfWeek, getFirstDayOfMonth, lastDayOfWeek} from './DateHelper';
+import {firstDayOfWeek, getFirstDayOfMonth, getYYYYMMDDFormat, lastDayOfWeek} from './DateHelper';
 import {getMicroFromTrainingInMicroIndex, getSortedMesos} from '../redux/Training/trainingsPlanReducer';
 import {epley1RM} from './AnalyseUtils';
 import {toFiniteNumber} from '../components/exercise/show/exerciseStats';
@@ -79,6 +79,19 @@ const monthKey = (date: Date) => {
 };
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** MM/DD/YY, used in the titles of selected tiles. */
+export function shortDate(date: Date): string {
+  const d = new Date(date);
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${String(d.getFullYear() % 100).padStart(2, '0')}`;
+}
+
+const addDays = (date: Date, days: number) => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+};
 
 /** All Mondays from the week containing `start` through the week containing `end`. */
 export function mondaysBetween(start: Date, end: Date): Date[] {
@@ -115,8 +128,9 @@ function trainingsIdToMicro(plan: TrainingsPlan): Map<number, number> {
   return map;
 }
 
-function countByKey(workouts: Workout[], keyOf: (workout: Workout) => number | undefined): Map<number, number> {
-  const counts = new Map<number, number>();
+/** Record workouts grouped by bucket key — the same grouping feeds the tile counts and the tile filter. */
+function groupByKey(workouts: Workout[], keyOf: (workout: Workout) => number | undefined): Map<number, Workout[]> {
+  const groups = new Map<number, Workout[]>();
   workouts.forEach((workout) => {
     if (!workout.start) {
       return;
@@ -125,19 +139,39 @@ function countByKey(workouts: Workout[], keyOf: (workout: Workout) => number | u
     if (key === undefined) {
       return;
     }
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const group = groups.get(key);
+    if (group) {
+      group.push(workout);
+    } else {
+      groups.set(key, [workout]);
+    }
   });
-  return counts;
+  return groups;
 }
 
 // ─── heatmap model ───────────────────────────────────────────────────────────
 
-export interface HeatCell {
+/** A set of records behind one tile/bar; selecting it filters the record list. */
+export interface RecordsSelection {
   key: string;
+  /** Human-readable bucket, e.g. "week of 01/26/26". */
+  title: string;
+  workouts: Workout[];
+}
+
+export interface HeatCell extends RecordsSelection {
   count: number;
   /** Label rendered below the tile (month mode). */
   sublabel?: string;
 }
+
+const heatCell = (key: string, title: string, workouts: Workout[] = [], sublabel?: string): HeatCell => ({
+  key,
+  title,
+  workouts,
+  count: workouts.length,
+  ...(sublabel !== undefined ? {sublabel} : {}),
+});
 
 export interface HeatRow {
   label: string;
@@ -168,6 +202,19 @@ export function bundleCounts(counts: number[], max: number): number[] {
   return bundled;
 }
 
+/** Same bundling as `bundleCounts`, but keeps the grouped items (counts = lengths). */
+export function bundleGroups<T>(groups: T[][], max: number): T[][] {
+  if (groups.length <= max) {
+    return groups;
+  }
+  const groupSize = Math.ceil(groups.length / max);
+  const bundled: T[][] = [];
+  for (let i = 0; i < groups.length; i += groupSize) {
+    bundled.push(groups.slice(i, i + groupSize).flat());
+  }
+  return bundled;
+}
+
 function finalizeModel(unit: HeatmapUnit, rows: HeatRow[], bestCount?: number): HeatmapModel {
   let maxCount = 0;
   let bestKey: string | undefined;
@@ -193,49 +240,52 @@ export function buildHeatmapModel(recordWorkouts: Workout[], rangeStart: Date, r
   const unit = unitForAccumulation(accumulation);
 
   if (unit === 'week') {
-    const counts = countByKey(recordWorkouts, (workout) => weekKey(new Date(workout.start!!)));
+    const groups = groupByKey(recordWorkouts, (workout) => weekKey(new Date(workout.start!!)));
     const rows: HeatRow[] = monthsBetween(rangeStart, rangeEnd).map((month) => {
       const weeks = mondaysBetween(month, new Date(month.getFullYear(), month.getMonth() + 1, 0)).filter((monday) => monday.getMonth() === month.getMonth());
       return {
         label: MONTH_SHORT[month.getMonth()],
-        cells: weeks.map((monday) => ({key: `week-${monday.getTime()}`, count: counts.get(monday.getTime()) ?? 0})),
+        cells: weeks.map((monday) => heatCell(`week-${getYYYYMMDDFormat(monday)}`, `week of ${shortDate(monday)}`, groups.get(monday.getTime()))),
       };
     });
     return finalizeModel(unit, rows);
   }
 
   if (unit === 'month') {
-    const counts = countByKey(recordWorkouts, (workout) => monthKey(new Date(workout.start!!)));
-    const cells = monthsBetween(rangeStart, rangeEnd).map((month) => ({
-      key: `month-${month.getTime()}`,
-      count: counts.get(month.getTime()) ?? 0,
-      sublabel: MONTH_SHORT[month.getMonth()],
-    }));
+    const groups = groupByKey(recordWorkouts, (workout) => monthKey(new Date(workout.start!!)));
+    const cells = monthsBetween(rangeStart, rangeEnd).map((month) =>
+      heatCell(`month-${getYYYYMMDDFormat(month).slice(0, 7)}`, `${MONTH_SHORT[month.getMonth()]} ${month.getFullYear()}`, groups.get(month.getTime()), MONTH_SHORT[month.getMonth()]),
+    );
     return finalizeModel(unit, [{label: '', cells}]);
   }
 
   if (unit === 'day') {
     // Calendar grid: rows are weekdays Mon → Sun, columns are the weeks of the range.
     // Counts come from the actual training days of the record workouts.
-    const counts = countByKey(recordWorkouts, (workout) => dayKey(new Date(workout.start!!)));
+    const groups = groupByKey(recordWorkouts, (workout) => dayKey(new Date(workout.start!!)));
     const mondays = mondaysBetween(rangeStart, rangeEnd);
-    const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const perWeekday: number[][] = weekdayLabels.map((_, weekdayIndex) =>
-      mondays.map((monday) => {
-        const day = new Date(monday);
-        day.setDate(day.getDate() + weekdayIndex);
-        return counts.get(day.getTime()) ?? 0;
-      }),
-    );
-    const rows: HeatRow[] = weekdayLabels.map((label, weekdayIndex) => {
-      const bundled = bundleCounts(perWeekday[weekdayIndex], MAX_DAY_GRID_COLUMNS);
+    const rows: HeatRow[] = WEEKDAY_SHORT.map((label, weekdayIndex) => {
+      const days = mondays.map((monday) => addDays(monday, weekdayIndex));
+      const bundledWorkouts = bundleGroups(
+        days.map((day) => groups.get(day.getTime()) ?? []),
+        MAX_DAY_GRID_COLUMNS,
+      );
+      const bundledDays = bundleGroups(
+        days.map((day) => [day]),
+        MAX_DAY_GRID_COLUMNS,
+      );
       return {
         label,
-        cells: bundled.map((count, column) => ({key: `day-${weekdayIndex}-${column}`, count})),
+        cells: bundledWorkouts.map((workouts, column) => {
+          const first = bundledDays[column][0];
+          const last = bundledDays[column][bundledDays[column].length - 1];
+          const title = first === last ? `${label} ${shortDate(first)}` : `${label}s ${shortDate(first)} – ${shortDate(last)}`;
+          return heatCell(`day-${weekdayIndex}-${column}`, title, workouts);
+        }),
       };
     });
     // Bundled cells sum several days — the "best day" KPI must stay a single day.
-    const bestSingleDay = Math.max(0, ...Array.from(counts.values()));
+    const bestSingleDay = Math.max(0, ...Array.from(groups.values()).map((group) => group.length));
     return finalizeModel(unit, rows, bestSingleDay);
   }
 
@@ -245,7 +295,7 @@ export function buildHeatmapModel(recordWorkouts: Workout[], rangeStart: Date, r
     return {unit, rows: [], maxCount: 0};
   }
   const tidToMicro = trainingsIdToMicro(plan);
-  const counts = countByKey(recordWorkouts, (workout) => (workout.trainingsId !== undefined ? tidToMicro.get(workout.trainingsId) : undefined));
+  const groups = groupByKey(recordWorkouts, (workout) => (workout.trainingsId !== undefined ? tidToMicro.get(workout.trainingsId) : undefined));
   const allMicros = Array.from(tidToMicro.values());
   const maxMicro = allMicros.length > 0 ? Math.max(...allMicros) : 0;
   const mesos = getSortedMesos(plan.mesos);
@@ -253,7 +303,7 @@ export function buildHeatmapModel(recordWorkouts: Workout[], rangeStart: Date, r
     const nextStart = index + 1 < mesos.length ? mesos[index + 1].startMicro : maxMicro + 1;
     const cells: HeatCell[] = [];
     for (let micro = meso.startMicro; micro < nextStart; micro++) {
-      cells.push({key: `micro-${micro}`, count: counts.get(micro) ?? 0});
+      cells.push(heatCell(`micro-${micro}`, `${meso.name} · M${micro}`, groups.get(micro)));
     }
     return {label: meso.name, cells};
   });
@@ -266,6 +316,8 @@ export interface MuscleLane {
   group: MuscleGroup;
   color: string;
   counts: number[];
+  /** The record workouts behind each bar, aligned with `counts`. */
+  workouts: Workout[][];
   total: number;
 }
 
@@ -273,6 +325,33 @@ export interface MuscleLaneModel {
   lanes: MuscleLane[];
   /** One entry per bucket; set where a new month (or micro) starts. */
   bucketLabels: (string | undefined)[];
+  /** Human-readable bucket per bar, e.g. "week of 01/26/26" or "01/05/26 – 01/18/26" when bundled. */
+  bucketTitles: string[];
+}
+
+/** The records behind one bar of a muscle lane, as a list filter. */
+export function laneSelection(model: MuscleLaneModel, lane: MuscleLane, index: number): RecordsSelection {
+  return {key: `lane-${lane.group}-${index}`, title: `${lane.group} · ${model.bucketTitles[index]}`, workouts: lane.workouts[index] ?? []};
+}
+
+interface Bucket {
+  key: number;
+  label?: string;
+  title: string;
+  /** Calendar span (undefined for micros). */
+  span?: [Date, Date];
+}
+
+function bundleTitle(buckets: Bucket[]): string {
+  const first = buckets[0];
+  const last = buckets[buckets.length - 1];
+  if (first === last) {
+    return first.title;
+  }
+  if (first.span && last.span) {
+    return `${shortDate(first.span[0])} – ${shortDate(last.span[1])}`;
+  }
+  return `${first.title} – ${last.title}`;
 }
 
 export const MAX_LANE_BUCKETS = 18;
@@ -290,21 +369,22 @@ export function buildMuscleLaneModel(recordWorkouts: Workout[], exercises: Exerc
     }
   });
 
-  let bucketKeys: number[];
-  let bucketLabels: (string | undefined)[];
+  let buckets: Bucket[];
   let keyOf: (workout: Workout) => number | undefined;
 
   if (unit === 'micro' && accumulation?.trainingsPlan) {
     const tidToMicro = trainingsIdToMicro(accumulation.trainingsPlan);
     const allMicros = Array.from(tidToMicro.values());
     const maxMicro = allMicros.length > 0 ? Math.max(...allMicros) : 0;
-    bucketKeys = Array.from({length: maxMicro}, (_, index) => index + 1);
-    bucketLabels = bucketKeys.map((micro) => `M${micro}`);
+    buckets = Array.from({length: maxMicro}, (_, index) => ({key: index + 1, label: `M${index + 1}`, title: `M${index + 1}`}));
     keyOf = (workout) => (workout.trainingsId !== undefined ? tidToMicro.get(workout.trainingsId) : undefined);
   } else if (unit === 'month') {
-    const months = monthsBetween(rangeStart, rangeEnd);
-    bucketKeys = months.map((month) => month.getTime());
-    bucketLabels = months.map((month) => MONTH_SHORT[month.getMonth()]);
+    buckets = monthsBetween(rangeStart, rangeEnd).map((month) => ({
+      key: month.getTime(),
+      label: MONTH_SHORT[month.getMonth()],
+      title: `${MONTH_SHORT[month.getMonth()]} ${month.getFullYear()}`,
+      span: [month, new Date(month.getFullYear(), month.getMonth() + 1, 0)],
+    }));
     keyOf = (workout) => monthKey(new Date(workout.start!!));
   } else if (unit === 'day') {
     const days: Date[] = [];
@@ -314,18 +394,28 @@ export function buildMuscleLaneModel(recordWorkouts: Workout[], exercises: Exerc
       days.push(new Date(cursor));
       cursor.setDate(cursor.getDate() + 1);
     }
-    bucketKeys = days.map((day) => day.getTime());
-    bucketLabels = days.map((day, index) => (index === 0 || day.getDate() === 1 ? MONTH_SHORT[day.getMonth()] : undefined));
+    buckets = days.map((day, index) => ({
+      key: day.getTime(),
+      label: index === 0 || day.getDate() === 1 ? MONTH_SHORT[day.getMonth()] : undefined,
+      title: `${WEEKDAY_SHORT[(day.getDay() + 6) % 7]} ${shortDate(day)}`,
+      span: [day, day],
+    }));
     keyOf = (workout) => dayKey(new Date(workout.start!!));
   } else {
     const mondays = mondaysBetween(rangeStart, rangeEnd);
-    bucketKeys = mondays.map((monday) => monday.getTime());
-    bucketLabels = mondays.map((monday, index) => (index === 0 || monday.getMonth() !== mondays[index - 1].getMonth() ? MONTH_SHORT[monday.getMonth()] : undefined));
+    buckets = mondays.map((monday, index) => ({
+      key: monday.getTime(),
+      label: index === 0 || monday.getMonth() !== mondays[index - 1].getMonth() ? MONTH_SHORT[monday.getMonth()] : undefined,
+      title: `week of ${shortDate(monday)}`,
+      span: [monday, addDays(monday, 6)],
+    }));
     keyOf = (workout) => weekKey(new Date(workout.start!!));
   }
 
+  const bucketKeys = buckets.map((bucket) => bucket.key);
+  const bucketLabels = buckets.map((bucket) => bucket.label);
   const bucketIndexByKey = new Map<number, number>(bucketKeys.map((key, index) => [key, index]));
-  const lanesByGroup = new Map<MuscleGroup, number[]>();
+  const lanesByGroup = new Map<MuscleGroup, Workout[][]>();
   recordWorkouts.forEach((workout) => {
     if (!workout.start) {
       return;
@@ -340,9 +430,12 @@ export function buildMuscleLaneModel(recordWorkouts: Workout[], exercises: Exerc
       return;
     }
     if (!lanesByGroup.has(group)) {
-      lanesByGroup.set(group, bucketKeys.map(() => 0));
+      lanesByGroup.set(
+        group,
+        bucketKeys.map(() => []),
+      );
     }
-    lanesByGroup.get(group)!![bucketIndex] += 1;
+    lanesByGroup.get(group)!![bucketIndex].push(workout);
   });
 
   // Bundle buckets so lanes stay readable for large ranges. Labels keep the
@@ -350,27 +443,26 @@ export function buildMuscleLaneModel(recordWorkouts: Workout[], exercises: Exerc
   const bundleNeeded = bucketKeys.length > MAX_LANE_BUCKETS;
   const groupSize = bundleNeeded ? Math.ceil(bucketKeys.length / MAX_LANE_BUCKETS) : 1;
   const finalLabels: (string | undefined)[] = [];
-  if (bundleNeeded) {
-    for (let i = 0; i < bucketLabels.length; i += groupSize) {
-      finalLabels.push(bucketLabels.slice(i, i + groupSize).find((label) => label !== undefined));
-    }
-  } else {
-    finalLabels.push(...bucketLabels);
+  const finalTitles: string[] = [];
+  for (let i = 0; i < buckets.length; i += groupSize) {
+    finalLabels.push(bucketLabels.slice(i, i + groupSize).find((label) => label !== undefined));
+    finalTitles.push(bundleTitle(buckets.slice(i, i + groupSize)));
   }
 
   const lanes: MuscleLane[] = Array.from(lanesByGroup.entries())
-    .map(([group, counts]) => {
-      const finalCounts = bundleNeeded ? bundleCounts(counts, MAX_LANE_BUCKETS) : counts;
+    .map(([group, perBucket]) => {
+      const workouts = bundleGroups(perBucket, MAX_LANE_BUCKETS);
       return {
         group,
         color: MUSCLE_GROUP_COLORS[group],
-        counts: finalCounts,
-        total: counts.reduce((sum, count) => sum + count, 0),
+        counts: workouts.map((bucket) => bucket.length),
+        workouts,
+        total: perBucket.reduce((sum, bucket) => sum + bucket.length, 0),
       };
     })
     .sort((a, b) => b.total - a.total);
 
-  return {lanes, bucketLabels: finalLabels};
+  return {lanes, bucketLabels: finalLabels, bucketTitles: finalTitles};
 }
 
 // ─── record cards ────────────────────────────────────────────────────────────

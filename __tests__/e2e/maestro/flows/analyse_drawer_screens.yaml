@@ -327,6 +327,334 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: '^records-heatmap$'
 
+# ---------------------- Records: tile filter + collapsed filter header (GH-617)
+# The filter header opens collapsed: anchor + summary ("1 selected" = the Week
+# accumulation), but no chips. The chevron expands and collapses the chips.
+- scrollUntilVisible:
+    element:
+      id: 'date-range-picker-button'
+    direction: UP
+- assertVisible: 'Select Exercises, Metrics, Accumulation Mode'
+- assertVisible: '1 selected'
+- assertNotVisible: '^Week$'
+- tapOn:
+    id: 'element-picker-toggle'
+- extendedWaitUntil:
+    visible: '^Week$'
+    timeout: 10000
+- assertVisible: '1 selected'
+- tapOn:
+    id: 'element-picker-toggle'
+- extendedWaitUntil:
+    notVisible: '^Week$'
+    timeout: 10000
+- assertVisible: '1 selected'
+# A fixed range 12/01/2025 - 03/01/2026 holds all 40 baseline records and stays
+# the same on any later date (no bundling: 13 weeks). Expected values, computed
+# with buildHeatmapModel/buildMuscleLaneModel from fixtures/baseline.gains:
+#   weeks 12/01/25 = 9, 12/08/25 = 2, 12/29/25 = 0, 01/26/26 = 7;
+#   By muscle: Back in the week of 01/26/26 (bar 8) = 4.
+# Typing: see data_strong_import_records.yaml (tap the field's right end, single
+# Backspaces, one digit per command - the mask adds the slashes).
+- tapOn:
+    id: 'date-range-picker-button'
+- extendedWaitUntil:
+    visible: '^Save$'
+    timeout: 15000
+- tapOn:
+    id: 'date-range-start-input'
+- waitForAnimationToEnd:
+    timeout: 5000
+- repeat:
+    times: 3
+    while:
+      notVisible: '12/01/2025'
+    commands:
+      - tapOn:
+          point: '31%, 16%'
+      - repeat:
+          times: 12
+          commands:
+            - pressKey: Backspace
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '2'
+      - inputText: '5'
+- assertVisible: '12/01/2025'
+- repeat:
+    times: 3
+    while:
+      notVisible: '03/01/2026'
+    commands:
+      - tapOn:
+          point: '64%, 16%'
+      - repeat:
+          times: 12
+          commands:
+            - pressKey: Backspace
+      - inputText: '0'
+      - inputText: '3'
+      - inputText: '0'
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '2'
+      - inputText: '6'
+- assertVisible: '03/01/2026'
+- assertVisible: '12/01/2025'
+- tapOn: '^Save$'
+- extendedWaitUntil:
+    notVisible: '^Save$'
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: 'date-range-picker-button'
+      text: 'Mon, 01/12/25 to Sun, 01/03/26'
+    timeout: 15000
+- assertVisible:
+    id: 'records-kpi-total'
+    text: '40'
+- assertVisible:
+    id: 'records-kpi-best'
+    text: '9'
+
+# Tile 1: week of 01/26/26 shows 7 -> the list shows exactly 7 records.
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2026-01-26$'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: '^records-tile-week-2026-01-26$'
+    text: 'week of 01/26/26: 7 records'
+    selected: false
+- tapOn:
+    id: '^records-tile-week-2026-01-26$'
+- assertVisible:
+    id: '^records-tile-week-2026-01-26$'
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: 'records-show-all'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '7 records · week of 01/26/26'
+# The header count equals the tile's number (read both back from the screen).
+- copyTextFrom:
+    id: '^records-tile-week-2026-01-26$'
+- evalScript: "${output.tileCount = maestro.copiedText.replace(/^.*: /, '').split(' ')[0]}"
+- copyTextFrom:
+    id: 'records-shown-count'
+- assertTrue: "${maestro.copiedText.split(' ')[0] === output.tileCount && output.tileCount === '7'}"
+# ... and the list really holds 7 cards (record-card-0..6).
+- scrollUntilVisible:
+    element:
+      id: 'record-card-6'
+    direction: DOWN
+    centerElement: true
+- swipe:
+    start: '50%, 85%'
+    end: '50%, 20%'
+    duration: 600
+- waitForAnimationToEnd
+- assertNotVisible:
+    id: 'record-card-7'
+
+# Tile 2: week of 12/08/25 shows 2; tapping it again restores the full list.
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2025-12-08$'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: '^records-tile-week-2025-12-08$'
+- assertVisible:
+    id: '^records-tile-week-2026-01-26$'
+    selected: false
+- scrollUntilVisible:
+    element:
+      id: 'records-show-all'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '2 records · week of 12/08/25'
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2025-12-08$'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: '^records-tile-week-2025-12-08$'
+- assertVisible:
+    id: '^records-tile-week-2025-12-08$'
+    selected: false
+- scrollUntilVisible:
+    element:
+      id: 'records-shown-count'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '40 shown'
+- assertNotVisible:
+    id: 'records-show-all'
+
+# Tile 3: week of 12/01/25 shows 9; "Show all" restores the full list.
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2025-12-01$'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: '^records-tile-week-2025-12-01$'
+- scrollUntilVisible:
+    element:
+      id: 'records-show-all'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '9 records · week of 12/01/25'
+- tapOn:
+    id: 'records-show-all'
+- assertVisible:
+    id: 'records-shown-count'
+    text: '40 shown'
+
+# An empty tile does nothing.
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2025-12-29$'
+    direction: UP
+    centerElement: true
+- assertVisible:
+    id: '^records-tile-week-2025-12-29$'
+    text: 'week of 12/29/25: 0 records'
+    enabled: false
+- tapOn:
+    id: '^records-tile-week-2025-12-29$'
+- assertVisible:
+    id: '^records-tile-week-2025-12-29$'
+    selected: false
+- scrollUntilVisible:
+    element:
+      id: 'records-shown-count'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '40 shown'
+
+# By muscle: a bar filters the list too; switching the view drops the selection.
+- scrollUntilVisible:
+    element:
+      id: 'records-view-muscle'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: 'records-view-muscle'
+- tapOn:
+    id: '^records-bar-Back-8$'
+- scrollUntilVisible:
+    element:
+      id: 'records-show-all'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '4 records · Back · week of 01/26/26'
+- scrollUntilVisible:
+    element:
+      id: 'records-view-heatmap'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: 'records-view-heatmap'
+- scrollUntilVisible:
+    element:
+      id: 'records-shown-count'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '40 shown'
+
+# A new date range drops the tile selection: select 01/26/26 (7), then start
+# the range on 12/08/2025 -> the unfiltered list of the new range (40 - 9).
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2026-01-26$'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: '^records-tile-week-2026-01-26$'
+- assertVisible:
+    id: '^records-tile-week-2026-01-26$'
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: 'date-range-picker-button'
+    direction: UP
+- tapOn:
+    id: 'date-range-picker-button'
+- extendedWaitUntil:
+    visible: '^Save$'
+    timeout: 15000
+- tapOn:
+    id: 'date-range-start-input'
+- waitForAnimationToEnd:
+    timeout: 5000
+- repeat:
+    times: 3
+    while:
+      notVisible: '12/08/2025'
+    commands:
+      - tapOn:
+          point: '31%, 16%'
+      - repeat:
+          times: 12
+          commands:
+            - pressKey: Backspace
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '8'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '2'
+      - inputText: '5'
+- assertVisible: '12/08/2025'
+- tapOn: '^Save$'
+- extendedWaitUntil:
+    visible:
+      id: 'date-range-picker-button'
+      text: 'Mon, 08/12/25 to Sun, 01/03/26'
+    timeout: 15000
+- assertVisible:
+    id: 'records-kpi-total'
+    text: '31'
+- scrollUntilVisible:
+    element:
+      id: 'records-shown-count'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '31 shown'
+- assertNotVisible:
+    id: 'records-show-all'
+- scrollUntilVisible:
+    element:
+      id: 'records-view-heatmap'
+    direction: UP
+
 # ------------------------------------------------------- Video Analysis
 - tapOn:
     id: 'analyse-drawer-toggle'
