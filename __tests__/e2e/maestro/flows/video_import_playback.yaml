@@ -1,7 +1,4 @@
 appId: com.powerliftingworkoutplanner
-env:
-  # GH-621: analysis frame rate chosen in Settings before the import.
-  FPS: '15'
 ---
 # Feature F8 Video analysis - T8.1 import, analysis (incl. resume), playback.
 #
@@ -39,7 +36,8 @@ env:
 
 # ------------------- GH-621: Settings -> Video analysis -> Analysis frame rate
 # The baseline stores no rate -> the default 30 FPS is selected. Then pick
-# ${FPS} (default 15, override with `-e FPS=20|30`) for the analysis below.
+# FPS (default 15, override with `-e FPS=20|30`; not via a header `env:`,
+# which would win over -e) for the analysis below.
 - tapOn: 'tab-settings'
 - scrollUntilVisible:
     element:
@@ -68,9 +66,9 @@ env:
     id: '^settings-video-analysis-fps-20$'
     checked: false
 - tapOn:
-    id: '^settings-video-analysis-fps-${FPS}$'
+    id: '^settings-video-analysis-fps-${FPS || "15"}$'
 - assertVisible:
-    id: '^settings-video-analysis-fps-${FPS}$'
+    id: '^settings-video-analysis-fps-${FPS || "15"}$'
     checked: true
 
 # ------------------------------------------------ open the Video Analysis list
@@ -196,7 +194,7 @@ env:
     timeout: 30000
 - assertVisible:
     id: 'video-analysis-detail-analyzed-fps'
-    text: 'Analysed at ${FPS} fps'
+    text: 'Analysed at ${FPS || "15"} fps'
 # The clip is not linked to a set -> the detail header falls back to this label.
 - assertVisible: 'Unlinked analysis'
 
