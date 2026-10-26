@@ -12,37 +12,19 @@ import {WorkoutSet} from '../../../../app/models/entities/WorkoutSet';
 // in through onLayout like on the device.
 
 type PanHandlers = {
-  onStart?: (event: any) => void;
-  onUpdate?: (event: any) => void;
-  onFinalize?: (event: any, success: boolean) => void;
+  onActivate?: (event: {absoluteY: number; translationY: number}) => void;
+  onUpdate?: (event: {absoluteY: number; translationY: number}) => void;
+  onFinalize?: (event: {absoluteY: number; translationY: number; canceled: boolean}) => void;
 };
 
 jest.mock('react-native-gesture-handler', () => {
   const React = require('react');
-  const makePan = () => {
-    const handlers: Record<string, unknown> = {};
-    const builder: any = new Proxy(
-      {},
-      {
-        get: (_target, prop: string) => {
-          if (prop === '__handlers') {
-            return handlers;
-          }
-          return (callback: unknown) => {
-            if (prop.startsWith('on')) {
-              handlers[prop] = callback;
-            }
-            return builder;
-          };
-        },
-      },
-    );
-    return builder;
-  };
   return {
     GestureHandlerRootView: require('react-native').View,
-    GestureDetector: ({gesture, children}: {gesture: any; children: React.ReactElement}) => React.cloneElement(children, {__panHandlers: gesture.__handlers}),
-    Gesture: {Pan: makePan},
+    GestureDetector: ({gesture, children}: {gesture: {__handlers: PanHandlers}; children: React.ReactElement}) =>
+      React.cloneElement(children, {__panHandlers: gesture.__handlers}),
+    // Gesture handler 3 hook API: the gesture carries its config, callbacks included.
+    usePanGesture: (config: PanHandlers) => ({__handlers: config}),
   };
 });
 
@@ -173,13 +155,13 @@ const renderList = (extraProps: Partial<React.ComponentProps<typeof PlanEditList
 const drag = (handle: any, translationY: number, success = true) => {
   const handlers: PanHandlers = handle.props.__panHandlers;
   act(() => {
-    handlers.onStart?.({absoluteY: 300, translationY: 0});
+    handlers.onActivate?.({absoluteY: 300, translationY: 0});
   });
   act(() => {
     handlers.onUpdate?.({absoluteY: 300 + translationY, translationY});
   });
   act(() => {
-    handlers.onFinalize?.({absoluteY: 300 + translationY, translationY}, success);
+    handlers.onFinalize?.({absoluteY: 300 + translationY, translationY, canceled: !success});
   });
   // Let the settle animation finish — the new order is committed at its end.
   act(() => {
@@ -250,12 +232,12 @@ describe('PlanEditList — drag & drop (GH-418)', () => {
     const handlers: PanHandlers = getByTestId('plan-exercise-drag-handle-1').props.__panHandlers;
 
     act(() => {
-      handlers.onStart?.({absoluteY: 300, translationY: 0});
+      handlers.onActivate?.({absoluteY: 300, translationY: 0});
     });
     expect(queryByTestId('plan-edit-section-drop-placeholder')).not.toBeNull();
 
     act(() => {
-      handlers.onFinalize?.({absoluteY: 300, translationY: 0}, true);
+      handlers.onFinalize?.({absoluteY: 300, translationY: 0, canceled: false});
     });
     act(() => {
       jest.advanceTimersByTime(1000);
@@ -324,13 +306,13 @@ describe('PlanEditList — rapid drags (GH-418)', () => {
   const release = (handle: any, translationY: number) => {
     const handlers: PanHandlers = handle.props.__panHandlers;
     act(() => {
-      handlers.onStart?.({absoluteY: 300, translationY: 0});
+      handlers.onActivate?.({absoluteY: 300, translationY: 0});
     });
     act(() => {
       handlers.onUpdate?.({absoluteY: 300 + translationY, translationY});
     });
     act(() => {
-      handlers.onFinalize?.({absoluteY: 300 + translationY, translationY}, true);
+      handlers.onFinalize?.({absoluteY: 300 + translationY, translationY, canceled: false});
     });
   };
 

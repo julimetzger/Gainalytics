@@ -145,7 +145,6 @@ const History = () => {
           renderItem={renderRow}
           keyExtractor={(item) => item.key}
           getItemType={(item) => item.type}
-          estimatedItemSize={120}
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
           keyboardShouldPersistTaps="always"

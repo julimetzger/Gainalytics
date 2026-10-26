@@ -11,7 +11,7 @@
  * Every native call checks availability and permissions first and never throws into the
  * dispatch: a failed Health Connect write must never lose or block a Gainalytics training.
  */
-import {AnyAction, Dispatch, Middleware} from 'redux';
+import {Dispatch, isAction, Middleware} from 'redux';
 import Toast from 'react-native-toast-message';
 import {GlobalState} from '../rootReducer';
 import {HEALTH_CONNECT_ACTIONS, HealthConnectStatus, HealthConnectSyncEvent} from './healthConnectReducer';
@@ -162,7 +162,9 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
     queue = queue.then(task, task);
   };
 
-  return (api) => (next) => (action: AnyAction) => {
+  return (api) => (next) => (action) => {
+    // Redux 5 types middleware actions as unknown (thunks and other non-actions may pass through).
+    if (!isAction(action)) return next(action);
     const prev = api.getState();
     const result = next(action);
     const state = api.getState();
@@ -170,7 +172,7 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
     switch (action.type) {
       case HEALTH_CONNECT_ACTIONS.REFRESH:
         // Without a connection Health Connect is not even asked — except from its settings entry.
-        if (action.force === true || state.healthConnect?.everConnected) enqueue(() => refresh(api.dispatch));
+        if (('force' in action && action.force === true) || state.healthConnect?.everConnected) enqueue(() => refresh(api.dispatch));
         return result;
       case HEALTH_CONNECT_ACTIONS.CONNECT:
         enqueue(() => requestPermissions(api.dispatch, CONNECT_PERMISSIONS));

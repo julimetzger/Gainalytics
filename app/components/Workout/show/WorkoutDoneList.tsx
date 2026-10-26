@@ -37,7 +37,6 @@ const WorkoutDoneList = ({workoutIds, highlightMode, editable = true, onEndReach
       <FlashList
         data={Array.from(dateWorkoutMap.entries())}
         renderItem={renderWorkoutItem}
-        estimatedItemSize={250}
         extraData={tileLimit}
         onEndReached={onEndReached}
         scrollEnabled={false}
