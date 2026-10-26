@@ -19,11 +19,6 @@ on:
   schedule:
     - cron: "0 1 * * *"
   workflow_dispatch:
-  # TEMPORARY (remove before merge): lets the PR that adds this workflow run it once.
-  pull_request:
-    paths:
-      - ".github/workflows/maestro-nightly.yml"
-      - ".github/agent-emulator/nightly-shard.sh"
 
 permissions:
   contents: read
@@ -56,10 +51,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            if [[ "${GITHUB_HEAD_REF}" == "ci/maestro-nightly" ]]; then run=true; else run=false; fi
-            echo "run=${run}" >> "$GITHUB_OUTPUT"; echo "PR test run: ${run}"; exit 0
-          fi
           if [[ "${GITHUB_EVENT_NAME}" != "schedule" ]]; then
             echo "run=true" >> "$GITHUB_OUTPUT"; echo "Manual start: always runs."; exit 0
           fi
@@ -318,10 +309,6 @@ jobs:
             bad=1
           fi
 
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            echo "::notice title=nightly report::PR test run: issue handling skipped (dry run), ${bad} failing"
-            [[ "${bad}" -gt 0 ]] && exit 1 || exit 0
-          fi
           # All pages: the issue must be found even with more than 100 open issues/PRs.
           number=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues?state=open&per_page=100" \
             --jq ".[] | select(.pull_request == null and .title == \"${ISSUE_TITLE}\") | .number" | sed -n 1p)
