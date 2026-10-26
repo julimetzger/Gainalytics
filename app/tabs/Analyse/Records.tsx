@@ -1,6 +1,6 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
-import React, {useCallback, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
 import {ScrollView, View} from 'react-native';
 import {Exercise, Record} from '../../models/entities/Exercise';
@@ -58,6 +58,16 @@ const RecordsTab = () => {
   ) as Workout[];
   let combinedWorkouts = [...workoutsForExercise, ...workoutsForMuscles];
   let uniqueWorkouts = Array.from(new Set(combinedWorkouts.map((workout) => workout.id))).map((id) => combinedWorkouts.find((workout) => workout.id === id)!!);
+  // The screen stays mounted while workouts are edited or deleted on other tabs. The list therefore
+  // shows the current workout objects of the selection, and any change of which records exist (or of
+  // their dates, which decide the tile) drops the selection so tile count and list cannot disagree.
+  const recordsSignature = uniqueWorkouts
+    .map((workout) => `${workout.id}:${workout.start ? new Date(workout.start).getTime() : ''}`)
+    .sort()
+    .join(',');
+  useEffect(() => setSelection(undefined), [recordsSignature]);
+  const selectedIds = selection ? new Set(selection.workouts.map((workout) => workout.id)) : undefined;
+  const selectedWorkouts = selectedIds ? uniqueWorkouts.filter((workout) => selectedIds.has(workout.id)) : undefined;
 
   return (
     <ScrollView
@@ -89,7 +99,7 @@ const RecordsTab = () => {
         selectedKey={selection?.key}
         onSelect={selectTile}
       />
-      <RecordCardList recordWorkouts={selection?.workouts ?? uniqueWorkouts} exercises={exercises} filterTitle={selection?.title} onShowAll={showAll} />
+      <RecordCardList recordWorkouts={selectedWorkouts ?? uniqueWorkouts} exercises={exercises} filterTitle={selection?.title} onShowAll={showAll} />
       <View style={{height: 16}} />
     </ScrollView>
   );

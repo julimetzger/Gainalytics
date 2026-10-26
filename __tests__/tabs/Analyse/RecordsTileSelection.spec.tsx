@@ -22,7 +22,8 @@ const recordWorkout = (id: number, exerciseId: number, start: Date, oneRm: numbe
 });
 
 // Mon Jul 6 2026 (2 records) and Mon Jul 13 2026 (1 record); today is in that range.
-const mockWorkouts = [recordWorkout(1, 1, new Date(2026, 6, 7), 180), recordWorkout(2, 2, new Date(2026, 6, 8), 120), recordWorkout(3, 1, new Date(2026, 6, 14), 185)];
+const initialWorkouts = [recordWorkout(1, 1, new Date(2026, 6, 7), 180), recordWorkout(2, 2, new Date(2026, 6, 8), 120), recordWorkout(3, 1, new Date(2026, 6, 14), 185)];
+let mockWorkouts = initialWorkouts;
 
 jest.mock('../../../app/redux/Workout/use/useWorkoutsIn', () => ({useWorkoutsIn: () => mockWorkouts}));
 jest.mock('../../../app/redux/Exercises/use/useAllExercises', () => ({useAlleExercises: () => [mockSquat, mockBench]}));
@@ -59,6 +60,7 @@ jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
 describe('Records tile selection (GH-617)', () => {
   beforeEach(() => {
     jest.useFakeTimers({now: new Date(2026, 6, 20, 12)});
+    mockWorkouts = initialWorkouts;
   });
   afterEach(() => {
     jest.useRealTimers();
@@ -123,5 +125,32 @@ describe('Records tile selection (GH-617)', () => {
     // Default range starts Mon Apr 20 (3 months before the week of Jul 20) → Jul 6 is week bucket 11.
     fireEvent.press(screen.getByTestId('records-bar-Legs-11'));
     expect(screen.getByTestId('records-shown-count')).toHaveTextContent('1 record · Legs · week of 07/06/26');
+  });
+
+  it('a workout deleted elsewhere drops the selection instead of showing a stale list', () => {
+    const view = renderScreen();
+    fireEvent.press(screen.getByTestId('records-tile-week-2026-07-06'));
+    expect(screen.getByTestId('records-shown-count')).toHaveTextContent('2 records · week of 07/06/26');
+
+    // The screen stays mounted while workout 2 is deleted on another tab.
+    mockWorkouts = initialWorkouts.filter((workout) => workout.id !== 2);
+    view.rerender(
+      <PaperProvider>
+        <RecordsTab />
+      </PaperProvider>,
+    );
+    expect(screen.getByTestId('records-shown-count')).toHaveTextContent('2 shown');
+  });
+
+  it('keeps the selection when the records are unchanged on re-render', () => {
+    const view = renderScreen();
+    fireEvent.press(screen.getByTestId('records-tile-week-2026-07-06'));
+    mockWorkouts = [...initialWorkouts];
+    view.rerender(
+      <PaperProvider>
+        <RecordsTab />
+      </PaperProvider>,
+    );
+    expect(screen.getByTestId('records-shown-count')).toHaveTextContent('2 records · week of 07/06/26');
   });
 });
