@@ -35,7 +35,7 @@
     "@types/react-dom": "^19.1.1",
     "@types/react-native-charts-wrapper": "^0.5.5",
     "deepmerge": "^4.2.2",
-    "dotenv": "^17.2.3",
+    "dotenv": "^18.0.9",
     "file-saver": "^2.0.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
