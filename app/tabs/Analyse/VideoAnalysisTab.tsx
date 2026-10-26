@@ -23,6 +23,7 @@ import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {GlobalState} from '../../redux/rootReducer';
 import {dispatchSetVideoAnalysisFiltersExpanded} from '../../redux/settings/dispatch/dispatchSetVideoAnalysisFiltersExpanded';
 import {dispatchSetVideoAnalysisLearnedRate} from '../../redux/settings/dispatch/dispatchSetVideoAnalysisLearnedRate';
+import {useVideoAnalysisFps} from '../../redux/settings/use/useVideoAnalysisFps';
 import {deleteVideoAnalysisArtifacts, getVideoAnalysisPreviewPath} from '../../utils/videoAnalysisStorage';
 import {importVideoAnalysisFromSource} from '../../utils/video-analysis-import';
 import {pickVideoFromGallery, releaseVideoUriPermission} from '../../utils/videoAnalysisNative';
@@ -69,6 +70,7 @@ const VideoAnalysisTab = () => {
   const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const setFiltersExpanded = dispatchSetVideoAnalysisFiltersExpanded();
   const setVideoAnalysisLearnedRate = dispatchSetVideoAnalysisLearnedRate();
+  const analyzedFps = useVideoAnalysisFps();
   const theme = useTheme();
   const themedStyles = createThemedStyles(theme);
   const filtersExpanded = useSelector((state: GlobalState) => state.settings.videoAnalysisFiltersExpanded ?? false);
@@ -210,6 +212,7 @@ const VideoAnalysisTab = () => {
         attachVideoAnalysisResult,
         setMetersPerPixel,
         onRateUpdated: setVideoAnalysisLearnedRate,
+        analyzedFps,
       });
 
       if (outcome === 'analysis_started') {

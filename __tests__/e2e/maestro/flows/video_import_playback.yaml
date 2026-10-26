@@ -1,4 +1,7 @@
 appId: com.powerliftingworkoutplanner
+env:
+  # GH-621: analysis frame rate chosen in Settings before the import.
+  FPS: '15'
 ---
 # Feature F8 Video analysis - T8.1 import, analysis (incl. resume), playback.
 #
@@ -33,6 +36,42 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'micro-hero-plan-name'
     text: 'Push pull'
+
+# ------------------- GH-621: Settings -> Video analysis -> Analysis frame rate
+# The baseline stores no rate -> the default 30 FPS is selected. Then pick
+# ${FPS} (default 15, override with `-e FPS=20|30`) for the analysis below.
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: '^settings-section-theme-title$'
+    direction: UP
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: '^settings-video-analysis-fps-hint$'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: '^settings-section-video-analysis-title$'
+    text: 'Video analysis'
+- assertVisible: 'Analysis frame rate'
+- assertVisible:
+    id: '^settings-video-analysis-fps-hint$'
+    text: 'Higher = more precise bar path and velocity, but slower analysis.'
+- assertVisible:
+    id: '^settings-video-analysis-fps-30$'
+    checked: true
+- assertVisible:
+    id: '^settings-video-analysis-fps-15$'
+    checked: false
+- assertVisible:
+    id: '^settings-video-analysis-fps-20$'
+    checked: false
+- tapOn:
+    id: '^settings-video-analysis-fps-${FPS}$'
+- assertVisible:
+    id: '^settings-video-analysis-fps-${FPS}$'
+    checked: true
 
 # ------------------------------------------------ open the Video Analysis list
 - tapOn: 'tab-analyse'
@@ -150,6 +189,14 @@ appId: com.powerliftingworkoutplanner
     text: 'Status: done'
 - assertNotVisible: 'Error: .*'
 - assertNotVisible: '.*App was closed while import or analysis was running.*'
+# GH-621: the result was made with the chosen rate (analysisMeta.analyzedFps).
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-analyzed-fps'
+    timeout: 30000
+- assertVisible:
+    id: 'video-analysis-detail-analyzed-fps'
+    text: 'Analysed at ${FPS} fps'
 # The clip is not linked to a set -> the detail header falls back to this label.
 - assertVisible: 'Unlinked analysis'
 

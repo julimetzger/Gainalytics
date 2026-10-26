@@ -82,7 +82,10 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             boolean isUint8Input);
     private static final int DEFAULT_DURATION_MS = 6000;
     private static final double DEFAULT_SOURCE_FPS = 30.0;
-    private static final double FIXED_ANALYZED_FPS = 20.0;
+    // GH-621: the analysis frame rate is a user setting (Settings → Video analysis).
+    // Keep in sync with VIDEO_ANALYSIS_FPS_OPTIONS in app/models/VideoAnalysisFps.ts.
+    private static final double DEFAULT_ANALYZED_FPS = 30.0;
+    private static final double[] SUPPORTED_ANALYZED_FPS = {15.0, 20.0, 30.0};
     private static final int MODEL_INPUT_SIZE = 320;
     private static final int MAX_CANDIDATES = 20;
     private static final int MIN_FEATURE_VECTOR_LENGTH = 5;
@@ -389,7 +392,13 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
     }
 
     @ReactMethod
-    public void analyzeSquatVideo(String localVideoPath, int analysisId, ReadableMap manualSeed, Promise promise) {
+    public void analyzeSquatVideo(
+        String localVideoPath,
+        int analysisId,
+        ReadableMap manualSeed,
+        double requestedFps,
+        Promise promise
+    ) {
         // Copy manual seed data before leaving the NativeModules thread,
         // because ReadableMap is not safe to access from a background thread.
         final SeedSelection manualSelection = parseManualSeed(manualSeed);
@@ -444,7 +453,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             double sourceFps = extractSourceFps(localVideoPath);
             performanceMetrics.sourceFpsMetadataMs = SystemClock.elapsedRealtime() - sourceFpsMetadataStartedAtMs;
 
-            double analyzedFps = resolveAnalyzedFps(durationMs, sourceFps);
+            double analyzedFps = resolveAnalyzedFps(requestedFps, sourceFps);
             performanceMetrics.analyzedFps = analyzedFps;
             Log.i(
                 LOG_TAG,
@@ -783,11 +792,19 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         extractor.setDataSource(videoPath);
     }
 
-    private double resolveAnalyzedFps(long durationMs, double sourceFps) {
-        if (sourceFps > 0.0) {
-            return Math.min(sourceFps, FIXED_ANALYZED_FPS);
+    /** The requested rate if it is a supported choice (else the default), capped at the source FPS. */
+    static double resolveAnalyzedFps(double requestedFps, double sourceFps) {
+        double targetFps = DEFAULT_ANALYZED_FPS;
+        for (double supportedFps : SUPPORTED_ANALYZED_FPS) {
+            if (requestedFps == supportedFps) {
+                targetFps = supportedFps;
+                break;
+            }
         }
-        return FIXED_ANALYZED_FPS;
+        if (sourceFps > 0.0) {
+            return Math.min(sourceFps, targetFps);
+        }
+        return targetFps;
     }
 
     private long[] buildSampleTimesUs(long durationMs, double analyzedFps) {
@@ -1112,7 +1129,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
 
                     List<DetectionCandidate> candidates = detectCandidatesFromContext(detectionContext, performanceMetrics);
                     DetectionCandidate selected = selectHighestConfidenceCandidate(candidates);
-                    int timeMs = (int) Math.round(sampleTimesUs[nextSampleIndex] / 1000.0);
+                    // GH-621: the decoded frame is the first one at or after the planned
+                    // sample time, so record ITS timestamp. With a sample rate below the
+                    // source FPS (e.g. 20 from 30) the planned time is up to one source
+                    // frame early, and velocities are computed from these timestamps.
+                    int timeMs = (int) Math.round(presentationTimeUs / 1000.0);
 
                     if (selected == null) {
                         performanceMetrics.noCandidateFrameCount += 1;
