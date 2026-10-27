@@ -1,0 +1,55 @@
+# Zapstore publishing config, read by zsp (https://github.com/zapstore/zsp).
+#
+# The Zapstore relay fetches this file from the default branch to verify the publisher, so it must
+# stay at the repository root under exactly this name. CI publishes every GitHub Release with it
+# (job `zapstore` in .github/workflows/release.yml). See docs/release.md, section "Zapstore".
+
+repository: https://github.com/julimetzger/Gainalytics
+
+# Each GitHub Release carries app-release.apk (universal, includes arm64-v8a), app-release.aab and
+# SHA256SUMS. Only the APK can be installed from Zapstore.
+match: '^app-release\.apk$'
+
+name: Gainalytics
+summary: Privacy-first, offline-first training log and analytics for lifters and powerlifters.
+description: |
+  **Log your gains with Gainalytics.** A privacy-first, offline-first training log and analytics
+  app for advanced lifters and powerlifters.
+
+  Your training data stays on your phone. There is no account, no cloud and no tracking. Backups
+  are plain files you own.
+
+  - **Training logging**: custom exercises, sets, reps, weight, RIR/RPE and a rest timer with
+    notifications.
+  - **Planning**: mesocycles and microcycles, program templates, progression, and suggestions
+    based on your previous blocks.
+  - **Analytics**: volume, sets and estimated 1RM per exercise, muscle group, week or micro;
+    records, training length, history and comparisons over time ranges.
+  - **Video bar-path analysis**: an on-device object detector tracks the barbell plate in a lifting
+    video and shows the bar path, rep detection, velocity and velocity loss. No video leaves the
+    device.
+  - **AI coach and chat (optional)**: ask questions about your training or get coach insights,
+    with your own Anthropic API key or your ChatGPT account. Nothing is sent unless you configure
+    it and ask.
+  - **Health Connect (optional)**: write finished trainings to Android Health Connect and read your
+    body weight from it. Opt-in, local only.
+  - **Your data, your files**: export and import full backups, import from and export to the Strong
+    app's CSV format.
+  - **Theming**: light and dark mode with a Material 3 color scheme generated from one color.
+
+  Free and open source under the GNU AGPL v3 or later.
+tags:
+  - fitness
+  - powerlifting
+  - workout
+  - training
+  - privacy
+  - offline
+license: AGPL-3.0-or-later
+website: https://github.com/julimetzger/Gainalytics
+icon: ./android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+
+# Publisher identity (npub of the Nostr key that signs the Zapstore events). The relay whitelists
+# that key once it finds it here on the default branch. One-time step for the repo owner: replace
+# the comment below with the real npub (public key, not the nsec). See docs/release.md.
+# pubkey: npub1...
