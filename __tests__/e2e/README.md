@@ -56,7 +56,7 @@ Default fixture source (`--fixture` overrides it):
 The bootstrap of `run-maestro-from-wsl.sh` (modes `bootstrap`, `smoke`, `full`) pushes to
 `/sdcard/Download/`:
 
-- `baseline.gains` (the fixture above), `squat-3reps.mp4`, `squat-1rep.mp4`
+- `baseline.gains` (the fixture above), `squat-3reps.mp4`, `squat-1rep.mp4`, `squat-person-2reps.mp4`
 - `maestro/fixtures/gh496/*.csv`, `maestro/fixtures/gh393-compare-labels.gains`,
   `maestro/fixtures/gh415-workout-linked-analysis.gains`
 - `__tests__/testdata/gh391_planned_fixture.gains`, `gh391_newplan_fixture.gains`,

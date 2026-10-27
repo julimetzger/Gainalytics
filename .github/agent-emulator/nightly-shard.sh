@@ -27,6 +27,7 @@ DOWNLOADS=(
   "${FIX}/baseline.gains"
   "${FIX}/squat-3reps.mp4"
   "${FIX}/squat-1rep.mp4"
+  "${FIX}/squat-person-2reps.mp4"
   "${FIX}/gh496/gh496_invalid.csv"
   "${FIX}/gh496/gh496_invalid_weight.csv"
   "${FIX}/gh496/gh496_new_record.csv"

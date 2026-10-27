@@ -14,6 +14,11 @@ appId: com.powerliftingworkoutplanner
 #   * GH-439 / GH-177: rep + velocity readout follow continuous playback (values
 #     sampled and asserted to CHANGE, never pinned to a device value).
 #   * GH-351: a tap on the speed chart seeks and re-binds the velocity readout.
+#   * GH-75: the analysis runs the pose model. squat-3reps.mp4 is synthetic (a plate on
+#     black, no person) -> "Hip & knee not detected". squat-person-2reps.mp4 (a real
+#     person, CC BY 3.0) -> the hip/knee overlay is on ("Hip & knee: <side>") and the
+#     "Show joints" switch hides and shows it. The point positions are drawn natively
+#     and cannot be asserted; the label renders only while the overlay is drawn.
 #
 # Data basis: MUTATES the store -> starts with 00_import_baseline.yaml.
 #   The baseline ships exactly ONE analysis (id 1, no local video), so the clip
@@ -21,6 +26,7 @@ appId: com.powerliftingworkoutplanner
 #   Push beforehand to /sdcard/Download (the runner's bootstrap does both):
 #     fixtures/baseline.gains -> /sdcard/Download/baseline.gains
 #     fixtures/squat-3reps.mp4 -> /sdcard/Download/squat-3reps.mp4
+#     fixtures/squat-person-2reps.mp4 -> /sdcard/Download/squat-person-2reps.mp4
 #   Timeout: the analysis itself may take up to ~10 min on an emulator.
 #
 # Merged from: gh396_api36_video_import (base), gh396_api36_video_resume,
@@ -235,6 +241,17 @@ appId: com.powerliftingworkoutplanner
 # pattern with at least 2 reps and the first two rep rows instead of pinning 3
 # (`${output.*}` inside selectors is unreliable on Maestro 2.0.9-ports).
 - assertVisible: 'Rep Summary \([2-9] reps\)'
+# The header alone can stop the scroll with the second row still below the fold.
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: '^video-analysis-rep-metric-1$'
+    commands:
+      - swipe:
+          start: '97%, 70%'
+          end: '97%, 50%'
+          duration: 1500
 - assertVisible:
     id: '^video-analysis-rep-metric-0$'
 - assertVisible:
@@ -340,3 +357,118 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'video-analysis-playback-toggle'
     waitToSettleTimeoutMs: 500
+
+# ------------------ GH-75: pose ran, but the synthetic clip has no person in it
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'video-analysis-pose-row'
+    commands:
+      - swipe:
+          start: '97%, 70%'
+          end: '97%, 50%'
+          duration: 1500
+- assertVisible:
+    id: 'video-analysis-pose-not-detected'
+    text: 'Hip & knee not detected in this video'
+- assertNotVisible:
+    id: 'video-analysis-pose-toggle'
+
+# ---------------- GH-75: real person -> hip/knee overlay + "Show joints" switch
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-import-button'
+    timeout: 30000
+- tapOn:
+    id: 'video-analysis-import-button'
+- waitForAnimationToEnd:
+    timeout: 8000
+- extendedWaitUntil:
+    visible: 'squat-person-2reps.mp4'
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      notVisible: 'squat-person-2reps.mp4'
+    commands:
+      - tapOn: 'Show roots'
+      - extendedWaitUntil:
+          visible: 'Downloads'
+          timeout: 15000
+      - tapOn: 'Downloads'
+      - waitForAnimationToEnd:
+          timeout: 8000
+- scrollUntilVisible:
+    element:
+      text: 'squat-person-2reps.mp4'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'squat-person-2reps.mp4'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-row-3'
+    timeout: 60000
+- assertVisible:
+    id: 'video-analysis-lift-count'
+    text: '3 lifts'
+- tapOn:
+    id: 'video-analysis-row-3'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-screen'
+    timeout: 30000
+# The detail reopens with the previous scroll offset -> back to the header.
+- repeat:
+    times: 8
+    while:
+      notVisible:
+        id: 'video-analysis-detail-status'
+    commands:
+      - swipe:
+          start: '2%, 25%'
+          end: '2%, 79%'
+          duration: 1500
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-status'
+      text: 'Status: done'
+    timeout: 600000
+- repeat:
+    times: 8
+    while:
+      notVisible:
+        id: 'video-analysis-pose-toggle'
+    commands:
+      # Far-left edge: the landscape clip's player reaches the right edge and eats swipes there.
+      - swipe:
+          start: '2%, 80%'
+          end: '2%, 45%'
+          duration: 1500
+# ON by default: overlay drawn, on the side facing the camera (or both).
+- assertVisible:
+    id: 'video-analysis-pose-toggle'
+    checked: true
+- assertVisible:
+    id: 'video-analysis-pose-overlay'
+    text: 'Hip & knee: (left side|right side|both sides)'
+- assertNotVisible:
+    id: 'video-analysis-pose-not-detected'
+# Off -> overlay gone.
+- tapOn:
+    id: 'video-analysis-pose-toggle'
+- assertVisible:
+    id: 'video-analysis-pose-toggle'
+    checked: false
+- assertNotVisible:
+    id: 'video-analysis-pose-overlay'
+# On again -> overlay back.
+- tapOn:
+    id: 'video-analysis-pose-toggle'
+- assertVisible:
+    id: 'video-analysis-pose-toggle'
+    checked: true
+- assertVisible:
+    id: 'video-analysis-pose-overlay'
+    text: 'Hip & knee: (left side|right side|both sides)'
