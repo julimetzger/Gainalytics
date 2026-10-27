@@ -7,6 +7,7 @@ import {MD3DarkTheme, PaperProvider} from 'react-native-paper';
 import rootReducer, {GlobalState} from '../../../../app/redux/rootReducer';
 import {Muscles} from '../../../../app/models/Muscles';
 import {TrainingsState} from '../../../../app/models/TrainingsState';
+import {Training} from '../../../../app/models/entities/Training';
 import TrainingsOverview from '../../../../app/components/Training/analyse/TrainingsOverview';
 import TrainingPlanOverview from '../../../../app/components/Training/analyse/TrainingPlanOverview';
 import MicroOverview from '../../../../app/components/Training/analyse/MicroOverview';
@@ -338,10 +339,10 @@ describe('GH-526 — micro Overview, Total tab', () => {
   // GH-644: the denominator is every training of the plan (Home's counter), not only the planned ones
   it('counts trainings without planned sets as open in vs Plan', () => {
     const state = baseState();
-    const storedPlan = state.trainingsPlan.byId[1] as any;
+    const storedPlan = state.trainingsPlan.byId[1];
     storedPlan.trainingNames = {1: 'Push squat', 2: 'Pull', 3: 'Legs', 4: 'Upper'};
     storedPlan.trainings = {...storedPlan.trainings, '2,3': 202};
-    (state.trainings.byId as any)[202] = {id: 202, state: TrainingsState.PLANNED, exercises: [], plannedWorkouts: {}, doneWorkoutIds: {}};
+    state.trainings.byId[202] = {id: 202, state: TrainingsState.PLANNED, exercises: [], plannedWorkouts: {}, doneWorkoutIds: {}} satisfies Training;
     // the prop is the plan of the navigation params; the counter reads the stored plan
     const {getByTestId} = renderWith(<MicroOverview trainingsPlan={plan()} micro={2} />, state);
 

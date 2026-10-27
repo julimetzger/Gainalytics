@@ -50,4 +50,12 @@ describe('GH-644 countMicroTrainings — the micro counter Home and the Overview
 
     expect(count).toEqual({done: 1, total: 3, open: 2, notPlanned: 1});
   });
+
+  it('does not count a training as planned when its planned exercises were removed', () => {
+    // MODIFY_EXERCISES_IN_TRAINING keeps plannedWorkouts; the exercise list decides, as in the Overview
+    const removed: Training = {id: 21, state: TrainingsState.PLANNED, exercises: [], plannedWorkouts: {1: 210}, doneWorkoutIds: {}} satisfies Training;
+    const count = countMicroTrainings(plan({'2,1': 20, '2,2': 21}, {1: 'Push', 2: 'Pull'}), 2, byId(finished(20), removed));
+
+    expect(count).toEqual({done: 1, total: 2, open: 1, notPlanned: 1});
+  });
 });

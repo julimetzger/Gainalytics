@@ -1,6 +1,7 @@
 import {TrainingsPlan} from '../models/entities/TrainingsPlan';
 import {Training} from '../models/entities/Training';
 import {getMicroFromTrainingInMicroIndex} from '../redux/Training/trainingsPlanReducer';
+import {plannedWorkoutIdsOf} from './overview-comparison';
 
 /**
  * GH-644 — the "done / total" trainings counter of one micro. Home (hero ring and
@@ -18,7 +19,12 @@ export interface MicroTrainingCount {
   notPlanned: number;
 }
 
-export const hasPlannedSets = (training: Training | undefined): boolean => Object.keys(training?.plannedWorkouts ?? {}).length > 0;
+/**
+ * Same rule as the Overview's planned sets (`plannedWorkoutIdsOf`): planned workouts of
+ * exercises that were removed from the training (MODIFY_EXERCISES_IN_TRAINING keeps
+ * them in `plannedWorkouts`) do not make the training "planned".
+ */
+export const hasPlannedSets = (training: Training | undefined): boolean => plannedWorkoutIdsOf([training]).length > 0;
 
 export const countMicroTrainings = (plan: TrainingsPlan, micro: number, trainingsById: {[id: number]: Training | undefined}): MicroTrainingCount => {
   const trainings = Object.entries(plan.trainings ?? {})
