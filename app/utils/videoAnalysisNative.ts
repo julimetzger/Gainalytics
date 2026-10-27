@@ -1,6 +1,7 @@
 import {NativeModules, Platform} from 'react-native';
 import {buildStubBarTrackingResult, writeBarTrackingResultToFile} from './videoAnalysisStorage';
 import {SeedCandidate} from '../models/entities/VideoAnalysis';
+import {resolveVideoAnalysisFps, VideoAnalysisFps} from '../models/VideoAnalysisFps';
 
 const {VideoAnalysis} = NativeModules;
 
@@ -36,11 +37,25 @@ const isArgumentMismatchError = (error: unknown) => {
   );
 };
 
-export const analyzeSquatVideo = async (localVideoPath: string, analysisId: number, manualSeed?: ManualSeedPayload) => {
+export const analyzeSquatVideo = async (
+  localVideoPath: string,
+  analysisId: number,
+  manualSeed?: ManualSeedPayload,
+  analyzedFps?: VideoAnalysisFps,
+) => {
   const nativeAnalyze = VideoAnalysis?.analyzeSquatVideo as undefined | ((...args: unknown[]) => Promise<string>);
   if (nativeAnalyze) {
+    // GH-621: an invalid or missing rate falls back to the default (native validates again).
+    const fps = resolveVideoAnalysisFps(analyzedFps);
     try {
-      // Prefer modern 3-parameter call to avoid bridge arity errors on current native builds.
+      return await nativeAnalyze(localVideoPath, analysisId, manualSeed ?? null, fps);
+    } catch (error) {
+      if (!isArgumentMismatchError(error)) {
+        throw error;
+      }
+    }
+    try {
+      // Backward compatibility: older native build without the analyzedFps parameter.
       return await nativeAnalyze(localVideoPath, analysisId, manualSeed ?? null);
     } catch (error) {
       if (!isArgumentMismatchError(error)) {

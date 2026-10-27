@@ -34,6 +34,43 @@ appId: com.powerliftingworkoutplanner
     id: 'micro-hero-plan-name'
     text: 'Push pull'
 
+# ------------------- GH-621: Settings -> Video analysis -> Analysis frame rate
+# The baseline stores no rate -> the default 30 FPS is selected. Then pick
+# FPS (default 15, override with `-e FPS=20|30`; not via a header `env:`,
+# which would win over -e) for the analysis below.
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: '^settings-section-theme-title$'
+    direction: UP
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: '^settings-video-analysis-fps-hint$'
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: '^settings-section-video-analysis-title$'
+    text: 'Video analysis'
+- assertVisible: 'Analysis frame rate'
+- assertVisible:
+    id: '^settings-video-analysis-fps-hint$'
+    text: 'Higher = more precise bar path and velocity, but slower analysis.'
+- assertVisible:
+    id: '^settings-video-analysis-fps-30$'
+    checked: true
+- assertVisible:
+    id: '^settings-video-analysis-fps-15$'
+    checked: false
+- assertVisible:
+    id: '^settings-video-analysis-fps-20$'
+    checked: false
+- tapOn:
+    id: '^settings-video-analysis-fps-${FPS || "15"}$'
+- assertVisible:
+    id: '^settings-video-analysis-fps-${FPS || "15"}$'
+    checked: true
+
 # ------------------------------------------------ open the Video Analysis list
 - tapOn: 'tab-analyse'
 - waitForAnimationToEnd
@@ -150,6 +187,14 @@ appId: com.powerliftingworkoutplanner
     text: 'Status: done'
 - assertNotVisible: 'Error: .*'
 - assertNotVisible: '.*App was closed while import or analysis was running.*'
+# GH-621: the result was made with the chosen rate (analysisMeta.analyzedFps).
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-detail-analyzed-fps'
+    timeout: 30000
+- assertVisible:
+    id: 'video-analysis-detail-analyzed-fps'
+    text: 'Analysed at ${FPS || "15"} fps'
 # The clip is not linked to a set -> the detail header falls back to this label.
 - assertVisible: 'Unlinked analysis'
 

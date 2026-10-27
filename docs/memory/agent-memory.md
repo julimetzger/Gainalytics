@@ -854,3 +854,15 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### CI emulator: run one section of a long target flow inside the 10-min tool cap
 **Observation (GH-617):** `analyse_drawer_screens.yaml` runs >10 min. `cp` the flow into `.agent-run/flows/`, add `- assertVisible: 'TEMP-END-MARKER'` right after the section under test, and run that copy: the run fails exactly at the marker, which proves every step before it passed (7m44s here). `tool.sh flow` does not forward `-e KEY=VAL`, so temp flows hardcode env values or wrap helpers with `runFlow: {file, env}` (relative path from `.agent-run/flows/`: `../../__tests__/e2e/maestro/flows/<helper>.yaml`).
 **Apply when:** a target flow is too long for a single foreground Bash call.
+
+### CI emulator: `maestro --device <serial> test -e KEY=VAL <flow>` works directly (tool.sh flow can't forward `-e`)
+**Observation (GH-621):** calling Maestro directly with `--format junit --output .agent-run/maestro/<x>.xml --debug-output .agent-run/maestro/<x>-debug` was permitted and ran the same flow at FPS=15/20/30. Watch the header-`env:` trap (see maestro-flows "Small syntax gotchas"): a run that "passes" with an override proves nothing until you check the produced value.
+**Apply when:** a flow must run once per parameter value.
+
+### CI emulator: a clean `tool.sh rebuild` fit in ONE foreground call (7m04s, 519 tasks), emulator survived
+**Observation (GH-621):** after the background setup finished (it builds in a frozen copy, so the checkout build is cold), `tool.sh rebuild` with `timeout: 600000` finished and installed in ~7.5 min; `install -r` kept the imported baseline. Detached builds (`setsid nohup …`), direct `./gradlew` and `> file` redirects in the workdir were all refused by the permission layer. Contrast GH-546 (26 min, emulator died): do all old-APK before-screenshots first, then rebuild once.
+**Apply when:** a ticket changes Java/Kotlin code in the agent-emulator workflow.
+
+### Video analysis: decoder samples record the decoded frame's PTS since GH-621; emulator gives 2 reps for `squat-3reps.mp4` at every FPS
+**Observation (GH-621):** `extractTrackedSeriesWithDecoder` takes the first decoded frame with PTS ≥ the planned sample time. It used to record the PLANNED time (up to one source frame early). It now records the real PTS, so the `tMs` gaps are uneven at 15/20 FPS (0,100,167,233…). Velocity uses central differences over `tMs`, so uneven gaps are fine. Integer-ms planned times also skip ~2 frames per 300 at 30 FPS. x86_64 emulator, `squat-3reps.mp4`: 2 reps at 15/20/30. Total analysis time ≈7.4–9.5 s at 15 FPS, 8.7 s at 20, 12.9 s at 30. Read the numbers with `adb exec-out run-as <pkg> cat files/video-analysis/results/analysis-<id>.json | jq '.analysisMeta.performanceMetrics'`.
+**Apply when:** touching video sampling, or asserting rep counts or timings on the emulator.

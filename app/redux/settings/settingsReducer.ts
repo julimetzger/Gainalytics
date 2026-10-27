@@ -3,6 +3,7 @@ import {Metric, MetricOverviewSection, resolveMetricOverviewSlots} from '../../m
 import {customPaletteHex, PaletteSelection} from '../../theme/palette';
 import {ThemeModeSetting} from '../../theme/themeMode';
 import {AiProvider} from '../../models/AiProvider';
+import {resolveVideoAnalysisFps, VideoAnalysisFps} from '../../models/VideoAnalysisFps';
 import {addMuscle, removeMuscle, setMuscleInOverviews} from '../../utils/muscle-catalog';
 
 export interface MetricOverviewSettings {
@@ -88,6 +89,8 @@ export interface AppSettings {
   customPalette?: string;
   videoAnalysisFiltersExpanded?: boolean;
   videoAnalysisLearnedRateSecondsPerVideoSecond?: number;
+  /** GH-621: analysis frame rate for NEW analyses. Absent → DEFAULT_VIDEO_ANALYSIS_FPS. */
+  videoAnalysisFps?: VideoAnalysisFps;
   localNotification?: {
     pauseTimerInSeconds?: number;
     finishTrainingTimerInSeconds?: number;
@@ -404,6 +407,11 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
         },
       };
     }
+    case 'SET_VIDEO_ANALYSIS_FPS':
+      return {
+        ...settings,
+        videoAnalysisFps: resolveVideoAnalysisFps(action.fps),
+      };
     case 'SET_VIDEO_ANALYSIS_LEARNED_RATE': {
       return {
         ...settings,

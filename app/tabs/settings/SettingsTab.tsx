@@ -7,6 +7,7 @@ import SettingsSection from '../../components/settings/SettingsSection';
 import ThemeModeSelector from '../../components/settings/ThemeModeSelector';
 import ThemeColorSelector from '../../components/settings/ThemeColorSelector';
 import MuscleListSettings from '../../components/settings/MuscleListSettings';
+import VideoAnalysisFpsSelector from '../../components/settings/VideoAnalysisFpsSelector';
 import {secureStorage} from '../../utils/secureStorage';
 import {validateAnthropicApiKey} from '../../utils/llmApi';
 import {useSettings} from '../../redux/settings/use/useSettings';
@@ -381,6 +382,10 @@ const SettingsTab = ({navigation, route}: Props) => {
             value={!settings.toggles?.disableToasts}
           />
         </View>
+      </SettingsSection>
+
+      <SettingsSection title="Video analysis" testID="settings-section-video-analysis">
+        <VideoAnalysisFpsSelector />
       </SettingsSection>
 
       <SettingsSection title="Muscles" testID="settings-section-muscles">
