@@ -409,6 +409,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         long analysisStartedAtMs = SystemClock.elapsedRealtime();
         Bitmap firstFrame = null;
         DetectionContext detectionContext = null;
+        VideoAnalysisPoseDetector poseDetector = null;
         try {
             File rootDir = ensureVideoAnalysisRootDir();
             File resultsDir = new File(rootDir, "results");
@@ -466,6 +467,8 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
                     + " analyzedFps="
                     + roundTo3(analyzedFps)
             );
+            // GH-75: loaded once per analysis, released in finally.
+            poseDetector = VideoAnalysisPoseDetector.createOrNull(getReactApplicationContext());
             TrackingSeries trackingSeries = extractTrackedSeries(
                 analysisId,
                 localVideoPath,
@@ -473,6 +476,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
                 activeSeed,
                 analyzedFps,
                 detectionContext,
+                poseDetector,
                 performanceMetrics
             );
 
@@ -493,6 +497,14 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             );
             result.put("repSegments", detectedRepSegments);
             result.put("repMetrics", detectedRepMetrics);
+            if (poseDetector != null) {
+                result.put("poseSeries", trackingSeries.poseSeries);
+                JSONObject poseMeta = new JSONObject();
+                poseMeta.put("model", VideoAnalysisPoseDetector.MODEL_NAME);
+                poseMeta.put("poseVersion", VideoAnalysisPoseDetector.POSE_VERSION);
+                result.put("poseMeta", poseMeta);
+                performanceMetrics.recordPose(poseDetector);
+            }
 
             JSONObject analysisMeta = new JSONObject();
             analysisMeta.put("sourceFps", roundTo3(sourceFps));
@@ -526,6 +538,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             if (trackingSeries.skippedImplausibleFrames > 0) {
                 qualityFlags.put("PLAUSIBILITY_SKIPPED_FRAMES:" + trackingSeries.skippedImplausibleFrames);
             }
+            qualityFlags.put(
+                poseDetector != null ? "POSE_MODEL_ASSET:" + VideoAnalysisPoseDetector.MODEL_ASSET_PATH : "POSE_UNAVAILABLE"
+            );
             result.put("qualityFlags", qualityFlags);
 
             File resultFile = new File(resultsDir, "analysis-" + analysisId + ".json");
@@ -540,6 +555,9 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             logPerformanceMetrics("analyzeSquatVideo", analysisId, performanceMetrics);
             if (detectionContext != null) {
                 detectionContext.release();
+            }
+            if (poseDetector != null) {
+                poseDetector.close();
             }
             if (firstFrame != null) {
                 firstFrame.recycle();
@@ -872,6 +890,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         SeedSelection seed,
         double analyzedFps,
         DetectionContext detectionContext,
+        VideoAnalysisPoseDetector poseDetector,
         AnalysisPerformanceMetrics performanceMetrics
     ) throws Exception {
         try {
@@ -882,6 +901,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
                 seed,
                 analyzedFps,
                 detectionContext,
+                poseDetector,
                 performanceMetrics
             );
         } catch (Exception decoderError) {
@@ -893,6 +913,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
                 seed,
                 analyzedFps,
                 detectionContext,
+                poseDetector,
                 performanceMetrics
             );
         }
@@ -905,6 +926,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         SeedSelection seed,
         double analyzedFps,
         DetectionContext detectionContext,
+        VideoAnalysisPoseDetector poseDetector,
         AnalysisPerformanceMetrics performanceMetrics
     ) throws Exception {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
@@ -920,6 +942,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             series.barPathSeries = new JSONArray();
             series.confidenceSeries = new JSONArray();
             series.plausibilityRejections = new JSONArray();
+            series.poseSeries = new JSONArray();
             series.frameCount = 0;
             series.frameWidthPx = 0;
             series.frameHeightPx = 0;
@@ -948,6 +971,12 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
                     if (series.frameWidthPx == 0 || series.frameHeightPx == 0) {
                         series.frameWidthPx = frame.getWidth();
                         series.frameHeightPx = frame.getHeight();
+                    }
+                    if (poseDetector != null) {
+                        JSONObject poseSample = poseDetector.detect(frame, timeMs);
+                        if (poseSample != null) {
+                            series.poseSeries.put(poseSample);
+                        }
                     }
 
                     List<DetectionCandidate> candidates = detectCandidates(frame, detectionContext, performanceMetrics);
@@ -1014,6 +1043,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         SeedSelection seed,
         double analyzedFps,
         DetectionContext detectionContext,
+        VideoAnalysisPoseDetector poseDetector,
         AnalysisPerformanceMetrics performanceMetrics
     ) throws Exception {
         MediaExtractor extractor = new MediaExtractor();
@@ -1047,6 +1077,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             series.barPathSeries = new JSONArray();
             series.confidenceSeries = new JSONArray();
             series.plausibilityRejections = new JSONArray();
+            series.poseSeries = new JSONArray();
             series.frameCount = 0;
             series.frameWidthPx = 0;
             series.frameHeightPx = 0;
@@ -1134,6 +1165,14 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
                     // source FPS (e.g. 20 from 30) the planned time is up to one source
                     // frame early, and velocities are computed from these timestamps.
                     int timeMs = (int) Math.round(presentationTimeUs / 1000.0);
+
+                    // GH-75: pose on the same sampled frame, independent of the bar result.
+                    if (poseDetector != null) {
+                        JSONObject poseSample = poseDetector.detect(image, rotationDegrees, timeMs);
+                        if (poseSample != null) {
+                            series.poseSeries.put(poseSample);
+                        }
+                    }
 
                     if (selected == null) {
                         performanceMetrics.noCandidateFrameCount += 1;
@@ -2078,6 +2117,23 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         double candidateDecodeMs;
         double totalDetectionMs;
         boolean gpuDelegateUsed;
+        boolean poseUsed;
+        double poseSetupMs;
+        double poseFrameConversionMs;
+        double poseInferenceMs;
+        int poseCallCount;
+        int poseDetectedFrameCount;
+        String poseDelegate;
+
+        void recordPose(VideoAnalysisPoseDetector poseDetector) {
+            poseUsed = true;
+            poseSetupMs = poseDetector.setupMs;
+            poseFrameConversionMs = poseDetector.frameConversionMs;
+            poseInferenceMs = poseDetector.inferenceMs;
+            poseCallCount = poseDetector.callCount;
+            poseDetectedFrameCount = poseDetector.detectedFrameCount;
+            poseDelegate = poseDetector.delegate;
+        }
 
         JSONObject toJson() throws Exception {
             JSONObject object = new JSONObject();
@@ -2113,6 +2169,14 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             object.put("candidateDecodeMs", roundTo3(candidateDecodeMs));
             object.put("totalDetectionMs", roundTo3(totalDetectionMs));
             object.put("gpuDelegateUsed", gpuDelegateUsed);
+            if (poseUsed) {
+                object.put("poseSetupMs", roundTo3(poseSetupMs));
+                object.put("poseFrameConversionMs", roundTo3(poseFrameConversionMs));
+                object.put("poseInferenceMs", roundTo3(poseInferenceMs));
+                object.put("poseCallCount", poseCallCount);
+                object.put("poseDetectedFrameCount", poseDetectedFrameCount);
+                object.put("poseDelegate", poseDelegate);
+            }
             object.put(
                 "avgFrameExtractionMs",
                 roundTo3(decodedFrameCount == 0 ? 0.0 : frameExtractionMs / decodedFrameCount)
@@ -2137,6 +2201,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         JSONArray barPathSeries;
         JSONArray confidenceSeries;
         JSONArray plausibilityRejections;
+        JSONArray poseSeries;
         int frameCount;
         int frameWidthPx;
         int frameHeightPx;

@@ -1,6 +1,7 @@
 import RNFS from 'react-native-fs';
 import {BarTrackingResult} from '../models/entities/VideoAnalysis';
 import {buildSyntheticBarTrackingResult} from './video-analysis-synthetic';
+import {normalizeBarTrackingResult} from './videoAnalysisPose';
 
 const VIDEO_ANALYSIS_ROOT = `${RNFS.DocumentDirectoryPath}/video-analysis`;
 const VIDEO_RESULTS_DIR = `${VIDEO_ANALYSIS_ROOT}/results`;
@@ -55,7 +56,7 @@ export const readBarTrackingResultFromFile = async (path?: string) => {
   }
 
   const content = await RNFS.readFile(path, 'utf8');
-  return JSON.parse(content) as BarTrackingResult;
+  return normalizeBarTrackingResult(JSON.parse(content) as BarTrackingResult);
 };
 
 export const getVideoAnalysisPreviewPath = (analysisId: number) => {

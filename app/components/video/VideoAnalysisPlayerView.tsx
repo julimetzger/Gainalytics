@@ -1,5 +1,6 @@
 import React from 'react';
 import {NativeSyntheticEvent, requireNativeComponent, ViewProps} from 'react-native';
+import {PoseOverlayTrack} from '../../utils/videoAnalysisPose';
 
 export interface VideoPlayerLoadEvent {
   durationMs: number;
@@ -41,6 +42,10 @@ interface VideoAnalysisPlayerViewProps extends ViewProps {
   pathColor?: number;
   trackingFrameWidthPx?: number;
   trackingFrameHeightPx?: number;
+  /** GH-75 hip/knee overlay: pre-filtered tracks; the view interpolates them at the player time. */
+  poseTracks?: PoseOverlayTrack[];
+  poseMaxGapMs?: number;
+  showPose?: boolean;
   onLoad?: (event: NativeSyntheticEvent<VideoPlayerLoadEvent>) => void;
   onProgress?: (event: NativeSyntheticEvent<VideoPlayerProgressEvent>) => void;
   onEnd?: () => void;

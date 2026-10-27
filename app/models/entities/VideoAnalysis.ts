@@ -179,6 +179,39 @@ export interface AnalysisPerformanceMetrics {
   avgDetectionMs: number;
   avgInferenceMs: number;
   avgFrameConversionMs: number;
+  /** GH-75 pose detection timings; absent in results analysed before pose detection. */
+  poseSetupMs?: number;
+  poseFrameConversionMs?: number;
+  poseInferenceMs?: number;
+  poseCallCount?: number;
+  poseDetectedFrameCount?: number;
+}
+
+export type PoseSide = 'left' | 'right';
+
+/** One pose landmark, x/y normalised to the (rotation-corrected) video frame (0–1). */
+export interface PoseJointPoint {
+  x: number;
+  y: number;
+  /** MediaPipe landmark visibility (0–1). */
+  visibility: number;
+}
+
+export interface PoseSideSample {
+  hip?: PoseJointPoint;
+  knee?: PoseJointPoint;
+}
+
+/** Hip and knee of one analysed frame (GH-75). A side is missing when no person was found. */
+export interface PoseSample {
+  tMs: number;
+  left?: PoseSideSample;
+  right?: PoseSideSample;
+}
+
+export interface PoseMeta {
+  model: string;
+  poseVersion: string;
 }
 
 export interface BarTrackingResult {
@@ -190,4 +223,7 @@ export interface BarTrackingResult {
   repMetrics: RepMetric[];
   analysisMeta: AnalysisMeta;
   qualityFlags: string[];
+  /** Hip/knee per sampled frame (GH-75). Absent in results analysed before pose detection. */
+  poseSeries?: PoseSample[];
+  poseMeta?: PoseMeta;
 }

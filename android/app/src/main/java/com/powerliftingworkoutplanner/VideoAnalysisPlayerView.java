@@ -40,6 +40,9 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     private static final float BACKGROUND_PATH_STROKE_WIDTH_PX = 4f;
     private static final float ACTIVE_PATH_STROKE_WIDTH_PX = 5f;
     private static final float ACTIVE_POINT_RADIUS_PX = 7f;
+    private static final float POSE_LINE_WIDTH_DP = 3f;
+    private static final float POSE_POINT_RADIUS_DP = 5f;
+    private static final float POSE_POINT_OUTLINE_DP = 1.5f;
 
     private final ExoPlayer player;
     private final TextureView textureView;
@@ -51,6 +54,15 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     private final Paint activeRepPointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path backgroundPathBuffer = new Path();
     private final Path activeTrailPathBuffer = new Path();
+    // GH-75: hip/knee overlay, drawn at the player's current position.
+    private final List<PoseOverlayTrack> poseTracks = new ArrayList<>();
+    private final Paint poseLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint posePointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint posePointOutlinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final float[] poseHipBuffer = new float[2];
+    private final float[] poseKneeBuffer = new float[2];
+    private int poseMaxGapMs = 0;
+    private boolean showPose = true;
 
     private String sourcePath;
     private boolean paused = true;
@@ -307,6 +319,44 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         postInvalidateOnAnimation();
     }
 
+    public void setPoseTracks(@Nullable ReadableArray tracks) {
+        poseTracks.clear();
+        if (tracks != null) {
+            for (int trackIndex = 0; trackIndex < tracks.size(); trackIndex++) {
+                ReadableMap track = tracks.getMap(trackIndex);
+                ReadableArray samples = track != null && track.hasKey("samples") ? track.getArray("samples") : null;
+                if (samples == null) {
+                    continue;
+                }
+                PoseOverlayTrack overlayTrack = new PoseOverlayTrack(samples.size());
+                for (int index = 0; index < samples.size(); index++) {
+                    ReadableMap sample = samples.getMap(index);
+                    overlayTrack.tMs[index] = sample != null && sample.hasKey("tMs") ? (int) Math.round(sample.getDouble("tMs")) : 0;
+                    overlayTrack.xs[PoseOverlayTrack.HIP][index] = readPoseCoordinate(sample, "hipX");
+                    overlayTrack.ys[PoseOverlayTrack.HIP][index] = readPoseCoordinate(sample, "hipY");
+                    overlayTrack.xs[PoseOverlayTrack.KNEE][index] = readPoseCoordinate(sample, "kneeX");
+                    overlayTrack.ys[PoseOverlayTrack.KNEE][index] = readPoseCoordinate(sample, "kneeY");
+                }
+                poseTracks.add(overlayTrack);
+            }
+        }
+        postInvalidateOnAnimation();
+    }
+
+    private static float readPoseCoordinate(@Nullable ReadableMap sample, String key) {
+        return sample != null && sample.hasKey(key) && !sample.isNull(key) ? (float) sample.getDouble(key) : Float.NaN;
+    }
+
+    public void setPoseMaxGapMs(int maxGapMs) {
+        poseMaxGapMs = Math.max(0, maxGapMs);
+        postInvalidateOnAnimation();
+    }
+
+    public void setShowPose(boolean shouldShowPose) {
+        showPose = shouldShowPose;
+        postInvalidateOnAnimation();
+    }
+
     public void setPlaybackSpeed(float speed) {
         playbackSpeed = Math.max(0.1f, Math.min(1.0f, speed));
         player.setPlaybackParameters(new PlaybackParameters(playbackSpeed));
@@ -334,6 +384,7 @@ public class VideoAnalysisPlayerView extends FrameLayout {
     protected void dispatchDraw(Canvas canvas) {
         super.dispatchDraw(canvas);
         drawBarPathOverlay(canvas);
+        drawPoseOverlay(canvas);
 
         if (prepared && !paused) {
             postInvalidateOnAnimation();
@@ -352,6 +403,17 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         activeRepPaint.setStrokeJoin(Paint.Join.ROUND);
 
         activeRepPointPaint.setStyle(Paint.Style.FILL);
+
+        float density = getResources().getDisplayMetrics().density;
+        poseLinePaint.setStyle(Paint.Style.STROKE);
+        poseLinePaint.setStrokeWidth(POSE_LINE_WIDTH_DP * density);
+        poseLinePaint.setStrokeCap(Paint.Cap.ROUND);
+        poseLinePaint.setColor(0xE6FFFFFF);
+        posePointPaint.setStyle(Paint.Style.FILL);
+        posePointPaint.setColor(0xFF00E5FF);
+        posePointOutlinePaint.setStyle(Paint.Style.STROKE);
+        posePointOutlinePaint.setStrokeWidth(POSE_POINT_OUTLINE_DP * density);
+        posePointOutlinePaint.setColor(0xFFFFFFFF);
     }
 
     private void startProgressLoop() {
@@ -443,6 +505,48 @@ public class VideoAnalysisPlayerView extends FrameLayout {
         }
         if (visibleTrailPointCount > 0 && !Float.isNaN(lastTrailX) && !Float.isNaN(lastTrailY)) {
             canvas.drawCircle(lastTrailX, lastTrailY, ACTIVE_POINT_RADIUS_PX, activeRepPointPaint);
+        }
+    }
+
+    private void drawPoseOverlay(Canvas canvas) {
+        if (!showPose || poseTracks.isEmpty()) {
+            return;
+        }
+        int viewWidth = getWidth();
+        int viewHeight = getHeight();
+        float sourceWidth = trackingFrameWidthPx > 0 ? trackingFrameWidthPx : videoWidth;
+        float sourceHeight = trackingFrameHeightPx > 0 ? trackingFrameHeightPx : videoHeight;
+        if (viewWidth <= 0 || viewHeight <= 0 || sourceWidth <= 0f || sourceHeight <= 0f) {
+            return;
+        }
+
+        // Same fit-centre mapping as the bar path; pose x/y are normalised to the video frame.
+        float scale = Math.min(viewWidth / sourceWidth, viewHeight / sourceHeight);
+        float renderedWidth = sourceWidth * scale;
+        float renderedHeight = sourceHeight * scale;
+        float offsetX = (viewWidth - renderedWidth) / 2f;
+        float offsetY = (viewHeight - renderedHeight) / 2f;
+        int drawTimeMs = resolveDrawTimeMs();
+        float radius = POSE_POINT_RADIUS_DP * getResources().getDisplayMetrics().density;
+
+        for (PoseOverlayTrack track : poseTracks) {
+            boolean hipVisible = track.interpolate(PoseOverlayTrack.HIP, drawTimeMs, poseMaxGapMs, poseHipBuffer);
+            boolean kneeVisible = track.interpolate(PoseOverlayTrack.KNEE, drawTimeMs, poseMaxGapMs, poseKneeBuffer);
+            float hipX = offsetX + poseHipBuffer[0] * renderedWidth;
+            float hipY = offsetY + poseHipBuffer[1] * renderedHeight;
+            float kneeX = offsetX + poseKneeBuffer[0] * renderedWidth;
+            float kneeY = offsetY + poseKneeBuffer[1] * renderedHeight;
+            if (hipVisible && kneeVisible) {
+                canvas.drawLine(hipX, hipY, kneeX, kneeY, poseLinePaint);
+            }
+            if (hipVisible) {
+                canvas.drawCircle(hipX, hipY, radius, posePointPaint);
+                canvas.drawCircle(hipX, hipY, radius, posePointOutlinePaint);
+            }
+            if (kneeVisible) {
+                canvas.drawCircle(kneeX, kneeY, radius, posePointPaint);
+                canvas.drawCircle(kneeX, kneeY, radius, posePointOutlinePaint);
+            }
         }
     }
 
