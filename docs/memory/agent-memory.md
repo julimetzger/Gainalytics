@@ -866,3 +866,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Video analysis: decoder samples record the decoded frame's PTS since GH-621; emulator gives 2 reps for `squat-3reps.mp4` at every FPS
 **Observation (GH-621):** `extractTrackedSeriesWithDecoder` takes the first decoded frame with PTS ≥ the planned sample time. It used to record the PLANNED time (up to one source frame early). It now records the real PTS, so the `tMs` gaps are uneven at 15/20 FPS (0,100,167,233…). Velocity uses central differences over `tMs`, so uneven gaps are fine. Integer-ms planned times also skip ~2 frames per 300 at 30 FPS. x86_64 emulator, `squat-3reps.mp4`: 2 reps at 15/20/30. Total analysis time ≈7.4–9.5 s at 15 FPS, 8.7 s at 20, 12.9 s at 30. Read the numbers with `adb exec-out run-as <pkg> cat files/video-analysis/results/analysis-<id>.json | jq '.analysisMeta.performanceMetrics'`.
 **Apply when:** touching video sampling, or asserting rep counts or timings on the emulator.
+
+### Closing the picker list: wait for `search-bar` to be gone before a second conditional `back`
+**Problem (GH-636):** the pattern `runFlow when visible search-bar → back; waitForAnimationToEnd; runFlow when visible search-bar → back` races. `waitForAnimationToEnd` returned after ~0.4 s. The second check can still see the fading list, and the extra `back` on Analysis opens the Dashboard (verified on the emulator), so the next `assertVisible: 'N selected'` fails. Also `hideKeyboard` closed the whole list here, not only the keyboard.
+**Fix / Rule:** after each conditional back, use `extendedWaitUntil: {notVisible: {id: search-bar}, timeout: 3000, optional: true}` (and 15000 non-optional after the second one). Then assert a screen id (`analyse-chart-Volume`) before the value assertion.
+**Apply when:** any flow dismisses the TrainingElementPicker list with `back`.
+
+### Scroll back to the element you assert, not to a neighbour
+**Observation (GH-636):** a scroll-up loop that stops at `'Volume \(sum\)'` can leave the picker anchor ("3 selected") above the viewport. Loop on the anchor's own label (`'Select Exercises, Muscles, Metrics, Accumulation Mode'`) instead.
+**Apply when:** asserting a header or picker value after scrolling down a ScrollView.
