@@ -1,8 +1,8 @@
-import React, {useState} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Card, IconButton, Text, useTheme} from 'react-native-paper';
+import {Card, IconButton, Text} from 'react-native-paper';
 import EditDialogScaffold from '../common/EditDialogScaffold';
-import DropDown from 'react-native-paper-dropdown';
+import {Dropdown, Option} from 'react-native-paper-dropdown';
 import {useSelector} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {Workout} from '../../models/entities/Workout';
@@ -18,10 +18,14 @@ interface Props {
   onLinked?: () => void;
 }
 
+// react-native-paper-dropdown 2.x ignores taps on options with an empty value, so the
+// "all" entry needs a non-empty sentinel (exercise ids are numeric strings).
+const ALL_EXERCISES_VALUE = 'all';
+// Matches the 1.x default menu height so the list does not grow on larger screens.
+const MAX_MENU_HEIGHT = 200;
+
 const SetSelectionModal = ({visible, onDismiss, analysisId, onLinked}: Props) => {
   const linkVideoAnalysis = dispatchLinkVideoAnalysisToWorkout();
-  const theme = useTheme();
-  const [dropdownVisible, setDropdownVisible] = useState(false);
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | undefined>(undefined);
 
   const workouts = useSelector((state: GlobalState) =>
@@ -40,7 +44,17 @@ const SetSelectionModal = ({visible, onDismiss, analysisId, onLinked}: Props) =>
     ? workouts.filter(w => w.exerciseId === selectedExerciseId)
     : workouts;
 
-  const exerciseList = exercises.map(e => ({label: e.name, value: e.id!.toString()}));
+  const exerciseOptions = useMemo<Option[]>(
+    () => [
+      {label: 'All Exercises', value: ALL_EXERCISES_VALUE},
+      ...exercises.map(e => ({label: e.name, value: e.id!.toString()})),
+    ],
+    [exercises]
+  );
+
+  const onSelectExercise = useCallback((value?: string) => {
+    setSelectedExerciseId(value && value !== ALL_EXERCISES_VALUE ? parseInt(value, 10) : undefined);
+  }, []);
 
   const onSelectSet = (workout: Workout, set: WorkoutSet) => {
     linkVideoAnalysis(analysisId, workout.id!, workout.exerciseId, set.index);
@@ -60,16 +74,16 @@ const SetSelectionModal = ({visible, onDismiss, analysisId, onLinked}: Props) =>
       dismissTestID="set-selection-close"
       scrollable
     >
-      <DropDown
+      <Dropdown
         label="Filter by Exercise"
         mode="outlined"
-        visible={dropdownVisible}
-        onDismiss={() => setDropdownVisible(false)}
-        showDropDown={() => setDropdownVisible(true)}
-        value={selectedExerciseId?.toString() ?? ''}
-        setValue={val => setSelectedExerciseId(val ? parseInt(val) : undefined)}
-        list={[{label: 'All Exercises', value: ''}, ...exerciseList]}
-        activeColor={theme.colors.primary}
+        value={selectedExerciseId?.toString() ?? ALL_EXERCISES_VALUE}
+        onSelect={onSelectExercise}
+        options={exerciseOptions}
+        maxMenuHeight={MAX_MENU_HEIGHT}
+        hideMenuHeader
+        testID="set-selection-exercise-filter"
+        menuTestID="set-selection-exercise-filter-menu"
       />
       <View style={styles.listContainer}>
         {filteredWorkouts.length === 0 && (
