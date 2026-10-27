@@ -659,6 +659,19 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix / Rule:** `uiautomator dump` + grep bounds before every tap in system/third-party apps.
 **Apply when:** driving Health Connect or other system settings with adb.
 
+### CI emulator (API 34): `import-baseline` fails because the SAF picker opens on an empty "Recent"
+**Problem / Symptom:** `tool.sh import-baseline` → `[Failed] … No visible element found: "baseline.gains"`. The picker showed "Recent · No items", and "Downloads" was empty too, although `adb shell ls /sdcard/Download/` listed the file.
+**Fix / Rule:** `adb -s $S shell content call --uri content://media/ --method scan_volume --arg external_primary`, then in the picker hamburger → Downloads → tap the file ("Import successful!"). Then verify with a UI dump + `grep "Push pull"`. This contradicts the GH-486 note "listed without a media scan" (that was a different device).
+**Apply when:** the first import on a freshly booted CI emulator (seen in GH-505 r2).
+
+### CI agent sandbox: no shell variables, loops, xargs, node or python — what still works
+**Observation (GH-505 r2):** Commands with `$VAR`, `for`, `xargs`, `node x.js` or `python3` needed approval and were blocked; `adb …; adb …`, `ffmpeg`, `cp a b dir/`, `npx jest` ran. To recompute fixture values, write a `*.test.js` under `.agent-run/calc/` and run `npx jest --config '{"testEnvironment":"node"}' --rootDir .agent-run/calc <name>` (write results to a file with `fs`). To resize Maestro `takeScreenshot` output, use ONE ffmpeg call with literal globs: `ffmpeg -i .agent-run/maestro/<f>/debug/.maestro/tests/*/<f>/takeScreenshot/a.png -i … -map 0 -vf scale=480:-1 out/a.png -map 1 …`. Foreground `sleep` is blocked, but `adb -s $S shell sleep 4` waits on the device.
+**Apply when:** scripting anything in the GitHub-Actions emulator job.
+
+### Laggy CI emulator: screenshot right after `input tap` shows the OLD state; short swipes become taps
+**Observation (GH-505 r2):** Directly after a tap, the screencap showed the previous screen, and the drawer pager tap took effect only ~1 min later. `input swipe 150 1500 950 1500 250` over the muscle map expanded a row instead of paging. What worked: `adb shell input tap …; adb shell sleep 4-6; tool.sh screenshot`, and a micro swipe as `input swipe 100 640 1000 640 400` across the KPI cards. The Overview header "Micro 7 Overview" does not match Maestro `text: 'Micro 7 Overview'`; assert `id: micro-comparison-line` (`'Micro 7 \(done\) vs Micro 6 \(done\)'`) instead.
+**Apply when:** driving the Training Overview on the CI emulator with adb or Maestro.
+
 ### Maestro `launchApp` grants EVERY declared permission — including Health Connect ones
 **Problem (GH-528):** after `pm revoke … android.permission.health.*` the app still showed "Connected": a plain `launchApp` (also in `00_import_baseline.yaml`) re-grants all runtime permissions, health permissions included (`dumpsys package` → `granted=true`, no `USER_SET`). The CI APK install (`-g`) grants them too.
 **Fix / Rule:** in flows that depend on a permission state use `launchApp: {clearState: false, permissions: {notifications: allow}}` (only the listed ones are touched); import baseline with `gh528_import_baseline.yaml`; set states with `adb shell pm grant|revoke <pkg> android.permission.health.<X>` (works on Android 14 for declared permissions; `READ_HEALTH_DATA_HISTORY` is "Unknown permission" on the API-34 image).
