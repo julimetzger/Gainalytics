@@ -2,6 +2,7 @@ import {Training} from '../models/entities/Training';
 import {Workout} from '../models/entities/Workout';
 import {Metric} from '../models/Metric';
 import {calculateMetricValue} from './AnalyseUtils';
+import {MicroTrainingCount} from './micro-training-count';
 
 /**
  * GH-526 — formatting for the Overview / training analysis rework: every view
@@ -147,6 +148,17 @@ export const volumeKpi = (subject: Workout[], reference: Workout[] | undefined, 
   numericKpi('volume', 'Volume', volumeOf(subject), reference ? volumeOf(reference) : undefined, formatVolume, mode, shareOf);
 
 export const countKpi = (key: string, title: string, value: number, reference: number | undefined): Kpi => numericKpi(key, title, value, reference, formatCount, 'diff');
+
+/**
+ * GH-644 — Trainings `done / total` of a micro against its plan. The open trainings of a
+ * running micro are not a shortfall: while some are open the delta reads neutral
+ * (`3 open · 2 not planned`), only a completed micro gets the usual delta.
+ */
+export const trainingsKpi = ({done, total, open, notPlanned}: MicroTrainingCount): Kpi => {
+  if (open === 0) return countKpi('trainings', 'Trainings', done, total);
+  const delta = notPlanned > 0 ? `${open} open · ${notPlanned} not planned` : `${open} open`;
+  return {key: 'trainings', title: 'Trainings', value: formatCount(done), reference: formatCount(total), delta, sign: 0};
+};
 
 /** Duration only exists for done trainings; the delta is shown without a percentage. */
 export const durationKpi = (valueMs: number, referenceMs: number | undefined, title = 'Duration'): Kpi => {

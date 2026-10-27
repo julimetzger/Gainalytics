@@ -29,6 +29,7 @@ import {trainingsPlanDisplayName} from '../../utils/trainings-plan-name';
 import {GlobalState} from '../../redux/rootReducer';
 import {dispatchSetCurrentTrainingsPlan} from '../../redux/settings/dispatch/dispatchSetCurrentTrainingsPlan';
 import {nextOpenTrainingInMicro, resolveCurrentMicro} from '../../utils/currentMicro';
+import {countMicroTrainings} from '../../utils/micro-training-count';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TrainingHome'>;
 
@@ -230,13 +231,7 @@ function statusForPlan(plan: TrainingsPlan, allTrainings: Training[]): PlanRowMe
   const currentMeso = getMesoForMicro(plan.mesos, currentMicro);
   const navMicro = currentMicro;
 
-  const microSlots = Object.keys(plan.trainings).filter(k => getMicroFromTrainingInMicroIndex(k) === currentMicro);
-  const microDone = microSlots.filter(k => {
-    const tId = plan.trainings[k];
-    return trainingsById[tId]?.end;
-  }).length;
-  const trainingTypeCount = Object.keys(plan.trainingNames ?? {}).length;
-  const microTotal = trainingTypeCount > 0 ? trainingTypeCount : microSlots.length;
+  const {done: microDone, total: microTotal} = countMicroTrainings(plan, currentMicro, trainingsById);
 
   if (hasStarted) {
     return {
