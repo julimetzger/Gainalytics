@@ -872,3 +872,16 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Rule:** after a dependency removal, diff the tsc error LIST (not the count) against the job-start snapshot: run `npx tsc -p <dir>/tsconfig.json --noEmit --pretty false | grep -oE "^[^(]+\([0-9]+,[0-9]+\): error TS[0-9]+" | sort` for `$RUNNER_TEMP/build-src` and the checkout. `--listFiles | grep -oE "node_modules/(@[^/]+/)?[^/]+" | sort -u` shows which type packages disappeared.
 **CI env:** `node -e`, `python3`, `npm ls`, `npx depcheck` and `> file` redirects need approval; find reverse deps with a multiline Grep on `package-lock.json`: `"node_modules/[^"]+": \{\n(      [^\n]*\n)*?\s+"<pkg>": "`. The checkout is shallow (1 commit), so `git log -S` finds nothing.
 **Apply when:** removing or upgrading npm packages, especially ones that depend on `@types/*`.
+
+### The shared repo `node_modules` can lag `package-lock.json` — every bundle built from it crashes in `configureStore`
+**Problem (GH-75):** the worktree's `node_modules` symlinks to the repo root, which still had RTK 1.9.7 / RNGH 2 / react-redux 7 (49 packages behind the lock). Both the Metro dev bundle and the APK's embedded bundle red-screened with `TypeError: undefined cannot be used as a constructor` in `configureStore` (`new Tuple`).
+**Fix / Rule:** at run start, compare the lock with the installed versions (`node_modules/<pkg>/package.json` vs `package-lock.json` `packages`). If they drift, `rm node_modules && npm ci` IN THE WORKTREE (36 s), don't touch the shared copy. Then `rm -rf android/build android/app/build android/.gradle app/.cxx` (stale autolinking: "Could not resolve project :shopify_flash-list") and start your own Metro from the worktree (`node node_modules/react-native/cli.js start --port <free>`).
+**Apply when:** any red screen at startup, or before the first device build of a run.
+
+### `squat-3reps.mp4` / `squat-1rep.mp4` are synthetic (a plate on black) — no person for pose/person models
+**Observation (GH-75):** MediaPipe Pose found 0/149 persons in `squat-3reps.mp4`. A real-person clip is now a fixture: `fixtures/squat-person-2reps.mp4` (CC BY 3.0, Wikimedia Commons, 7 s), with hip/knee visible on 106/106 frames at 15 FPS. Real clips on the test phone: `/sdcard/Download/PXL_*.mp4`. CC-licensed clips: Commons API `list=search&srsearch=squat filetype:video&srnamespace=6`.
+**Apply when:** a ticket needs a human in the video.
+
+### Landscape clip in the video detail: the player reaches the right edge and eats `97%` swipes
+**Problem (GH-75):** with the 1280x720 clip the player overflows its card to the screen edge, so the flow's usual `97%` edge swipes were swallowed and the page never scrolled. Use `2%` (far-left edge) for scrolls on that screen.
+**Apply when:** scrolling the video detail of a landscape clip.
