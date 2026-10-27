@@ -78,7 +78,7 @@
     "@types/react": "^19.1.1",
     "@types/react-test-renderer": "^19.3.0",
     "@types/redux-logger": "^3.0.9",
-    "eslint": "^8.57.1",
+    "eslint": "^10.13.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "metro-config": "^0.87.1",
