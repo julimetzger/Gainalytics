@@ -127,19 +127,28 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'chip'
     text: 'Mmkv'
+# Close the list: same two-back pattern as in part 2 (GH-636 comment there).
 - runFlow:
     when:
       visible:
         id: 'search-bar'
     commands:
       - back
-- waitForAnimationToEnd
+- extendedWaitUntil:
+    notVisible:
+      id: 'search-bar'
+    timeout: 3000
+    optional: true
 - runFlow:
     when:
       visible:
         id: 'search-bar'
     commands:
       - back
+- extendedWaitUntil:
+    notVisible:
+      id: 'search-bar'
+    timeout: 15000
 - waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
@@ -199,13 +208,21 @@ appId: com.powerliftingworkoutplanner
         id: 'search-bar'
     commands:
       - back
-- waitForAnimationToEnd
+- extendedWaitUntil:
+    notVisible:
+      id: 'search-bar'
+    timeout: 3000
+    optional: true
 - runFlow:
     when:
       visible:
         id: 'search-bar'
     commands:
       - back
+- extendedWaitUntil:
+    notVisible:
+      id: 'search-bar'
+    timeout: 15000
 - waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
@@ -423,20 +440,36 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'search-bar-clear-icon'
     optional: true
+# GH-636: close the list with at most two backs (keyboard, then list) and wait
+# until the list is really gone before deciding on the second one. With only
+# waitForAnimationToEnd the second `when: visible search-bar` could still see the
+# fading list, and the extra back left Analysis for the Dashboard (no picker ->
+# "3 selected" not found).
 - runFlow:
     when:
       visible:
         id: 'search-bar'
     commands:
       - back
-- waitForAnimationToEnd
+- extendedWaitUntil:
+    notVisible:
+      id: 'search-bar'
+    timeout: 3000
+    optional: true
 - runFlow:
     when:
       visible:
         id: 'search-bar'
     commands:
       - back
+- extendedWaitUntil:
+    notVisible:
+      id: 'search-bar'
+    timeout: 15000
 - waitForAnimationToEnd
+# still on Analysis (a stray back would have opened the Dashboard)
+- assertVisible:
+    id: 'analyse-chart-Volume'
 - assertVisible: '3 selected'
 - assertVisible: 'Volume \(sum\)'
 - assertVisible: 'Frequency \(training days\)'
@@ -474,10 +507,12 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: 'Mon, 23/02/26'
 - assertNotVisible: 'Sun, 22/02/26'
 - assertNotVisible: 'Sat, 21/02/26'
-# the charts are still there after the tap (not recomputed away)
+# the charts are still there after the tap (not recomputed away). GH-636: scroll
+# up to the picker anchor itself - "Volume (sum)" can already be on screen while
+# the "N selected" row above it is still scrolled off.
 - repeat:
     while:
-      notVisible: 'Volume \(sum\)'
+      notVisible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
     times: 8
     commands:
       - swipe:
