@@ -1,11 +1,13 @@
 import React from 'react';
 import {act, fireEvent, render, within} from '@testing-library/react-native';
+import {StyleSheet} from 'react-native';
 import {Provider} from 'react-redux';
 import {AnyAction, createStore} from 'redux';
 import {MD3DarkTheme, PaperProvider} from 'react-native-paper';
 import rootReducer, {GlobalState} from '../../../../app/redux/rootReducer';
 import {Muscles} from '../../../../app/models/Muscles';
 import {TrainingsState} from '../../../../app/models/TrainingsState';
+import {Training} from '../../../../app/models/entities/Training';
 import TrainingsOverview from '../../../../app/components/Training/analyse/TrainingsOverview';
 import TrainingPlanOverview from '../../../../app/components/Training/analyse/TrainingPlanOverview';
 import MicroOverview from '../../../../app/components/Training/analyse/MicroOverview';
@@ -329,8 +331,30 @@ describe('GH-526 — micro Overview, Total tab', () => {
     expect(text(getByTestId('micro-comparison-line'))).toBe('Micro 2 done vs Micro 2 plan');
     expect(text(getByTestId('micro-total-trainings-value'))).toBe('1');
     expect(text(getByTestId('micro-total-trainings-reference'))).toBe(' / 2');
+    expect(text(getByTestId('micro-total-trainings-delta'))).toBe('1 open');
     expect(queryByTestId('micro-total-duration')).toBeNull();
     expect(text(getByTestId(`micro-muscle-map-row-${Muscles.BACK}-readout`))).toBe('0/3');
+  });
+
+  // GH-644: the denominator is every training of the plan (Home's counter), not only the planned ones
+  it('counts trainings without planned sets as open in vs Plan', () => {
+    const state = baseState();
+    const storedPlan = state.trainingsPlan.byId[1];
+    storedPlan.trainingNames = {1: 'Push squat', 2: 'Pull', 3: 'Legs', 4: 'Upper'};
+    storedPlan.trainings = {...storedPlan.trainings, '2,3': 202};
+    state.trainings.byId[202] = {id: 202, state: TrainingsState.PLANNED, exercises: [], plannedWorkouts: {}, doneWorkoutIds: {}} satisfies Training;
+    // the prop is the plan of the navigation params; the counter reads the stored plan
+    const {getByTestId} = renderWith(<MicroOverview trainingsPlan={plan()} micro={2} />, state);
+
+    fireEvent.press(getByTestId('micro-compare-plan'));
+
+    expect(text(getByTestId('micro-total-trainings-value'))).toBe('1');
+    expect(text(getByTestId('micro-total-trainings-reference'))).toBe(' / 4');
+    expect(text(getByTestId('micro-total-trainings-delta'))).toBe('3 open · 2 not planned');
+    // neutral, not the error colour of a decrease
+    expect(StyleSheet.flatten(getByTestId('micro-total-trainings-delta').props.style).color).toBe(MD3DarkTheme.colors.onSurfaceVariant);
+    // Sets keep comparing against the actually planned sets: done 4 vs 3 + 2 + 3 planned
+    expect(text(getByTestId('micro-total-sets-delta'))).toBe('−4 (−50%)');
   });
 
   it('has a muscle map that follows the selected chip', () => {

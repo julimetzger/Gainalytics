@@ -17,6 +17,9 @@ appId: com.powerliftingworkoutplanner
 #      from its own exercises (Back 226.7 +8.0, Chest 180.0 −2.0, Shoulders 139.3);
 #      Micro 4 · Pull (no logged sets): "–" without a delta. Restores the default
 #      Muscle Overview columns (Volume, Sets, Reps) at the end.
+#   6. GH-644 Micro 6 · Total vs Plan: the Trainings counter equals the Home counter
+#      of the same micro (1/4 — it read "1 / 1" while only "Pull" was planned); the
+#      open trainings read "3 open · 3 not planned", Sets/Volume stay against the plan.
 #
 # Data basis: baseline import (fixtures/baseline.gains), READ-ONLY — assumes the
 # baseline is already imported. Only sub-tab / chip / toggle taps.
@@ -416,3 +419,81 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'metrics-muscles-header-0'
     text: 'Volume \(t\)'
+
+# --- GH-644: Micro 6 Total vs Plan counts the trainings like Home -------------------
+# Baseline: Home's current micro is M6 (1 of 4 done; only "Pull" has planned sets).
+# The Overview counter is read back and compared with the Home counter.
+- launchApp:
+    stopApp: true
+    clearState: false
+- runFlow:
+    when:
+      visible: 'Dismiss'
+    commands:
+      - tapOn: 'Dismiss'
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- assertVisible:
+    id: 'micro-hero-micro-label'
+    text: 'Meso 1 · M6'
+- copyTextFrom:
+    id: 'micro-hero-completion-label'
+- evalScript: "${output.homeCounter = maestro.copiedText}"
+- assertTrue: "${output.homeCounter === '1/4'}"
+- scrollUntilVisible:
+    element:
+      id: 'meso-card-5-1'
+    direction: DOWN
+- tapOn:
+    id: 'meso-card-5-1'
+- extendedWaitUntil:
+    visible:
+      id: 'drawer-menu-button'
+    timeout: 30000
+- tapOn:
+    id: 'drawer-menu-button'
+- extendedWaitUntil:
+    visible: 'Mesos:'
+    timeout: 20000
+- tapOn: 'Micro 2'
+- tapOn: 'Micro 3'
+- tapOn: 'Micro 4'
+- tapOn: 'Micro 5'
+- tapOn: 'Micro 6'
+- tapOn: 'Overview'
+- extendedWaitUntil:
+    visible:
+      id: 'overview-view-gesamt'
+    timeout: 30000
+- tapOn:
+    id: 'overview-view-gesamt'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-total-overview'
+    timeout: 30000
+- tapOn:
+    id: 'micro-compare-plan'
+- assertVisible:
+    id: 'micro-comparison-line'
+    text: 'Micro 6 done vs Micro 6 plan'
+- copyTextFrom:
+    id: 'micro-total-trainings-value'
+- evalScript: "${output.overviewDone = maestro.copiedText}"
+- copyTextFrom:
+    id: 'micro-total-trainings-reference'
+- evalScript: "${output.overviewCounter = output.overviewDone + maestro.copiedText.replace(' / ', '/')}"
+- assertTrue: "${output.overviewCounter === output.homeCounter}"
+- assertVisible:
+    id: 'micro-total-trainings-delta'
+    text: '3 open · 3 not planned'
+# Sets keep comparing against the actually planned sets
+- assertVisible:
+    id: 'micro-total-sets-delta'
+    text: '\+1 \(\+7%\)'
+- takeScreenshot: gh644_m6_total_vs_plan

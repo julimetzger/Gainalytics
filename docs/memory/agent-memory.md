@@ -880,3 +880,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Rule:** after a dependency removal, diff the tsc error LIST (not the count) against the job-start snapshot: run `npx tsc -p <dir>/tsconfig.json --noEmit --pretty false | grep -oE "^[^(]+\([0-9]+,[0-9]+\): error TS[0-9]+" | sort` for `$RUNNER_TEMP/build-src` and the checkout. `--listFiles | grep -oE "node_modules/(@[^/]+/)?[^/]+" | sort -u` shows which type packages disappeared.
 **CI env:** `node -e`, `python3`, `npm ls`, `npx depcheck` and `> file` redirects need approval; find reverse deps with a multiline Grep on `package-lock.json`: `"node_modules/[^"]+": \{\n(      [^\n]*\n)*?\s+"<pkg>": "`. The checkout is shallow (1 commit), so `git log -S` finds nothing.
 **Apply when:** removing or upgrading npm packages, especially ones that depend on `@types/*`.
+
+### Baseline Home is M6 (not M7) — the micro trainings counter lives in `countMicroTrainings`
+**Observation (GH-644):** issue text from the GH-505 audit quoted "M7 · 1/4". On the CI emulator the baseline's Home hero reads `Meso 1 · M6`, `1/4` (GH-533 keeps the incomplete M6 current), so M6 is the case to assert. Home (`MicroHeroCard`, plan row in `TrainingHome`) and the micro Overview "vs Plan" now all call `app/utils/micro-training-count.ts`. A flow compares them by reading both with `copyTextFrom` → `evalScript: "${output.x = maestro.copiedText}"` → `assertTrue`. Drawer path to a micro's Overview: `meso-card-5-1` → `drawer-menu-button` → tap `Micro 2` … `Micro 6` one after another → `Overview`.
+**Apply when:** asserting baseline micro counters or touching the trainings counter of a micro.
+
+### CI emulator: after `tool.sh metro-start`, the first `launchApp` waits on a cold Metro bundle (~1 min white "Loading from 10.0.2.2:8081")
+**Problem (GH-644):** a flow started right after `metro-start` + `launch` failed with `Element not found: tab-training`: the app was still on the white loading screen, and the flow's `stopApp` restart re-triggered bundling. `cp`/compound commands with `$var` or `timeout bash -c` need approval in this environment, so polling loops in Bash are out.
+**Fix / Rule:** put `extendedWaitUntil: {visible: 'tab-training', timeout: 120000}` right after `launchApp` in any flow you run on Metro, and use a tiny wait-only flow before a "plain" adb screenshot.
+**Apply when:** the first device step after switching to Metro JS.
