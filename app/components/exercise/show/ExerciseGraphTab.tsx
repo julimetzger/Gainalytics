@@ -6,7 +6,7 @@ import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
 import {Metric} from '../../../models/Metric';
 import {AccumulationMode} from '../../../models/AccumulationMode';
-import {Accumulation} from '../../picker/elements/TrainingElementPicker';
+import {Accumulation} from '../../../models/Accumulation';
 import {handleAccumulationModeBatching} from '../../../utils/HandleAccumulationModeBatching';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {

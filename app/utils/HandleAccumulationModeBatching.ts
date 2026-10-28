@@ -1,4 +1,4 @@
-import {Accumulation} from '../components/picker/elements/TrainingElementPicker';
+import {Accumulation} from '../models/Accumulation';
 import {firstDayOfWeek, getFirstDayOfMonth} from './DateHelper';
 import {getAllTrainingsForMicro, getMicroFromTrainingInMicroIndex} from '../redux/Training/trainingsPlanReducer';
 import {AccumulationMode} from '../models/AccumulationMode';

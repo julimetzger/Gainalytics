@@ -1,6 +1,6 @@
 import {AccumulationMode} from '../../app/models/AccumulationMode';
 import {Workout} from '../../app/models/entities/Workout';
-import {Accumulation} from '../../app/components/picker/elements/TrainingElementPicker';
+import {Accumulation} from '../../app/models/Accumulation';
 import {Range} from '../../app/components/picker/date/DateRangePicker';
 import {buildFrequencySeries, formatFrequencyCaption, formatFrequencySpan, frequencyQueryRange} from '../../app/utils/FrequencySeries';
 
