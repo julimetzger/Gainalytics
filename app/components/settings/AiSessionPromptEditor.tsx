@@ -4,13 +4,13 @@ import {Button, Text, TextInput} from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 import {DEFAULT_SESSION_PROMPT} from '../../constants/aiPrompts';
 import {useAISessionPrompt} from '../../redux/settings/use/useAISessionPrompt';
-import {dispatchResetAISessionPrompt, dispatchSetAISessionPrompt} from '../../redux/settings/dispatch/dispatchSetAISessionPrompt';
+import {useResetAISessionPrompt, useSetAISessionPrompt} from '../../redux/settings/dispatch/dispatchSetAISessionPrompt';
 
 /** GH-645: edits the prompt of the single-training Coach Insight (Analysis tab of a training). */
 const AiSessionPromptEditor = () => {
   const currentPrompt = useAISessionPrompt();
-  const setPrompt = dispatchSetAISessionPrompt();
-  const resetPrompt = dispatchResetAISessionPrompt();
+  const setPrompt = useSetAISessionPrompt();
+  const resetPrompt = useResetAISessionPrompt();
   const [input, setInput] = useState(currentPrompt);
 
   const handleSave = () => {

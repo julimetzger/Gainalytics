@@ -33,7 +33,7 @@
   "app/components/RangeSwiper.tsx :: TS18047": 2,
   "app/components/RangeSwiper.tsx :: TS2345": 1,
   "app/components/RangeSwiper.tsx :: TS2554": 1,
-  "app/components/Training/CoachInsightCard.tsx :: TS2769": 1,
+  "app/components/Training/CoachInsightCardView.tsx :: TS2769": 1,
   "app/components/Training/TrainingsPlanDrawer.tsx :: TS2339": 6,
   "app/components/Training/analyse/TrainingHistoryCalendar.tsx :: TS2322": 1,
   "app/components/Training/execute/FinishTrainingNotification.ts :: TS2554": 1,
