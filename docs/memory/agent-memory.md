@@ -899,3 +899,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### CI emulator: the 10-min foreground cap vs. long flows — split the flow
 **Observation (GH-636):** background Bash, `setsid`/`nohup` and `> file` redirects need approval here. A long flow can be split into chunks in `.agent-run/flows/` (use an absolute path in `runFlow: file:`) and run with one `tool.sh flow` call per chunk; the store and app state carry over between chunks. A fresh CI emulator is still in onboarding, so run `tool.sh import-baseline` once before running a flow that starts with `import_fixture.yaml` on its own.
 **Apply when:** a flow (with analyses) may take longer than 10 min.
+
+### Live AI check: `adb shell input text <key>` drops characters in the secure API-key field — type in chunks, verify by counting bullets
+**Problem (GH-645):** one `input text` with the 106-char test key saved only 91 characters ("API key saved", then "Invalid API key" = one wasted live request).
+**Fix / Rule:** push the key file to `/data/local/tmp/k`, clear the field (tap, `keyevent 123`, ~130× `67`), then type on the device: `adb shell 'k=$(tr -d "\n\r " < /data/local/tmp/k); while [ -n "$k" ]; do input text "${k:0:8}"; k=${k:8}; sleep 0.6; done; rm /data/local/tmp/k'`. Before saving, `uiautomator dump` + `grep -o '•' dump.xml | wc -l`: the password field holds one `•` per character (no plaintext), which must match the key length (`adb push` prints the byte count).
+**Apply when:** a live check with `$RUNNER_TEMP/ai-test-key/key`.
+
+### A cached Claude Coach Insight stays visible after the key is removed — "Ask again" shows the no-key notice
+**Observation (GH-645):** `useCoachInsight` reads the cache before checking the key (only ChatGPT hides cached answers when signed out), so after a live check the card still shows the answer. Pressing `training-coach-insight-refresh` / `coach-insight-refresh` deletes the cache entry and, without a key, turns the card into the notice with no request — also a cheap proof that the key is gone. The single-training card has no 28-day window, so it works on the stale baseline fixture (unlike the micro card).
+**Apply when:** cleaning up after a live AI check, or a flow expects the no-key notice on a device that had a key.
