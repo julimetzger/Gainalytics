@@ -24,12 +24,6 @@
 #                                  (default: __tests__/e2e/maestro/fixtures/baseline.gains). The import
 #                                  flow waits for "Push pull", so another fixture only works if it
 #                                  contains that plan; otherwise push it and write a matching import flow.
-#   tool.sh set-ai-key             store the budget-capped real Anthropic test key in the app (Settings >
-#                                  AI Configuration) for a LIVE check of an AI feature. The key is typed
-#                                  with adb (never via Maestro inputText, whose reports keep the text) and
-#                                  is never printed. Exit 4 if this run has no key.
-#   tool.sh clear-ai-key           remove the key from the app again (empty input + Save; fails unless
-#                                  the app confirms "API key removed")
 set -euo pipefail
 
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
@@ -53,19 +47,6 @@ serial() {
     exit 1
   fi
   echo "${s}"
-}
-
-# Empties the focused text field with key events: tapping a secure field puts the cursor mid-text,
-# so Maestro eraseText only removes the part left of it. Delete backwards from the end AND forwards
-# from the start (200 each; API keys are ~110 chars).
-clear_focused_field() {
-  local s="$1" dels fdels
-  dels="$(printf '67 %.0s' $(seq 1 200))"
-  fdels="$(printf '112 %.0s' $(seq 1 200))"
-  adb -s "${s}" shell input keyevent KEYCODE_MOVE_END
-  adb -s "${s}" shell input keyevent ${dels}
-  adb -s "${s}" shell input keyevent KEYCODE_MOVE_HOME
-  adb -s "${s}" shell input keyevent ${fdels}
 }
 
 cmd="${1:-}"
@@ -210,36 +191,8 @@ case "${cmd}" in
     fi
     echo "Imported $(basename "${fixture}")"
     ;;
-  set-ai-key)
-    keyfile="${RUNNER_TEMP:-/nonexistent}/ai-test-key/key"
-    if [[ ! -s "${keyfile}" ]]; then
-      echo "No AI test key in this run (secret CLAUDE_TEST_API_KEY missing)." >&2
-      exit 4
-    fi
-    key="$(<"${keyfile}")"
-    # Only the characters Anthropic keys use, so `adb shell input text` needs no escaping.
-    if [[ ! "${key}" =~ ^[A-Za-z0-9_-]+$ ]]; then
-      echo "AI test key has unexpected characters; not typed." >&2
-      exit 4
-    fi
-    S="$(serial)"
-    "$0" flow "${ROOT}/.github/agent-emulator/flows/ai_key_focus_input.yaml" >/dev/null
-    clear_focused_field "${S}"
-    adb -s "${S}" shell input text "${key}"
-    unset key
-    "$0" flow "${ROOT}/.github/agent-emulator/flows/ai_key_save_expect_saved.yaml" >/dev/null
-    echo "AI test key stored in the app (not printed)."
-    ;;
-  clear-ai-key)
-    S="$(serial)"
-    "$0" flow "${ROOT}/.github/agent-emulator/flows/ai_key_focus_input.yaml" >/dev/null
-    clear_focused_field "${S}"
-    # Fails (set -e) unless the app shows "API key removed", i.e. the field was really empty.
-    "$0" flow "${ROOT}/.github/agent-emulator/flows/ai_key_save_expect_removed.yaml" >/dev/null
-    echo "AI key removed from the app."
-    ;;
   *)
-    sed -n '2,32p' "$0"
+    sed -n '2,26p' "$0"
     exit 2
     ;;
 esac

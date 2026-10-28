@@ -76,23 +76,25 @@ imports the baseline itself (needs `tool.sh push-baseline` first, replaces the a
 - `logcat <label>` — dump logcat to `.agent-run/logcat/<label>.txt`
 - `metro-start` — start Metro on :8081
 - `rebuild` — Gradle debug build (x86_64) + install
-- `set-ai-key` — store a real, budget-capped Anthropic key in the app for a **live** check of an AI
-  feature (exit 4 if this run has none); `clear-ai-key` removes it again. See "Live AI calls" below.
 
 ## Live AI calls (real test key)
 
-The key costs real money and this repo is public. Rules:
+If the run has one (the workflow notice says `CLAUDE_TEST_API_KEY set: true`), a real, budget-capped
+Anthropic key is in the file `$RUNNER_TEMP/ai-test-key/key`. It costs real money and this repo is
+public. Rules:
 
 - Use it only when the task changes what is sent to or parsed from an AI provider, and only to check
   once by hand that a real answer works end to end (e.g. the model returns a change set the app can
   parse). **At most 5 live requests per run.** Automated checks (Jest, Maestro) never use it: they use
   fixed/mocked answers.
-- Store it only with `tool.sh set-ai-key`. Never read the key file, never type the key with Maestro
-  `inputText` (its reports are uploaded), never commit it, and never screenshot the key field unmasked.
-- Do not dump request/response headers or logcat lines that could contain the key. Logcat excerpts in
-  the PR are limited to lines you checked.
-- When the live check is done, remove the key from the app again with `tool.sh clear-ai-key`, and
-  say in the PR body which live checks ran and how many requests they made.
+- Never read, print or echo the key and never let it into your context: feed it from the file
+  straight into the device (e.g. `adb shell input text` with the file's content). Never type it with
+  Maestro `inputText` (its reports are uploaded), never commit it, never screenshot the key field
+  unmasked, and do not dump logcat lines or request headers that could contain it.
+- Tapping the secure key field puts the cursor mid-text (see `docs/memory/agent-memory.md`): clear it
+  completely and check the app's "API key saved" / "API key removed" toast.
+- When the live check is done, remove the key from the app again, and say in the PR body which live
+  checks ran and how many requests they made.
 
 ## Tools and limits
 

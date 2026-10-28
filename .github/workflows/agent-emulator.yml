@@ -393,8 +393,8 @@ jobs:
 
       # A real Anthropic key for one-off live checks of AI features (budget-capped key in the
       # environment 'gainalytics'). It is NOT put into the agent's environment: it is written to a
-      # file outside the checkout that only `tool.sh set-ai-key` reads, and deleted after the agent.
-      - name: Provide AI test key to tool.sh (file outside the checkout)
+      # file outside the checkout (see agent-prompt.md "Live AI calls") and deleted after the agent.
+      - name: Provide AI test key (file outside the checkout)
         if: steps.mode.outputs.mode != 'smoke'
         env:
           AI_TEST_KEY: ${{ secrets.CLAUDE_TEST_API_KEY }}
@@ -405,7 +405,7 @@ jobs:
             ( umask 077; printf '%s' "${AI_TEST_KEY}" > "${dir}/key" )
             echo "::notice title=secret::CLAUDE_TEST_API_KEY set: true"
           else
-            echo "::notice title=secret::CLAUDE_TEST_API_KEY set: false (tool.sh set-ai-key unavailable)"
+            echo "::notice title=secret::CLAUDE_TEST_API_KEY set: false"
           fi
 
       - name: Run Claude Code
