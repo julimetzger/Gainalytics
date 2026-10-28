@@ -306,7 +306,7 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible:
       id: 'filter-range-label'
-      text: '(28|29) Aug 2025 – 28 Nov 2025'
+      text: '(28|29) Aug – 28 Nov 2025'
     timeout: 10000
 - swipe:
     from:
@@ -326,7 +326,7 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible:
       id: 'filter-range-label'
-      text: '(28|29) Aug 2025 – 28 Nov 2025'
+      text: '(28|29) Aug – 28 Nov 2025'
     timeout: 10000
 - assertNotVisible:
     id: 'filter-panel-collapse'
@@ -368,19 +368,31 @@ appId: com.powerliftingworkoutplanner
 # (b) Volume + Frequency + Week: one tap each in the expanded panel.
 - tapOn:
     id: 'filter-metric-Volume'
-- tapOn:
-    id: 'filter-metric-Frequency'
-- tapOn:
-    id: 'filter-groupby-Week'
 - assertVisible:
     id: 'filter-metric-Volume'
     selected: true
 - assertVisible:
-    id: 'filter-metric-Frequency'
-    selected: true
-- assertVisible:
     id: 'filter-metric-Sets'
     selected: false
+# Frequency is the last chip of the horizontal row: swipe the row to reach it.
+- repeat:
+    while:
+      notVisible:
+        id: 'filter-metric-Frequency'
+    times: 3
+    commands:
+      - swipe:
+          from:
+            id: 'filter-metric-Reps'
+          direction: LEFT
+          duration: 400
+- tapOn:
+    id: 'filter-metric-Frequency'
+- assertVisible:
+    id: 'filter-metric-Frequency'
+    selected: true
+- tapOn:
+    id: 'filter-groupby-Week'
 - tapOn:
     id: 'filter-panel-collapse'
 - extendedWaitUntil:

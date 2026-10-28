@@ -11,10 +11,11 @@ appId: com.powerliftingworkoutplanner
 #   * GH-420: the drawer closes via the menu icon, a tap on the dimmed area and a
 #     swipe - also after a bottom-tab switch with the drawer open. "Closed" is
 #     proven by a control of the screen behind that lies inside the drawer area.
-#   * GH-452: History's picker reads "Select Exercises, Muscles"; selecting still
-#     counts; the Analysis picker keeps its own (longer) label.
+#   * GH-452 / GH-642: History's filter panel offers exercises and muscles only
+#     (no period, group by or metrics); a muscle tap counts and shows in the card.
 #   * GH-341: Records KPIs re-pinned to the baseline (see below).
-#   * GH-617: Records filter header starts collapsed ("1 selected", no chips);
+#   * GH-617 / GH-642: Records filter panel starts collapsed ("Week", no sections),
+#     the custom range comes from its "Custom" chip;
 #     a heatmap tile / muscle bar filters the record list to exactly its records
 #     (fixed range 12/01/2025 - 03/01/2026), tap again / "Show all" / a new range
 #     restore the full list, empty tiles do nothing.
@@ -90,7 +91,9 @@ appId: com.powerliftingworkoutplanner
     below:
       id: 'analyse-drawer-toggle'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+    visible:
+      id: 'filter-groupby-summary'
+      text: 'Day · All metrics'
     timeout: 60000
 - extendedWaitUntil:
     notVisible: 'Close drawer'
@@ -116,13 +119,16 @@ appId: com.powerliftingworkoutplanner
     below:
       id: 'analyse-drawer-toggle'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Metrics, Accumulation Mode'
-    timeout: 30000
-- extendedWaitUntil:
     notVisible: 'Close drawer'
     timeout: 15000
-# Opened from the drawer = no drill-down: nothing preselected.
-- assertVisible: '0 selected'
+# Opened from the drawer = no drill-down: nothing preselected (GH-642 panel summary).
+- extendedWaitUntil:
+    visible:
+      id: 'filter-selection-summary'
+      text: 'All exercises'
+    timeout: 30000
+- assertNotVisible:
+    id: 'filter-groupby-summary'
 - assertNotVisible:
     id: 'analyse-error-boundary'
 
@@ -155,30 +161,49 @@ appId: com.powerliftingworkoutplanner
     text: 'Sat, 28/02/26'
 - assertNotVisible:
     id: 'analyse-error-boundary'
+# GH-452 / GH-642: History's filter panel offers exercises and muscles only.
+- assertVisible:
+    id: 'filter-selection-summary'
+    text: 'All exercises'
+- assertNotVisible:
+    id: 'filter-groupby-summary'
+- assertNotVisible:
+    id: 'filter-range-label'
 - tapOn:
-    id: 'history-picker-toggle'
-- waitForAnimationToEnd
-- assertVisible: 'Select Exercises, Muscles'
-- assertNotVisible: 'Select Exercises, Metrics, Accumulation Mode'
-- assertVisible: '0 selected'
-- tapOn: 'Select Exercises, Muscles'
-- waitForAnimationToEnd
+    id: 'filter-panel-card'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-panel-collapse'
+    timeout: 10000
+- assertVisible:
+    id: 'filter-exercise-section-title'
+    text: 'Exercises \(0\)'
+- assertNotVisible:
+    id: 'filter-groupby-section'
+- assertNotVisible:
+    id: 'filter-metrics-section'
 - scrollUntilVisible:
-    element: 'Chest'
+    element:
+      id: 'filter-muscle-Chest'
     direction: DOWN
-    timeout: 20000
-- tapOn: 'Chest'
-- waitForAnimationToEnd
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
-- waitForAnimationToEnd
-- assertVisible: '1 selected'
-- assertVisible: 'Select Exercises, Muscles'
-- assertNotVisible: '0 selected'
+- tapOn:
+    id: 'filter-muscle-Chest'
+- assertVisible:
+    id: 'filter-muscle-section-title'
+    text: 'Muscles \(1\)'
+- scrollUntilVisible:
+    element:
+      id: 'filter-panel-collapse'
+    direction: UP
+- tapOn:
+    id: 'filter-panel-collapse'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-selection-summary'
+      text: 'Chest'
+    timeout: 10000
+- assertVisible:
+    id: 'history-date-header'
 
 # ------------------------------- Records: KPIs re-pinned + GH-420 close paths
 - tapOn:
@@ -332,27 +357,37 @@ appId: com.powerliftingworkoutplanner
     id: '^records-heatmap$'
 
 # ---------------------- Records: tile filter + collapsed filter header (GH-617)
-# The filter header opens collapsed: anchor + summary ("1 selected" = the Week
-# accumulation), but no chips. The chevron expands and collapses the chips.
+# GH-617 / GH-642: the filter panel opens collapsed - period, "All exercises",
+# "Week" (no metrics on Records) and no sections. A tap expands, the chevron collapses.
 - scrollUntilVisible:
     element:
-      id: 'date-range-picker-button'
+      id: 'filter-panel-card'
     direction: UP
-- assertVisible: 'Select Exercises, Metrics, Accumulation Mode'
-- assertVisible: '1 selected'
-- assertNotVisible: '^Week$'
+- assertVisible:
+    id: 'filter-groupby-summary'
+    text: 'Week'
+- assertVisible:
+    id: 'filter-selection-summary'
+    text: 'All exercises'
+- assertNotVisible:
+    id: 'filter-groupby-section'
 - tapOn:
-    id: 'element-picker-toggle'
+    id: 'filter-panel-card'
 - extendedWaitUntil:
-    visible: '^Week$'
+    visible:
+      id: 'filter-groupby-Week'
     timeout: 10000
-- assertVisible: '1 selected'
+- assertNotVisible:
+    id: 'filter-metrics-section'
 - tapOn:
-    id: 'element-picker-toggle'
+    id: 'filter-panel-collapse'
 - extendedWaitUntil:
-    notVisible: '^Week$'
+    notVisible:
+      id: 'filter-groupby-section'
     timeout: 10000
-- assertVisible: '1 selected'
+- assertVisible:
+    id: 'filter-groupby-summary'
+    text: 'Week'
 # A fixed range 12/01/2025 - 03/01/2026 holds all 40 baseline records and stays
 # the same on any later date (no bundling: 13 weeks). Expected values, computed
 # with buildHeatmapModel/buildMuscleLaneModel from fixtures/baseline.gains:
@@ -360,8 +395,11 @@ appId: com.powerliftingworkoutplanner
 #   By muscle: Back in the week of 01/26/26 (bar 8) = 4.
 # Typing: see data_strong_import_records.yaml (tap the field's right end, single
 # Backspaces, one digit per command - the mask adds the slashes).
+# GH-642: the date dialog opens from the expanded panel's "Custom" chip.
 - tapOn:
-    id: 'date-range-picker-button'
+    id: 'filter-panel-card'
+- tapOn:
+    id: 'filter-range-preset-custom'
 - extendedWaitUntil:
     visible: '^Save$'
     timeout: 15000
@@ -416,9 +454,11 @@ appId: com.powerliftingworkoutplanner
     timeout: 15000
 - extendedWaitUntil:
     visible:
-      id: 'date-range-picker-button'
-      text: 'Mon, 01/12/25 to Sun, 01/03/26'
+      id: 'filter-range-label'
+      text: '1 Dec 2025 – 1 Mar 2026'
     timeout: 15000
+- tapOn:
+    id: 'filter-panel-collapse'
 - assertVisible:
     id: 'records-kpi-total'
     text: '40'
@@ -612,10 +652,12 @@ appId: com.powerliftingworkoutplanner
     selected: true
 - scrollUntilVisible:
     element:
-      id: 'date-range-picker-button'
+      id: 'filter-panel-card'
     direction: UP
 - tapOn:
-    id: 'date-range-picker-button'
+    id: 'filter-panel-card'
+- tapOn:
+    id: 'filter-range-preset-custom'
 - extendedWaitUntil:
     visible: '^Save$'
     timeout: 15000
@@ -646,9 +688,11 @@ appId: com.powerliftingworkoutplanner
 - tapOn: '^Save$'
 - extendedWaitUntil:
     visible:
-      id: 'date-range-picker-button'
-      text: 'Mon, 08/12/25 to Sun, 01/03/26'
+      id: 'filter-range-label'
+      text: '8 Dec 2025 – 1 Mar 2026'
     timeout: 15000
+- tapOn:
+    id: 'filter-panel-collapse'
 - assertVisible:
     id: 'records-kpi-total'
     text: '31'
