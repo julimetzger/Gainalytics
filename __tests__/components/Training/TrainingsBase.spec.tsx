@@ -17,6 +17,16 @@ jest.mock('../../../app/redux/Training/dispatch/plan/dispatchSuggestBasedOnLastM
   dispatchSuggestBasedOnLastMesoTraining: jest.fn(),
 }));
 
+// GH-544: the "Plan with AI" block has its own spec (PlanWithAi.spec.tsx).
+const mockPlanWithAi = jest.fn();
+jest.mock('../../../app/components/Training/PlanWithAi', () => {
+  const {View} = require('react-native');
+  return (props: object) => {
+    mockPlanWithAi(props);
+    return <View testID="plan-with-ai" />;
+  };
+});
+
 jest.mock('react-native-paper', () => {
   const React = require('react');
   const {Text, TextInput, TouchableOpacity} = require('react-native');
@@ -91,6 +101,16 @@ describe('TrainingsBase', () => {
       rirDelta: 2,
       weightIncreasePercent: 5.5,
     });
+  });
+
+  it('shows the "Plan with AI" block for the same slot as the suggestions (GH-544)', () => {
+    const trainingsPlan = {id: 3, name: 'Push', trainings: {}, trainingNames: {}};
+
+    const {getByTestId} = render(<TrainingsBase trainingsPlan={trainingsPlan} micro={2} trainingInMicro={1} />);
+
+    expect(getByTestId('plan-with-ai')).toBeTruthy();
+    expect(mockPlanWithAi).toHaveBeenLastCalledWith({trainingsPlanId: 3, trainingInMicro: 1, micro: 2});
+    expect(getByTestId('training-suggest-last-training-button').props.accessibilityState.disabled).toBe(false);
   });
 
   it('keeps all suggestion buttons disabled when no matching source training exists', () => {

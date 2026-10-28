@@ -21,7 +21,7 @@ themselves. Every file named below must be in `/sdcard/Download` —
 | | `home_new_plan_current.yaml` | A new plan becomes current (snackbar, Undo, star); first plan on an empty store | empty store, then imports baseline |
 | F3 Planning | `plan_create_meso_template.yaml` | Plan new Training → edit mode, plan name required, Add Meso/Training, last meso not deletable, "From template" without duplicates | imports baseline |
 | | `plan_edit_sets.yaml` | "Edit plan" of a planned training: EDITING PLAN, Add Set carry-over, weight 100 → 105, decimal RIR, "+" opens the picker directly | imports baseline; `goto_micro69_push.yaml` (MODE=edit) |
-| | `plan_overflow_actions.yaml` | ⋮ menu per state: Clear planned training, empty training not startable, older training without the option | imports baseline |
+| | `plan_overflow_actions.yaml` | ⋮ menu per state: Clear planned training, empty training not startable, older training without the option; GH-544 "Plan with AI" with a fixed answer (echo key `sk-ant-e2e-echo-answer`, no provider call): error keeps the slot unplanned, swap / set removed / set added / RIR −1 planned as returned | imports baseline; `set_dummy_api_key.yaml` (`API_KEY`) |
 | F4 Training execution | `train_start_log_finish.yaml` | Card → Train → Start → log set (100/5, RIR 0,5 → 125 kg / 1.5) → Finish; status labels; exercise switch clears input | imports baseline |
 | | `train_rest_timer_1rm.yaml` | Rest timer "target 01:30" shown once, no restart on correcting a logged set, Title Case menu labels, ESTIMATED 1RM 127 kg | imports baseline; `goto_micro69_push.yaml`, `open_rest_menu.yaml` |
 | | `train_delete_exercise_running.yaml` | Crash fix GH-486: deleting an exercise of the running training; dialog counters; training continues and finishes | imports baseline |
@@ -89,7 +89,7 @@ instead of a flow with generated fixtures.
 | `open_rest_menu.yaml` | – | Reaches a running rest timer and opens its overflow menu |
 | `set_appearance.yaml` | `MODE` = light \| dark, `PALETTE` = blue \| purple \| custom, `HEX` (custom only) | Sets theme mode and colour in Settings |
 | `pick_file.yaml` | `FILE` (name or regex) | Settings › Import from Strong CSV › picks the file |
-| `set_dummy_api_key.yaml` | – | Stores a dummy Anthropic key so the chat renders (no request is sent) |
+| `set_dummy_api_key.yaml` | `API_KEY` (optional, default `sk-ant-dummy-not-a-real-key`) | Stores a dummy Anthropic key so the chat renders (no request is sent); `sk-ant-e2e-echo-answer` makes "Plan with AI" use the typed text as the answer (GH-544) |
 | `open_ai_chat.yaml` | – | Opens Analyse › AI Chat from anywhere |
 | `dismiss_system_anr.yaml` | `OWN_APP` (test only, default `Gainalytics`) | Closes a system "… isn't responding" dialog ("Wait" for `Process system`); leaves the app's own ANR and crash dialogs up so the flow fails. Called by the import helpers, `set_dummy_api_key.yaml` and `ai_chat_errors_history.yaml`. Test the dismiss path: freeze the app (`run-as <pkg> kill -STOP <pid>` + two taps) and run it with `-e OWN_APP=NotThisApp` |
 

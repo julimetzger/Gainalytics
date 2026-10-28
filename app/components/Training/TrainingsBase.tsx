@@ -7,6 +7,7 @@ import {dispatchSuggestBasedOnLastMesoTraining} from '../../redux/Training/dispa
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {convertToInteger, convertToNumber, ensureFormat} from '../../utils/numberInput';
 import {DEFAULT_SUGGESTION_PROGRESSION_PROFILE, SuggestionProgressionProfile} from '../../utils/AnalyseUtils';
+import PlanWithAi from './PlanWithAi';
 
 interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;
@@ -77,6 +78,7 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro, onEnterPlanMode}:
 
   return (
     <View style={styles.container}>
+      <PlanWithAi trainingsPlanId={trainingsPlanId} trainingInMicro={trainingInMicro} micro={micro} />
       <Text variant="titleSmall">Linear progression</Text>
       <View style={styles.inputsContainer}>
         <TextInput

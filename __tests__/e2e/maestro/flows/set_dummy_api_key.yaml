@@ -31,7 +31,11 @@ name: GH-391 store a dummy Anthropic key so the AI Chat screen renders
     timeout: 30000
 - tapOn:
     id: 'settings-anthropic-api-key-input'
-- inputText: 'sk-ant-dummy-not-a-real-key'
+# GH-544: env API_KEY overrides the key — plan_overflow_actions passes the
+# "echo" key (AI_PLAN_ECHO_API_KEY): "Plan with AI" then takes the typed text
+# as the model's answer and sends nothing. No header env default: it would
+# override the caller's value.
+- inputText: "${typeof API_KEY === 'undefined' ? 'sk-ant-dummy-not-a-real-key' : API_KEY}"
 - hideKeyboard
 # With the keyboard gone the buttons below the input can still sit off-screen.
 - scrollUntilVisible:

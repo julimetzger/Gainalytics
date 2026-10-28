@@ -11,6 +11,10 @@ appId: com.powerliftingworkoutplanner
 #      "Add Exercises" instead of "Start Training", and it opens plan mode
 #      without starting a session (GH-401 R1). The dashboard keeps the slot at
 #      "Meso 1 · M6 · D1 · 0 exercises".
+#   E) (runs between B and C) "Plan with AI" on the emptied slot (GH-544): an
+#      unusable answer keeps it unplanned with a message; the fixed answer (echo
+#      key, no provider call) is planned as returned — swapped exercise, one Squat
+#      set fewer with RIR one lower, one Leg curl set more; Home "3 exercises".
 #   C) An OLDER planned training (micro 69 "Push" of plan 1; micro 70 was planned
 #      after it) does not offer "Clear planned training" (GH-442).
 #   D) It is started from the Train tab's "Start Training"; a STARTED training's
@@ -233,6 +237,139 @@ appId: com.powerliftingworkoutplanner
     text: 'Meso 1 · M6 · D1 · 0 exercises'
 - assertNotVisible:
     id: 'next-training-elapsed'
+
+# ===== E) "Plan with AI" with a fixed answer (GH-544) =====
+# The echo key makes the app take the typed text as the model's answer — no
+# provider call. Base = the last D1 (M5 "Push squat"): Squat 2 sets
+# (5 x 170 kg RIR 1, 8 x 150 kg RIR 2), Bankdruecken (id 1), Leg curl ...
+# The fixed answer swaps Bankdruecken for "Paused bench press" (id 5), drops
+# one Squat set and lowers its RIR by one, and adds a Leg curl set.
+- runFlow:
+    file: set_dummy_api_key.yaml
+    env:
+      API_KEY: 'sk-ant-e2e-echo-answer'
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M6 · D1 · 0 exercises'
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'subtab-plan'
+    timeout: 60000
+- tapOn:
+    id: 'subtab-plan'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-with-ai-input'
+    timeout: 30000
+# An unusable answer keeps the training unplanned, with a message; the suggest
+# buttons stay.
+- tapOn:
+    id: 'plan-with-ai-input'
+- inputText: 'RIR -1 on everything'
+- hideKeyboard
+- tapOn:
+    id: 'plan-with-ai-button'
+- extendedWaitUntil:
+    visible:
+      id: 'plan-with-ai-error'
+    timeout: 15000
+- assertVisible:
+    id: 'plan-with-ai-error'
+    text: 'The AI answer contained no readable plan \(no valid JSON\)\.'
+- assertVisible:
+    id: 'training-suggest-last-training-button'
+    enabled: true
+# The fixed answer.
+- tapOn:
+    id: 'plan-with-ai-input'
+- eraseText: 100
+- inputText: '{"explanation":"RIR -1, Paused bench press instead of Bankdruecken, one set less on Squat.","exercises":[{"exercise_id":2,"name":"Squat","sets":[{"reps":5,"weight":170,"rir":0}]},{"exercise_id":5,"name":"Paused bench press","sets":[{"reps":6,"weight":110,"rir":2},{"reps":11,"weight":100,"rir":0}]},{"exercise_id":9,"name":"Leg curl","sets":[{"reps":12,"weight":95,"rir":0},{"reps":12,"weight":95,"rir":0}]}]}'
+- hideKeyboard
+- tapOn:
+    id: 'plan-with-ai-button'
+- extendedWaitUntil:
+    notVisible:
+      id: 'plan-with-ai-input'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'RIR -1, Paused bench press instead of Bankdruecken, one set less on Squat\.'
+    timeout: 10000
+- assertVisible:
+    id: 'header-plan-label'
+    text: 'Planned'
+# Swapped exercise: Paused bench press is planned, Bankdruecken is not.
+- assertVisible:
+    id: 'plan-read-exercise-section-5'
+- assertNotVisible:
+    id: 'plan-read-exercise-section-1'
+# One set fewer: Squat had 2 sets.
+- assertVisible:
+    id: 'plan-read-set-count-2'
+    text: '1 set'
+# Added set: Leg curl had 1 set.
+- assertVisible:
+    id: 'plan-read-set-count-9'
+    text: '2 sets'
+# RIR one lower: Squat (first section) set 1 was RIR 1.
+- assertVisible:
+    id: 'plan-set-1-rir-cell'
+    text: 'RIR\s*0'
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M6 · D1 · 3 exercises'
+# Remove the echo key again (saving an empty key deletes it; see
+# ai_chat_errors_history.yaml for why the field is erased three times).
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+- repeat:
+    times: 2
+    commands:
+      - tapOn:
+          id: 'settings-anthropic-api-key-input'
+          optional: true
+      - eraseText: 200
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+- extendedWaitUntil:
+    visible: 'API key removed'
+    timeout: 5000
+    optional: true
 
 # ===== C) an older planned training has no "Clear" option (GH-442) =====
 - runFlow:
