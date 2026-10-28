@@ -912,3 +912,21 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Baseline workouts can lack a `sets` array — guard `workout?.sets?.length`
 **Problem (GH-544):** walking the done/planned workouts of the baseline's M5 D1 crashed on `workout.sets.length` in a real-store Jest test. `useWorkoutsByIds` returns such workouts, too.
 **Apply when:** iterating the sets of stored workouts (especially planned ones).
+
+### Real models answer "RIR −1" with `rir: -1` on sets already at RIR 0 — clamp, don't drop
+**Problem (GH-544 r2):** the first live "Plan with AI" request (Claude, tool output) returned `rir: -1` for every base set at RIR 0. The structural validator dropped those sets, which removed whole exercises (Adductor, Leg extension) and filled the toast with "Ignored: …". Unit tests with hand-written answers never produced this.
+**Fix / Rule:** keep numeric out-of-range values at the nearest app bound and name them (`rirClamped` in `aiPlanResult.ts`); also state the floor in the prompt ("RIR never goes below 0"), which the second live answer obeyed. Do one live request BEFORE finalising a validator for model output.
+**Apply when:** validating numbers a model derives by arithmetic on stored values.
+
+### `set_dummy_api_key.yaml` typed INTO a key saved by an earlier run — erase first, centred
+**Problem (GH-544 r2):** re-running a flow that saves a key: the tap puts the cursor mid-text, so the echo key became `sk-ant-e2e-sk-ant-e2e-echo-answerecho-answer`, and the app sent a real request ("Invalid API key"). Re-tapping after the keyboard opened failed ("not found"), because the keyboard scrolled the field away.
+**Fix / Rule:** `scrollUntilVisible … centerElement: true` before the first tap, then tap + `eraseText` three times (re-taps `optional: true`) before `inputText` (now in the helper).
+**Apply when:** any flow that types into the Settings key field more than once per store.
+
+### Plan read view RIR cell: label is `RIR, <value>` — `text: 'RIR\s*0'` never matches
+**Observation (GH-544 r2):** `plan-set-N-rir-cell` exposes `accessibilityText: "RIR, 0"` (reps cell `"5, reps"`, weight `"170, kg"`). Assert `{id: 'plan-set-1-rir-cell', text: 'RIR, 0'}`; the first match is the first section's.
+**Apply when:** asserting planned set values in the Plan tab's read view.
+
+### CI emulator: feed the live AI test key with `adb push` + `input text "$(cat …)"`
+**Observation (GH-544 r2):** `ls $RUNNER_TEMP/ai-test-key` is blocked (outside the workdir), but `adb -s <serial> push /home/runner/work/_temp/ai-test-key/key /data/local/tmp/aikey` works without showing the content. Focus the empty key field with a flow, then `adb -s <serial> shell 'input text "$(cat /data/local/tmp/aikey)"'`, `adb shell rm /data/local/tmp/aikey`, and save via a second flow that waits for "API key saved". Remove it again the same way ("API key removed"). Maestro `takeScreenshot` only accepts paths inside its output folder (absolute paths fail the flow).
+**Apply when:** a ticket needs the live-key check in the agent-emulator workflow.
