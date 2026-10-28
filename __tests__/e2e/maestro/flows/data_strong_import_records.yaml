@@ -126,8 +126,11 @@ appId: com.powerliftingworkoutplanner
 # 05/10/26 around January 2027. Start the range on 01/03/2026 instead: after the
 # baseline's last training (28/02/26), so its records stay out, while the end
 # stays at the current week -> the imported record is in range on any later date.
+# GH-642: the date dialog opens from the filter panel's "Custom" chip.
 - tapOn:
-    id: 'date-range-picker-button'
+    id: 'filter-panel-card'
+- tapOn:
+    id: 'filter-range-preset-custom'
 - extendedWaitUntil:
     visible: '^Save$'
     timeout: 15000
@@ -168,9 +171,11 @@ appId: com.powerliftingworkoutplanner
     timeout: 15000
 - extendedWaitUntil:
     visible:
-      id: 'date-range-picker-button'
-      text: 'Sun, 01/03/26 to .*'
+      id: 'filter-range-label'
+      text: '1 Mar( 2026)? – .*'
     timeout: 15000
+- tapOn:
+    id: 'filter-panel-collapse'
 - assertVisible:
     id: 'records-kpi-total'
     text: '1'
