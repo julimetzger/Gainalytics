@@ -146,7 +146,7 @@ export const AI_PLAN_SYSTEM_PROMPT = [
   'Apply the requested changes to base_training and return the complete planned training. Keep everything the request does not mention exactly as in base_training.',
   'Allowed: changing reps, weight (kg) and RIR, adding and removing sets, reordering exercises, and swapping an exercise for another one from available_exercises (its alternative_ids are good candidates, but any listed exercise may be used).',
   'Never invent exercises: every exercise_id must come from available_exercises. If the user asks for an exercise that is not in the list, keep the original exercise unchanged and put the requested name into not_found.',
-  'Values: numbers, or a range as a string "min-max" (e.g. "8-12") where base_training uses a range. reps > 0, weight >= 0, RIR from 0 to 10 (decimals like 1.5 are allowed).',
+  'Values: numbers, or a range as a string "min-max" (e.g. "8-12") where base_training uses a range. reps > 0, weight >= 0, RIR from 0 to 10 (decimals like 1.5 are allowed). RIR never goes below 0: when lowering it would, use 0.',
   'explanation: one or two short sentences saying what you changed.',
   `If the tool ${AI_PLAN_TOOL_NAME} is available, call it with the result. Otherwise answer with exactly one fenced \`\`\`json code block containing an object that matches this JSON schema:`,
   JSON.stringify(AI_PLAN_JSON_SCHEMA),

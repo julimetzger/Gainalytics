@@ -322,10 +322,11 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'plan-read-set-count-9'
     text: '2 sets'
-# RIR one lower: Squat (first section) set 1 was RIR 1.
+# RIR one lower: Squat (first section) set 1 was RIR 1. The cell's
+# accessibility label reads "RIR, <value>"; the first match is Squat's.
 - assertVisible:
     id: 'plan-set-1-rir-cell'
-    text: 'RIR\s*0'
+    text: 'RIR, 0'
 - back
 - extendedWaitUntil:
     visible:

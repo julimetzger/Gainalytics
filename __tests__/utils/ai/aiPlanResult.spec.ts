@@ -29,6 +29,7 @@ describe('parseAiPlanAnswer (GH-544)', () => {
           {exerciseId: 1, sets: [{index: 1, reps: 8, repsMax: 12, weight: 100, rir: 0.5, rirMax: 1.5}]},
         ],
         dropped: [],
+        rirClamped: [],
       },
     });
   });
@@ -43,6 +44,7 @@ describe('parseAiPlanAnswer (GH-544)', () => {
         notFound: [],
         exercises: [{exerciseId: 3, sets: [{index: 1, reps: 10, weight: 30, rir: 2}]}],
         dropped: [],
+        rirClamped: [],
       },
     });
   });
@@ -65,6 +67,7 @@ describe('parseAiPlanAnswer (GH-544)', () => {
         notFound: ['Cable Fly'],
         exercises: [{exerciseId: 2, sets: [{index: 1, reps: 5, weight: 170, rir: 1}]}],
         dropped: ['Dumbbell Fly: not found in your exercises', 'Squat: listed twice'],
+        rirClamped: [],
       },
     });
   });
@@ -106,18 +109,70 @@ describe('parseAiPlanAnswer (GH-544)', () => {
       plan: {
         explanation: '',
         notFound: [],
-        exercises: [{exerciseId: 1, sets: [{index: 1, reps: 8, weight: 102.5, rir: 1}]}],
+        exercises: [
+          {
+            exerciseId: 1,
+            sets: [
+              // set 4: RIR 11 is a number, kept at the bound 10
+              {index: 1, reps: 8, weight: 100, rir: 10},
+              {index: 2, reps: 8, weight: 102.5, rir: 1},
+            ],
+          },
+        ],
         dropped: [
           'Bench Press set 1: reps must be a number above 0',
           'Bench Press set 2: reps must be a number above 0',
           'Bench Press set 3: weight must be a number of at least 0',
-          'Bench Press set 4: RIR must be a number from 0 to 10',
           'Bench Press set 5: weight must be a number of at least 0',
-          'Bench Press set 6: RIR must be a number from 0 to 10',
+          'Bench Press set 6: RIR must be a number',
           'Bench Press set 7: reps must be a number above 0',
           'Exercise 2: no valid exercise id',
           'Row: no sets',
         ],
+        rirClamped: ['Bench Press'],
+      },
+    });
+  });
+
+  it('keeps sets whose RIR went below 0 at RIR 0 and names the exercise (real model answer)', () => {
+    // "RIR -1 on everything" on a base already at RIR 0 came back as rir -1 from Claude.
+    const answer = JSON.stringify({
+      explanation: 'Reduced RIR by 1 on all exercises.',
+      exercises: [
+        {exercise_id: 2, sets: [{reps: 5, weight: 170, rir: 0}]},
+        {exercise_id: 4, sets: [{reps: 12, weight: 60, rir: -1}, {reps: 12, weight: 60, rir: '-0.5'}]},
+        {exercise_id: 1, sets: [{reps: 8, weight: 100, rir: -1}]},
+      ],
+    });
+
+    expect(parseAiPlanAnswer(answer, exercises)).toEqual({
+      ok: true,
+      plan: {
+        explanation: 'Reduced RIR by 1 on all exercises.',
+        notFound: [],
+        exercises: [
+          {exerciseId: 2, sets: [{index: 1, reps: 5, weight: 170, rir: 0}]},
+          {exerciseId: 4, sets: [{index: 1, reps: 12, weight: 60, rir: 0}]},
+          {exerciseId: 1, sets: [{index: 1, reps: 8, weight: 100, rir: 0}]},
+        ],
+        // a negative RIR as a STRING is not in the app format and stays dropped
+        dropped: ['Row set 2: RIR must be a number'],
+        rirClamped: ['Row', 'Bench Press'],
+      },
+    });
+  });
+
+  it('collapses a range that is clamped to one value', () => {
+    const answer = JSON.stringify({explanation: '', exercises: [{exercise_id: 2, sets: [{reps: 5, weight: 170, rir: '11-12'}]}]});
+
+    expect(parseAiPlanAnswer(answer, exercises)).toEqual({
+      ok: true,
+      plan: {
+        explanation: '',
+        notFound: [],
+        exercises: [{exerciseId: 2, sets: [{index: 1, reps: 5, weight: 170, rir: 10}]}],
+        dropped: [],
+        rirClamped: ['Squat'],
       },
     });
   });
@@ -168,22 +223,24 @@ describe('parseAiPlanAnswer (GH-544)', () => {
           },
         ],
         dropped: [],
+        rirClamped: [],
       },
     });
   });
 });
 
 describe('describeAiPlan (GH-544)', () => {
-  it('lists the explanation, missing exercises and ignored parts', () => {
+  it('lists the explanation, missing exercises, adjusted and ignored parts', () => {
     expect(
       describeAiPlan({
         explanation: 'RIR -1 on everything.',
         notFound: ['Dumbbell Bench Press'],
         exercises: [],
         dropped: ['Row set 2: reps must be a number above 0'],
+        rirClamped: ['Squat', 'Row'],
       }),
     ).toBe(
-      'RIR -1 on everything.\nDumbbell Bench Press not found in your exercises.\nIgnored: Row set 2: reps must be a number above 0.',
+      'RIR -1 on everything.\nDumbbell Bench Press not found in your exercises.\nRIR kept within 0–10: Squat, Row.\nIgnored: Row set 2: reps must be a number above 0.',
     );
   });
 });

@@ -1,8 +1,9 @@
 /**
  * GH-544 — reads the model's answer for "Plan with AI" and checks it for STRUCTURE only:
  * valid JSON in the schema, known exercise ids, numbers that are numbers (reps > 0,
- * weight >= 0, RIR 0–10 or an app range). There are no content limits. Parts that cannot
- * be used are dropped and named; without anything usable left the answer is an error.
+ * weight >= 0, RIR a number or an app range, kept within 0–10). There are no content limits.
+ * Parts that cannot be used are dropped and named; without anything usable left the answer
+ * is an error.
  */
 import {Exercise} from '../../../models/entities/Exercise';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
@@ -21,6 +22,8 @@ export interface AiPlan {
   exercises: AiPlanExercise[];
   /** Readable descriptions of the parts that were dropped by the validator. */
   dropped: string[];
+  /** Exercises with an RIR outside 0–10 that was moved to the nearest bound. */
+  rirClamped: string[];
 }
 
 export type AiPlanParseResult = {ok: true; plan: AiPlan} | {ok: false; error: string; dropped: string[]};
@@ -52,32 +55,46 @@ function readBounds(raw: unknown): Bounds | undefined {
 const FIELD_RULES: Record<PlanRangeField, {check: (value: number) => boolean; rule: string}> = {
   reps: {check: value => value > 0, rule: 'reps must be a number above 0'},
   weight: {check: value => value >= 0, rule: 'weight must be a number of at least 0'},
-  rir: {check: value => value >= RIR_MIN && value <= RIR_MAX, rule: `RIR must be a number from ${RIR_MIN} to ${RIR_MAX}`},
+  rir: {check: () => true, rule: 'RIR must be a number'},
 };
 
-/** RIR keeps two decimals, like a typed RIR (parseRirInput). */
-const normalize = (field: PlanRangeField, value: number) => (field === 'rir' ? Math.round(value * 100) / 100 : value);
+const clampRir = (value: number) => Math.min(RIR_MAX, Math.max(RIR_MIN, value));
 
-function readSet(raw: unknown, index: number): {set: WorkoutSet} | {error: string} {
+/** RIR keeps two decimals, like a typed RIR (parseRirInput). */
+const normalize = (field: PlanRangeField, value: number) => (field === 'rir' ? Math.round(clampRir(value) * 100) / 100 : value);
+
+/**
+ * A numeric RIR outside 0–10 is moved to the nearest bound instead of dropping the set:
+ * "RIR −1 on everything" on a set that is already at RIR 0 comes back as −1 from real
+ * models, and dropping those sets removed whole exercises from the plan.
+ */
+const isRirOutOfRange = (bounds: Bounds) =>
+  [bounds.min, bounds.max].some(value => value !== undefined && clampRir(value) !== value);
+
+function readSet(raw: unknown, index: number): {set: WorkoutSet; rirClamped: boolean} | {error: string} {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     return {error: 'not an object'};
   }
   const values = raw as Record<string, unknown>;
   let workoutSet: WorkoutSet = {index, reps: 0, weight: 0, rir: 0};
   const maxima: Partial<Record<PlanRangeField, number>> = {};
+  let rirClamped = false;
   for (const field of ['reps', 'weight', 'rir'] as const) {
     const bounds = readBounds(values[field]);
     const {check, rule} = FIELD_RULES[field];
     if (bounds === undefined || !check(bounds.min) || (bounds.max !== undefined && !check(bounds.max))) {
       return {error: rule};
     }
-    workoutSet = {...workoutSet, [field]: normalize(field, bounds.min)};
-    if (bounds.max !== undefined) maxima[field] = normalize(field, bounds.max);
+    if (field === 'rir') rirClamped = isRirOutOfRange(bounds);
+    const min = normalize(field, bounds.min);
+    workoutSet = {...workoutSet, [field]: min};
+    // A clamped range can collapse to one value (e.g. "11-12" → 10).
+    if (bounds.max !== undefined && normalize(field, bounds.max) !== min) maxima[field] = normalize(field, bounds.max);
   }
   for (const field of ['reps', 'weight', 'rir'] as const) {
     workoutSet = withPlanRangeMax(workoutSet, field, maxima[field]);
   }
-  return {set: workoutSet};
+  return {set: workoutSet, rirClamped};
 }
 
 /** The JSON object of the answer: the whole text, a fenced block, or the outermost braces. */
@@ -112,6 +129,7 @@ export function parseAiPlanAnswer(text: string, exercises: Exercise[]): AiPlanPa
     exercises.filter(exercise => exercise.id !== undefined).map(exercise => [exercise.id!, exercise.name] as const),
   );
   const dropped: string[] = [];
+  const rirClamped: string[] = [];
   const planned: AiPlanExercise[] = [];
 
   root.exercises.forEach((raw, position) => {
@@ -136,18 +154,21 @@ export function parseAiPlanAnswer(text: string, exercises: Exercise[]): AiPlanPa
       return;
     }
     const sets: WorkoutSet[] = [];
+    let clamped = false;
     entry.sets.forEach((rawSet, setPosition) => {
       const result = readSet(rawSet, sets.length + 1);
       if ('error' in result) {
         dropped.push(`${name} set ${setPosition + 1}: ${result.error}`);
       } else {
         sets.push(result.set);
+        clamped = clamped || result.rirClamped;
       }
     });
     if (sets.length === 0) {
       dropped.push(`${name}: no usable sets`);
       return;
     }
+    if (clamped) rirClamped.push(name);
     planned.push({exerciseId: id, sets});
   });
 
@@ -164,15 +185,17 @@ export function parseAiPlanAnswer(text: string, exercises: Exercise[]): AiPlanPa
       notFound,
       exercises: planned,
       dropped,
+      rirClamped,
     },
   };
 }
 
-/** The lines shown after planning: the explanation, missing exercises and dropped parts. */
+/** The lines shown after planning: the explanation, missing exercises, adjusted and dropped parts. */
 export function describeAiPlan(plan: AiPlan): string {
   return [
     plan.explanation,
     ...plan.notFound.map(name => `${name} not found in your exercises.`),
+    ...(plan.rirClamped.length > 0 ? [`RIR kept within ${RIR_MIN}–${RIR_MAX}: ${plan.rirClamped.join(', ')}.`] : []),
     ...(plan.dropped.length > 0 ? [`Ignored: ${plan.dropped.join('; ')}.`] : []),
   ]
     .filter(line => line !== '')
