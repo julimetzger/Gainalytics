@@ -21,6 +21,7 @@ const MetricChips = ({metrics, setMetrics}: MetricChipsProps) => (
           testID={metricTestID(metric)}
           compact
           selected={selected}
+          showSelectedCheck={false}
           mode={selected ? 'flat' : 'outlined'}
           onPress={() => setMetrics(selected ? metrics.filter((it) => it !== metric) : ALL_METRICS.filter((it) => it === metric || metrics.includes(it)))}
         >

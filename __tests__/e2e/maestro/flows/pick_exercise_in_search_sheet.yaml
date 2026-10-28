@@ -48,14 +48,9 @@ appId: com.powerliftingworkoutplanner
     id: 'exercise-search-row-.*'
     text: ${NAME}
     checked: true
-- assertVisible:
-    id: 'exercise-search-selected-.*'
-    text: ${NAME}
-- runFlow:
-    when:
-      true: ${maestro.platform == 'android'}
-    commands:
-      - hideKeyboard
+# (The pick also gets a removable chip at the end of the selection row; callers
+# assert the resulting count - "Exercises (N)" or "Done · N selected".)
+- hideKeyboard
 - tapOn:
     id: 'exercise-search-done'
 - extendedWaitUntil:

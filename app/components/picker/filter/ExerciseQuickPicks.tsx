@@ -31,7 +31,8 @@ const ExerciseQuickPicks = ({selected, setSelected}: ExerciseQuickPicksProps) =>
       {chips.map((exercise) => {
         const isSelected = selected.some((it) => it.id === exercise.id);
         return (
-          <Chip key={exercise.id} testID={`filter-exercise-chip-${exercise.id}`} selected={isSelected} mode={isSelected ? 'flat' : 'outlined'} onPress={() => setSelected(toggleExercise(selected, exercise))}>
+          // No check icon: it widens the chip and would move the chips after it between taps.
+          <Chip key={exercise.id} testID={`filter-exercise-chip-${exercise.id}`} selected={isSelected} showSelectedCheck={false} mode={isSelected ? 'flat' : 'outlined'} onPress={() => setSelected(toggleExercise(selected, exercise))}>
             {exercise.name}
           </Chip>
         );
