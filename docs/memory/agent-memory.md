@@ -899,3 +899,16 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### CI emulator: the 10-min foreground cap vs. long flows — split the flow
 **Observation (GH-636):** background Bash, `setsid`/`nohup` and `> file` redirects need approval here. A long flow can be split into chunks in `.agent-run/flows/` (use an absolute path in `runFlow: file:`) and run with one `tool.sh flow` call per chunk; the store and app state carry over between chunks. A fresh CI emulator is still in onboarding, so run `tool.sh import-baseline` once before running a flow that starts with `import_fixture.yaml` on its own.
 **Apply when:** a flow (with analyses) may take longer than 10 min.
+
+### CI emulator: setup can end `failed:sdk` AFTER a green APK build — check `setup-status` early, not only at `wait-ready`
+**Problem (GH-544):** the Gradle build succeeded (9m16s), then the system-image download failed (`Error on ZipFile unknown archive`). `tool.sh setup-status` showed it ~25 min into the job, and `wait-ready` exits 1 immediately. No emulator for the whole job.
+**Fix / Rule:** don't repair it (agent prompt). Finish the JS work and the Jest/tsc/lint checks while no emulator is running (the full `npm test` is then allowed), write the flow section unrun, commit, and report the log lines under `## Open question`.
+**Apply when:** `setup-status` prints `failed:<step>`.
+
+### New `use…` hooks under `redux/*/dispatch/` must be named `useX` — the `dispatchX` naming is baseline lint debt
+**Problem (GH-544):** a new `dispatchPlanFromAi` written like `dispatchSuggestBasedOnTrained` raised 7 `react-hooks/rules-of-hooks` errors. The old `dispatchX` files only pass because they are in `scripts/ci/eslint-baseline.json`, so a new file would fail the ratchet. Check with `npm run lint 2>&1 | grep -A8 <file>` (plain `npx eslint` is v10 and needs approval).
+**Apply when:** adding a hook that dispatches.
+
+### Baseline workouts can lack a `sets` array — guard `workout?.sets?.length`
+**Problem (GH-544):** walking the done/planned workouts of the baseline's M5 D1 crashed on `workout.sets.length` in a real-store Jest test. `useWorkoutsByIds` returns such workouts, too.
+**Apply when:** iterating the sets of stored workouts (especially planned ones).
