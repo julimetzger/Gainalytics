@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {ScrollView, StyleSheet, View} from 'react-native';
+import {Keyboard, ScrollView, StyleSheet, View} from 'react-native';
 import {Button, Chip, Modal, Portal, Searchbar, Text, useTheme} from 'react-native-paper';
 import {FlashList} from '@shopify/flash-list';
 import {Exercise} from '../../../models/entities/Exercise';
@@ -40,10 +40,22 @@ const ExerciseSearchSheet = ({visible, onDismiss, selected, onChange}: ExerciseS
   const allExercises = useAlleExercises();
   const stats = useExerciseTrainingStats();
   const [query, setQuery] = useState('');
+  // Edge-to-edge Android does not shrink the window for the keyboard (see KeyboardAwareScrollView),
+  // so the sheet lifts its content itself — otherwise the keyboard covers "Done" while searching.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     if (!visible) setQuery('');
   }, [visible]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardHeight(event.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const selectedIds = useMemo(() => new Set(selected.map((it) => it.id)), [selected]);
   const rows = useMemo(() => {
@@ -69,7 +81,7 @@ const ExerciseSearchSheet = ({visible, onDismiss, selected, onChange}: ExerciseS
   return (
     <Portal>
       <Modal visible={visible} onDismiss={onDismiss} style={styles.wrapper} contentContainerStyle={[styles.sheet, {backgroundColor: theme.colors.surface, borderTopLeftRadius: theme.roundness * 5, borderTopRightRadius: theme.roundness * 5}]}>
-        <View style={styles.content} testID="exercise-search-sheet">
+        <View style={[styles.content, {paddingBottom: styles.content.paddingBottom + keyboardHeight}]} testID="exercise-search-sheet">
           <View style={[styles.handle, {backgroundColor: theme.colors.outlineVariant}]} />
           <Searchbar testID="exercise-search-bar" placeholder="Search exercises" value={query} onChangeText={setQuery} style={styles.search} />
           {selected.length > 0 && (
