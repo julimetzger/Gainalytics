@@ -213,7 +213,7 @@ case "${cmd}" in
   set-ai-key)
     keyfile="${RUNNER_TEMP:-/nonexistent}/ai-test-key/key"
     if [[ ! -s "${keyfile}" ]]; then
-      echo "No AI test key in this run (secret ANTHROPIC_TEST_API_KEY missing)." >&2
+      echo "No AI test key in this run (secret CLAUDE_TEST_API_KEY missing)." >&2
       exit 4
     fi
     key="$(<"${keyfile}")"

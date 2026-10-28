@@ -397,15 +397,15 @@ jobs:
       - name: Provide AI test key to tool.sh (file outside the checkout)
         if: steps.mode.outputs.mode != 'smoke'
         env:
-          AI_TEST_KEY: ${{ secrets.ANTHROPIC_TEST_API_KEY }}
+          AI_TEST_KEY: ${{ secrets.CLAUDE_TEST_API_KEY }}
         run: |
           dir="${RUNNER_TEMP}/ai-test-key"
           mkdir -p "${dir}" && chmod 700 "${dir}"
           if [[ -n "${AI_TEST_KEY}" ]]; then
             ( umask 077; printf '%s' "${AI_TEST_KEY}" > "${dir}/key" )
-            echo "::notice title=secret::ANTHROPIC_TEST_API_KEY set: true"
+            echo "::notice title=secret::CLAUDE_TEST_API_KEY set: true"
           else
-            echo "::notice title=secret::ANTHROPIC_TEST_API_KEY set: false (tool.sh set-ai-key unavailable)"
+            echo "::notice title=secret::CLAUDE_TEST_API_KEY set: false (tool.sh set-ai-key unavailable)"
           fi
 
       - name: Run Claude Code
