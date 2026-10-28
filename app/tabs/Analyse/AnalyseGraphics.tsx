@@ -110,7 +110,6 @@ const AnalyseGraphics = ({}: Props) => {
         setMuscle={setMuscle}
         metrics={metricFilter}
         setMetrics={setMetricFilter}
-        initiallyExpanded
       />
 
       <AnalyseStaleRangeBanner

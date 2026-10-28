@@ -1,5 +1,6 @@
 import React, {ReactNode, useMemo, useRef} from 'react';
 import {PanResponder, StyleProp, View, ViewStyle} from 'react-native';
+import {TouchableRipple} from 'react-native-paper';
 
 /** Horizontal travel (dp) after which a drag counts as a swipe. */
 export const SWIPE_DISTANCE = 40;
@@ -33,33 +34,38 @@ interface SwipeStepAreaProps {
   accessibilityHint?: string;
 }
 
-/** A touch area that reports a tap or a horizontal swipe (one gesture recognizer, so both never fire for the same touch). */
+/**
+ * A touch area that reports a tap or a horizontal swipe. The tap is a plain ripple; the pan
+ * responder only claims a touch once it moves sideways (capture phase), which cancels the
+ * ripple's press — so a swipe never also counts as a tap. Claiming every touch start instead
+ * let the release of the drawer-item tap that opened the screen land here as a "tap".
+ */
 const SwipeStepArea = ({onNext, onPrevious, onPress, children, style, testID, accessibilityHint}: SwipeStepAreaProps) => {
   // The responder is created once; the latest callbacks are read through the ref.
-  const callbacks = useRef({onNext, onPrevious, onPress});
-  callbacks.current = {onNext, onPrevious, onPress};
+  const callbacks = useRef({onNext, onPrevious});
+  callbacks.current = {onNext, onPrevious};
 
   const responder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > TAP_SLOP && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        onMoveShouldSetPanResponderCapture: (_, gesture) => Math.abs(gesture.dx) > TAP_SLOP && Math.abs(gesture.dx) > Math.abs(gesture.dy),
         // A vertical drag belongs to the surrounding ScrollView.
         onPanResponderTerminationRequest: (_, gesture) => Math.abs(gesture.dx) <= Math.abs(gesture.dy),
         onPanResponderRelease: (_, gesture) => {
           const intent = swipeIntent(gesture.dx, gesture.dy);
           if (intent === 'next') callbacks.current.onNext?.();
           if (intent === 'previous') callbacks.current.onPrevious?.();
-          if (intent === 'tap') callbacks.current.onPress?.();
         },
       }),
     [],
   );
 
   return (
-    // Not `accessible`: that would merge the child texts into one node and hide their testIDs from Maestro.
     <View {...responder.panHandlers} style={style} testID={testID} accessibilityHint={accessibilityHint}>
-      {children}
+      {/* Not `accessible`: that would merge the child texts into one node and hide their testIDs from Maestro. */}
+      <TouchableRipple onPress={onPress} disabled={!onPress} accessible={false}>
+        <View>{children}</View>
+      </TouchableRipple>
     </View>
   );
 };

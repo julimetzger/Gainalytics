@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Icon, IconButton, Surface, Text, useTheme} from 'react-native-paper';
+import {IconButton, Surface, Text, useTheme} from 'react-native-paper';
 import {Range} from '../date/DateRangePicker';
 import DateRangeDialog from '../date/DateRangeDialog';
 import {Accumulation} from '../../../models/Accumulation';
@@ -68,7 +68,7 @@ const AnalyseFilterPanel = (props: AnalyseFilterPanelProps) => {
     <Surface style={[styles.panel, {borderRadius: theme.roundness * 3}]} elevation={1} testID="filter-panel">
       {!expanded ? (
         <RangeStepper range={steppableRange} setRange={setRange} onPress={() => setExpanded(true)} testID="filter-panel-card">
-          <View style={styles.card}>
+          <View style={[styles.card, !steppableRange && styles.cardWithoutRange]}>
             <View style={styles.cardLines}>
               {steppableRange && (
                 <Text variant="titleSmall" testID="filter-range-label">
@@ -84,7 +84,8 @@ const AnalyseFilterPanel = (props: AnalyseFilterPanelProps) => {
                 </Text>
               )}
             </View>
-            <Icon source="chevron-down" size={24} />
+            {/* The card itself is not an accessibility node (its texts stay separate), so screen readers expand via this button. */}
+            <IconButton testID="filter-panel-expand" icon="chevron-down" accessibilityLabel="Expand filter" onPress={() => setExpanded(true)} style={styles.noMargin} />
           </View>
         </RangeStepper>
       ) : (
@@ -147,8 +148,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingLeft: 4,
     gap: 4,
+  },
+  cardWithoutRange: {
+    paddingLeft: 16,
   },
   cardLines: {
     flex: 1,

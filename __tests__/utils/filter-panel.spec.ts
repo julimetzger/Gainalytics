@@ -82,7 +82,7 @@ describe('summary lines (GH-642)', () => {
   });
 
   it('shows group by and metrics, "All metrics" when none is picked and the plan for Micro', () => {
-    const plan = {id: 5, name: 'Push pull'} as unknown satisfies Partial<TrainingsPlan>;
+    const plan = {id: 5, name: 'Push pull'} satisfies Partial<TrainingsPlan>;
     expect([
       formatGroupByAndMetrics(new Accumulation(AccumulationMode.WEEK), [Metric.VOLUME, Metric.FREQUENCY]),
       formatGroupByAndMetrics(new Accumulation(AccumulationMode.SINGLE_DAY), []),
