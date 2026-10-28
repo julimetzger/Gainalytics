@@ -110,6 +110,8 @@ export interface AppSettings {
   chatgptModel?: string;
   aiChatPrompt?: string;
   aiTrainingPrompt?: string;
+  /** GH-645: the Coach Insight prompt of a single training. */
+  aiSessionPrompt?: string;
   plan?: PlanSettings;
   restTimer?: RestTimerSettings;
   /**
@@ -295,6 +297,19 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       return {
         ...settings,
         aiTrainingPrompt: undefined,
+      };
+    }
+    case 'SET_AI_SESSION_PROMPT': {
+      const trimmed = ((action.prompt as string) ?? '').trim();
+      return {
+        ...settings,
+        aiSessionPrompt: trimmed || undefined,
+      };
+    }
+    case 'RESET_AI_SESSION_PROMPT': {
+      return {
+        ...settings,
+        aiSessionPrompt: undefined,
       };
     }
     case 'SET_PLAN_MUSCLE_MAP_METRIC': {
