@@ -246,8 +246,7 @@ appId: com.powerliftingworkoutplanner
       id: 'exercise-search-row-.*'
       text: 'Adductor'
     timeout: 20000
-# The counter is unchanged: the search touched nothing. The sheet lifts its
-# content above the keyboard, so "Done" stays reachable while typing.
+# The counter is unchanged: the search touched nothing.
 - assertVisible: 'Done · 11 selected'
 - hideKeyboard
 - tapOn:

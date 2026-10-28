@@ -1,5 +1,6 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {Keyboard, ScrollView, StyleSheet, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import Animated, {useAnimatedKeyboard, useAnimatedStyle} from 'react-native-reanimated';
 import {Button, Chip, Modal, Portal, Searchbar, Text, useTheme} from 'react-native-paper';
 import {FlashList} from '@shopify/flash-list';
 import {Exercise} from '../../../models/entities/Exercise';
@@ -7,6 +8,9 @@ import {useAlleExercises} from '../../../redux/Exercises/use/useAllExercises';
 import {useExerciseTrainingStats} from '../../../redux/Workout/use/useExerciseTrainingStats';
 import {filterExercisesByName, formatAgo, recentExercises, toggleExercise} from '../../../utils/filter-panel';
 import ExerciseSearchRow from './ExerciseSearchRow';
+
+/** Space below the Done button (dp); the keyboard height is added while it is open. */
+const CONTENT_PADDING = 12;
 
 interface ExerciseSearchSheetProps {
   visible: boolean;
@@ -40,22 +44,16 @@ const ExerciseSearchSheet = ({visible, onDismiss, selected, onChange}: ExerciseS
   const allExercises = useAlleExercises();
   const stats = useExerciseTrainingStats();
   const [query, setQuery] = useState('');
-  // Edge-to-edge Android does not shrink the window for the keyboard (see KeyboardAwareScrollView),
-  // so the sheet lifts its content itself — otherwise the keyboard covers "Done" while searching.
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const selectedScrollRef = useRef<ScrollView>(null);
+  // Edge-to-edge Android does not shrink the window for the keyboard, so the sheet lifts its
+  // content itself — otherwise the keyboard covers "Done" while searching. RN's keyboardDidShow
+  // did not reach this Portal on the emulator; Reanimated reads the IME insets natively.
+  const keyboard = useAnimatedKeyboard();
+  const liftStyle = useAnimatedStyle(() => ({paddingBottom: CONTENT_PADDING + keyboard.height.value}));
 
   useEffect(() => {
     if (!visible) setQuery('');
   }, [visible]);
-
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardHeight(event.endCoordinates.height));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
 
   const selectedIds = useMemo(() => new Set(selected.map((it) => it.id)), [selected]);
   const rows = useMemo(() => {
@@ -81,11 +79,20 @@ const ExerciseSearchSheet = ({visible, onDismiss, selected, onChange}: ExerciseS
   return (
     <Portal>
       <Modal visible={visible} onDismiss={onDismiss} style={styles.wrapper} contentContainerStyle={[styles.sheet, {backgroundColor: theme.colors.surface, borderTopLeftRadius: theme.roundness * 5, borderTopRightRadius: theme.roundness * 5}]}>
-        <View style={[styles.content, {paddingBottom: styles.content.paddingBottom + keyboardHeight}]} testID="exercise-search-sheet">
+        <Animated.View style={[styles.content, liftStyle]} testID="exercise-search-sheet">
           <View style={[styles.handle, {backgroundColor: theme.colors.outlineVariant}]} />
           <Searchbar testID="exercise-search-bar" placeholder="Search exercises" value={query} onChangeText={setQuery} style={styles.search} />
           {selected.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selected} keyboardShouldPersistTaps="handled" style={styles.selectedScroll}>
+            // The newest pick is appended at the end: keep it in view.
+            <ScrollView
+              ref={selectedScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.selected}
+              keyboardShouldPersistTaps="handled"
+              style={styles.selectedScroll}
+              onContentSizeChange={() => selectedScrollRef.current?.scrollToEnd({animated: true})}
+            >
               {selected.map((exercise) => (
                 <Chip key={exercise.id} testID={`exercise-search-selected-${exercise.id}`} compact onClose={() => toggle(exercise)} closeIconAccessibilityLabel={`Remove ${exercise.name}`} onPress={() => toggle(exercise)}>
                   {exercise.name}
@@ -94,12 +101,12 @@ const ExerciseSearchSheet = ({visible, onDismiss, selected, onChange}: ExerciseS
             </ScrollView>
           )}
           <View style={styles.list}>
-            <FlashList data={rows} renderItem={renderRow} keyExtractor={(item) => item.key} getItemType={(item) => item.type} keyboardShouldPersistTaps="handled" extraData={selectedIds} />
+            <FlashList data={rows} renderItem={renderRow} keyExtractor={(item) => item.key} getItemType={(item) => item.type} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" extraData={selectedIds} />
           </View>
           <Button testID="exercise-search-done" mode="contained" onPress={onDismiss} style={styles.done}>
             {`Done · ${selected.length} selected`}
           </Button>
-        </View>
+        </Animated.View>
       </Modal>
     </Portal>
   );
@@ -118,7 +125,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 12,
-    paddingBottom: 12,
   },
   handle: {
     alignSelf: 'center',
