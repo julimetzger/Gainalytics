@@ -24,6 +24,11 @@
 #                                  (default: __tests__/e2e/maestro/fixtures/baseline.gains). The import
 #                                  flow waits for "Push pull", so another fixture only works if it
 #                                  contains that plan; otherwise push it and write a matching import flow.
+#   tool.sh set-ai-key             store the budget-capped real Anthropic test key in the app (Settings >
+#                                  AI Configuration) for a LIVE check of an AI feature. The key is typed
+#                                  with adb (never via Maestro inputText, whose reports keep the text) and
+#                                  is never printed. Exit 4 if this run has no key.
+#   tool.sh clear-ai-key           remove the key from the app again (empty input + Save)
 set -euo pipefail
 
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
@@ -191,8 +196,32 @@ case "${cmd}" in
     fi
     echo "Imported $(basename "${fixture}")"
     ;;
+  set-ai-key)
+    keyfile="${RUNNER_TEMP:-/nonexistent}/ai-test-key/key"
+    if [[ ! -s "${keyfile}" ]]; then
+      echo "No AI test key in this run (secret ANTHROPIC_TEST_API_KEY missing)." >&2
+      exit 4
+    fi
+    key="$(<"${keyfile}")"
+    # Only the characters Anthropic keys use, so `adb shell input text` needs no escaping.
+    if [[ ! "${key}" =~ ^[A-Za-z0-9_-]+$ ]]; then
+      echo "AI test key has unexpected characters; not typed." >&2
+      exit 4
+    fi
+    S="$(serial)"
+    "$0" flow "${ROOT}/.github/agent-emulator/flows/ai_key_focus_input.yaml" >/dev/null
+    adb -s "${S}" shell input text "${key}"
+    unset key
+    "$0" flow "${ROOT}/.github/agent-emulator/flows/ai_key_save.yaml" >/dev/null
+    echo "AI test key stored in the app (not printed)."
+    ;;
+  clear-ai-key)
+    "$0" flow "${ROOT}/.github/agent-emulator/flows/ai_key_focus_input.yaml" >/dev/null
+    "$0" flow "${ROOT}/.github/agent-emulator/flows/ai_key_save.yaml" >/dev/null
+    echo "AI key removed from the app."
+    ;;
   *)
-    sed -n '2,26p' "$0"
+    sed -n '2,31p' "$0"
     exit 2
     ;;
 esac

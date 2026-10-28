@@ -391,6 +391,23 @@ jobs:
           fi
           wc -c "$f"
 
+      # A real Anthropic key for one-off live checks of AI features (budget-capped key in the
+      # environment 'gainalytics'). It is NOT put into the agent's environment: it is written to a
+      # file outside the checkout that only `tool.sh set-ai-key` reads, and deleted after the agent.
+      - name: Provide AI test key to tool.sh (file outside the checkout)
+        if: steps.mode.outputs.mode != 'smoke'
+        env:
+          AI_TEST_KEY: ${{ secrets.ANTHROPIC_TEST_API_KEY }}
+        run: |
+          dir="${RUNNER_TEMP}/ai-test-key"
+          mkdir -p "${dir}" && chmod 700 "${dir}"
+          if [[ -n "${AI_TEST_KEY}" ]]; then
+            ( umask 077; printf '%s' "${AI_TEST_KEY}" > "${dir}/key" )
+            echo "::notice title=secret::ANTHROPIC_TEST_API_KEY set: true"
+          else
+            echo "::notice title=secret::ANTHROPIC_TEST_API_KEY set: false (tool.sh set-ai-key unavailable)"
+          fi
+
       - name: Run Claude Code
         id: claude
         if: steps.mode.outputs.mode != 'smoke'
@@ -416,6 +433,10 @@ jobs:
             --allowedTools "Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(git rm:*)"
             --allowedTools "Bash(ls:*),Bash(mkdir:*),Bash(cp:*),Bash(mv:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(sleep:*),Bash(ffmpeg:*)"
             --disallowedTools "Bash(git push:*),Bash(gh:*),Bash(curl:*),Bash(wget:*),Bash(env:*),Bash(printenv:*)"
+
+      - name: Remove AI test key file
+        if: always()
+        run: rm -rf "${RUNNER_TEMP}/ai-test-key"
 
       - name: Stop background setup if still running
         if: always() && steps.mode.outputs.mode != 'smoke'

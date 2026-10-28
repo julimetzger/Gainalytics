@@ -1,0 +1,30 @@
+appId: com.powerliftingworkoutplanner
+name: agent-emulator helper - open Settings and focus the Anthropic API key input
+---
+# Used only by `tool.sh set-ai-key`: the key itself is typed with adb afterwards, never here
+# (Maestro reports keep inputText values, and evidence artifacts of this public repo are public).
+- launchApp:
+    clearState: false
+- runFlow: ../../../__tests__/e2e/maestro/flows/dismiss_system_anr.yaml
+- tapOn:
+    text: 'Dismiss'
+    optional: true
+- extendedWaitUntil:
+    visible: 'Training'
+    timeout: 120000
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-ai-config-accordion'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200

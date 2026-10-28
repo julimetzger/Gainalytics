@@ -1,0 +1,12 @@
+appId: com.powerliftingworkoutplanner
+name: agent-emulator helper - save the API key typed by tool.sh set-ai-key
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+- waitForAnimationToEnd
