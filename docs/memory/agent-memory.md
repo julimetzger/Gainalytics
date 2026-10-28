@@ -889,3 +889,13 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-644):** a flow started right after `metro-start` + `launch` failed with `Element not found: tab-training`: the app was still on the white loading screen, and the flow's `stopApp` restart re-triggered bundling. `cp`/compound commands with `$var` or `timeout bash -c` need approval in this environment, so polling loops in Bash are out.
 **Fix / Rule:** put `extendedWaitUntil: {visible: 'tab-training', timeout: 120000}` right after `launchApp` in any flow you run on Metro, and use a tiny wait-only flow before a "plain" adb screenshot.
 **Apply when:** the first device step after switching to Metro JS.
+
+### Video analyses overlap on a slow emulator: the shared TFLite Interpreter is not thread-safe
+**Problem (GH-636):** `video_compare` imports the same clip twice. On a loaded emulator, import #2's seed preflight ran while #1 was still tracking; both called `interpreter.run()` on the one shared Interpreter, and #2 got `outcome:"failed_no_candidate"` → `Status: failed` (the flow waits 10 min for "Status: done"). On an idle emulator the analyses (~12 s each at 30 FPS) never overlap, so the flow passes standalone and the bug only showed in the nightly.
+**Fix / Rule:** all inference goes through `runInterpreter()` (synchronized on `interpreterLock`); guarded by `__tests__/utils/videoAnalysisInterpreterLock.test.ts`.
+**Repro trick:** load the emulator CPU with `adb -s <serial> shell "for i in 1 2 3; do nohup sh -c 'while :; do :; done' >/dev/null 2>&1 & done"` (stop: `adb -s <serial> shell pkill sh`), then import twice; check logcat `VideoAnalysisImportMetrics` outcome + `analyzeSquatVideo ... metrics=` timings.
+**Apply when:** a video flow fails only in the nightly/suite, or an analysis ends FAILED/"no candidate" on a clip that works alone.
+
+### CI emulator: the 10-min foreground cap vs. long flows — split the flow
+**Observation (GH-636):** background Bash, `setsid`/`nohup` and `> file` redirects need approval here. A long flow can be split into chunks in `.agent-run/flows/` (use an absolute path in `runFlow: file:`) and run with one `tool.sh flow` call per chunk; the store and app state carry over between chunks. A fresh CI emulator is still in onboarding, so run `tool.sh import-baseline` once before running a flow that starts with `import_fixture.yaml` on its own.
+**Apply when:** a flow (with analyses) may take longer than 10 min.
