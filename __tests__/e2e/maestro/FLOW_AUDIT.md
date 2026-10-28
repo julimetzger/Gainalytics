@@ -1,7 +1,7 @@
 # Maestro flows — current overview (GH-584)
 
 All flows live in `__tests__/e2e/maestro/flows/`. Since GH-584 every feature has 2–3
-**target flows** that assert concrete values; shared steps live in 10 **helpers**. The per-ticket
+**target flows** that assert concrete values; shared steps live in 11 **helpers**. The per-ticket
 flows of earlier tickets were merged into these target flows or deleted (the "Merged from:"
 line in each flow header names its sources).
 
@@ -20,7 +20,7 @@ themselves. Every file named below must be in `/sdcard/Download` —
 | F2 Training home | `home_dashboard.yaml` | Micro hero values, Next/Last Training cards, plan list + search, cards open trainings (not the add-plan dialog) | baseline, read-only |
 | | `home_new_plan_current.yaml` | A new plan becomes current (snackbar, Undo, star); first plan on an empty store | empty store, then imports baseline |
 | F3 Planning | `plan_create_meso_template.yaml` | Plan new Training → edit mode, plan name required, Add Meso/Training, last meso not deletable, "From template" without duplicates | imports baseline |
-| | `plan_edit_sets.yaml` | "Edit plan" of a planned training: EDITING PLAN, Add Set carry-over, weight 100 → 105, decimal RIR, "+" opens the picker directly | imports baseline; `goto_micro69_push.yaml` (MODE=edit) |
+| | `plan_edit_sets.yaml` | "Edit plan" of a planned training: EDITING PLAN, Add Set carry-over, weight 100 → 105, decimal RIR, "+" opens the exercise search sheet directly ("Done · 11 selected", search filters/refills) | imports baseline; `goto_micro69_push.yaml` (MODE=edit) |
 | | `plan_overflow_actions.yaml` | ⋮ menu per state: Clear planned training, empty training not startable, older training without the option | imports baseline |
 | F4 Training execution | `train_start_log_finish.yaml` | Card → Train → Start → log set (100/5, RIR 0,5 → 125 kg / 1.5) → Finish; status labels; exercise switch clears input | imports baseline |
 | | `train_rest_timer_1rm.yaml` | Rest timer "target 01:30" shown once, no restart on correcting a logged set, Title Case menu labels, ESTIMATED 1RM 127 kg | imports baseline; `goto_micro69_push.yaml`, `open_rest_menu.yaml` |
@@ -31,8 +31,8 @@ themselves. Every file named below must be in `/sdcard/Download` —
 | F6 Exercises | `exercises_list_detail.yaml` | e1RM sparklines of every session (Squat), detail Graph tab Frequency (dynamic end week) | imports baseline |
 | | `exercise_edit_alternatives_delete.yaml` | Alternatives picker sorted/searchable/keeps picks/saves; delete hint with counters, Cancel deletes nothing | imports baseline |
 | F7 Analyse tab | `analyse_dashboard_drilldown.yaml` | Stale-week banner, radar of an empty week, muscle drill-down into Metrics Overview | baseline, read-only |
-| | `analyse_graphics_metrics.yaml` | Chart empty states, Frequency + exercise without crash (GH-169), multi-metric/point tap, date range picker, Metrics Overview | baseline, read-only |
-| | `analyse_drawer_screens.yaml` | Crash fix GH-458 H1: every drawer entry opens; drawer closes; labels; Records KPIs; Records tile filter + collapsed filter header (GH-617); Training Length outliers; History picker label | baseline, read-only |
+| | `analyse_graphics_metrics.yaml` | Chart empty states, Frequency + exercise without crash (GH-169), multi-metric/point tap, GH-642 filter panel (collapsed summary, period arrows/swipes never past today, Custom date dialog, Group by + metrics in one tap each, 3 most-trained exercises in 3 taps, muscle grid + Clear, Micro), Metrics Overview | baseline, read-only |
+| | `analyse_drawer_screens.yaml` | Crash fix GH-458 H1: every drawer entry opens; drawer closes; labels; Records KPIs; Records tile filter + collapsed filter panel (GH-617/GH-642); Training Length outliers; History filter panel (exercises + muscles only) | baseline, read-only |
 | F8 Video analysis | `video_import_playback.yaml` | Analysis frame rate setting (default 30 FPS, picks `-e FPS=15\|20\|30`, default 15) + "Analysed at N fps", import via picker, analysis survives resume, Rep Summary (3 reps), secure video, readout follows playback, chart seek | imports baseline; `squat-3reps.mp4` |
 | | `video_list_filters_vl.yaml` | List, filters (RIR/VL/exercise), search, VL reference calibration (14.3% VL, RIR 3-4 → 1-2) | imports `gh415-workout-linked-analysis.gains`; `gh415-result.json` copied into the app's files dir (see flow header) |
 | | `video_compare.yaml` | Set-based labels in header/picker, "N reps \| VL x%", synchronised playback | imports `gh393-compare-labels.gains`; `squat-3reps.mp4` |
@@ -89,6 +89,7 @@ instead of a flow with generated fixtures.
 | `open_rest_menu.yaml` | – | Reaches a running rest timer and opens its overflow menu |
 | `set_appearance.yaml` | `MODE` = light \| dark, `PALETTE` = blue \| purple \| custom, `HEX` (custom only) | Sets theme mode and colour in Settings |
 | `pick_file.yaml` | `FILE` (name or regex) | Settings › Import from Strong CSV › picks the file |
+| `pick_exercise_in_search_sheet.yaml` | `NAME` (exercise name) | GH-642: checks one exercise in the exercise search sheet (open, or opened via the expanded filter panel's "Search all") and closes it with Done; idempotent |
 | `set_dummy_api_key.yaml` | – | Stores a dummy Anthropic key so the chat renders (no request is sent) |
 | `open_ai_chat.yaml` | – | Opens Analyse › AI Chat from anywhere |
 | `dismiss_system_anr.yaml` | `OWN_APP` (test only, default `Gainalytics`) | Closes a system "… isn't responding" dialog ("Wait" for `Process system`); leaves the app's own ANR and crash dialogs up so the flow fails. Called by the import helpers, `set_dummy_api_key.yaml` and `ai_chat_errors_history.yaml`. Test the dismiss path: freeze the app (`run-as <pkg> kill -STOP <pid>` + two taps) and run it with `-e OWN_APP=NotThisApp` |
