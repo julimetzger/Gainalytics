@@ -21,6 +21,7 @@ APP_ID="com.powerliftingworkoutplanner"
 TIMEOUT_S="${NIGHTLY_FLOW_TIMEOUT_S:-900}"
 mkdir -p "${OUT}" "${OUT}/retries"
 S="$("${TOOL}" serial)"
+"${TOOL}" display-geometry   # GH-636: same screen geometry the flows are calibrated on
 date +%s > "${OUT}/shard.started"
 
 DOWNLOADS=(
