@@ -40,8 +40,8 @@ updates:
       - dependency-name: react-native-worklets
         update-types: [version-update:semver-major, version-update:semver-minor]
       # Toolchain majors that the React Native 0.84 stack cannot take yet (upgrade together with RN):
-      # - Babel 8: @react-native/babel-preset is Babel 7; @babel/runtime 8 helpers with Babel 7
-      #   transforms broke the app at runtime (nightly 2026-10-29 after #658).
+      # - Babel 8: @react-native/babel-preset is Babel 7; Babel majors move with RN. (The red
+      #   nightly of 2026-10-29 after #658 turned out to be the emulator geometry, not Babel; #662.)
       # - ESLint 10: @react-native/eslint-config supports ESLint ^8 || ^9 only; its plugins
       #   (@babel/eslint-parser 7, eslint-plugin-react, eslint-comments) crash on 10 (#632).
       # - TypeScript 7: typescript-eslint 8.x refuses TS 7 (#635).
