@@ -1,3 +1,4 @@
+import React from 'react';
 import fs from 'fs';
 import path from 'path';
 import rootReducer, {GlobalState} from '../../../app/redux/rootReducer';
@@ -9,6 +10,13 @@ import {buildAiPlanBase} from '../../../app/utils/ai/planTraining/aiPlanContext'
 import {parseAiPlanAnswer} from '../../../app/utils/ai/planTraining/aiPlanResult';
 import {TrainingsState} from '../../../app/models/TrainingsState';
 import {Exercise} from '../../../app/models/entities/Exercise';
+import {act, renderHook} from '@testing-library/react-native';
+import {Provider} from 'react-redux';
+import {createStore} from 'redux';
+import {usePlanFromAi} from '../../../app/redux/Training/dispatch/plan/usePlanFromAi';
+
+// The hook test needs the real selectors and dispatch (jest.setup.js mocks them globally).
+jest.mock('react-redux', () => jest.requireActual('react-redux'));
 
 /**
  * GH-544: the AI result is planned through the real reducers on the real baseline store —
@@ -89,5 +97,38 @@ describe('planning an AI result (GH-544)', () => {
     ]);
     // Only this training is touched: the base training stays as it was.
     expect(next.trainings.byId[baseTraining.id!]).toEqual(baseTraining);
+  });
+
+  // Codex review on #651: the planner runs after a slow AI request, so it must take its ids from the
+  // store at dispatch time, not from the render that started the request.
+  it('allocates ids when planning, so data created during the request is not overwritten', () => {
+    const store = createStore(rootReducer, baselineState());
+    const wrapper = ({children}: {children: React.ReactNode}) => React.createElement(Provider, {store, children});
+    const {result} = renderHook(() => usePlanFromAi(SLOT.trainingsPlanId, SLOT.trainingInMicroNumber, SLOT.microNumber), {wrapper});
+    const planTraining = result.current.planTraining; // captured as the request starts
+
+    const state = store.getState();
+    const parsed = parseAiPlanAnswer(ANSWER, Object.values(state.exercises.byId) as Exercise[]);
+    if (!parsed.ok) throw new Error(parsed.error);
+
+    // Meanwhile another training with workouts is created (here: D2 of the same micro).
+    const plan = state.trainingsPlan.byId[SLOT.trainingsPlanId];
+    const previous = getPreviousTrainingsForTrainingInMeso(plan.trainings, SLOT.trainingInMicroNumber, SLOT.microNumber, plan.mesos);
+    const baseTraining = state.trainings.byId[previous[previous.length - 1]];
+    const otherTrainingId = determineNewId(state.trainings);
+    const otherWorkoutId = determineNewWorkoutId(state.workouts);
+    act(() => {
+      store.dispatch(buildAiPlanAction({...SLOT, trainingInMicroNumber: 2}, baseTraining, parsed.plan.exercises, otherTrainingId, otherWorkoutId));
+    });
+    const otherWorkouts = [0, 1, 2].map(offset => store.getState().workouts.byId[otherWorkoutId + offset]);
+
+    act(() => planTraining(parsed.plan.exercises));
+
+    const after = store.getState();
+    const plannedId = after.trainingsPlan.byId[SLOT.trainingsPlanId].trainings[`${SLOT.microNumber},${SLOT.trainingInMicroNumber}`];
+    expect(plannedId).not.toBe(otherTrainingId);
+    expect(after.trainings.byId[otherTrainingId].plannedWorkouts).toEqual({2: otherWorkoutId, 5: otherWorkoutId + 1, 9: otherWorkoutId + 2});
+    expect([0, 1, 2].map(offset => after.workouts.byId[otherWorkoutId + offset])).toEqual(otherWorkouts);
+    expect(Object.values(after.trainings.byId[plannedId].plannedWorkouts ?? {}).every(id => (id as number) >= otherWorkoutId + 3)).toBe(true);
   });
 });

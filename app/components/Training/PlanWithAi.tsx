@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Button, HelperText, Text, TextInput} from 'react-native-paper';
+import {Button, HelperText, Text, TextInput, useTheme} from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 import {usePlanFromAi} from '../../redux/Training/dispatch/plan/usePlanFromAi';
 import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
@@ -11,7 +11,7 @@ import {secureStorage} from '../../utils/secureStorage';
 import {buildAiPlanContext, buildAiPlanPrompt} from '../../utils/ai/planTraining/aiPlanContext';
 import {describeAiPlan, parseAiPlanAnswer} from '../../utils/ai/planTraining/aiPlanResult';
 import {describeAiPlanError, requestAiPlan} from '../../utils/ai/planTraining/requestAiPlan';
-import {MULTILINE_INFO_TOAST} from '../common/toastConfig';
+import {MULTILINE_INFO_TOAST, MultilineInfoToastProps} from '../common/toastConfig';
 
 interface PlanWithAiProps {
   trainingsPlanId: number;
@@ -36,6 +36,7 @@ const PlanWithAi = ({trainingsPlanId, trainingInMicro, micro}: PlanWithAiProps) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const {base, planTraining} = usePlanFromAi(trainingsPlanId, trainingInMicro, micro);
+  const theme = useTheme();
   const exercises = useAlleExercises();
   const provider = useAiProvider();
   const anthropicModel = useAnthropicModel();
@@ -83,8 +84,9 @@ const PlanWithAi = ({trainingsPlanId, trainingInMicro, micro}: PlanWithAiProps) 
       text2: describeAiPlan(parsed.plan),
       position: 'top',
       visibilityTime: 8000,
+      props: {accentColor: theme.colors.primary} satisfies MultilineInfoToastProps,
     });
-  }, [anthropicModel, base, chatgptModel, exercises, planTraining, provider, text]);
+  }, [anthropicModel, base, chatgptModel, exercises, planTraining, provider, text, theme.colors.primary]);
 
   const hasBase = base.length > 0;
 

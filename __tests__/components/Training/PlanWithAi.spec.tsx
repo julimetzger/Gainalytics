@@ -58,6 +58,7 @@ describe('PlanWithAi (GH-544)', () => {
       text2: 'Dumbbell bench press instead of bench press.',
       position: 'top',
       visibilityTime: 8000,
+      props: {accentColor: expect.any(String)},
     });
     expect(screen.queryByTestId('plan-with-ai-error')).toBeNull();
     expect(mockFetch).not.toHaveBeenCalled();

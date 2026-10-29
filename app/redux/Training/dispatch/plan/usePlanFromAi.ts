@@ -1,9 +1,10 @@
 import {useCallback, useMemo} from 'react';
 import {Action} from 'redux';
-import {useDispatch} from 'react-redux';
-import {useNextTrainingsId} from '../../use/useNextTrainingsId';
+import {useDispatch, useStore} from 'react-redux';
+import {GlobalState} from '../../../rootReducer';
+import {determineNewId} from '../../../normalizedState';
+import {determineNewWorkoutId} from '../../../normalizedWorkoutState';
 import {useLastTrainingInMicro} from '../../use/useLastTrainingInMicro';
-import {useNextWorkoutId} from '../../../Workout/use/useNextWorkoutId';
 import {useWorkoutsByIds} from '../../../Workout/use/useWorkoutsByIds';
 import {Training} from '../../../../models/entities/Training';
 import {Workout} from '../../../../models/entities/Workout';
@@ -49,8 +50,7 @@ export const usePlanFromAi = (
   microNumber: number,
 ): {base: AiPlanBaseExercise[]; planTraining: (exercises: AiPlanExercise[]) => void} => {
   const dispatch = useDispatch();
-  const nextTrainingsId = useNextTrainingsId();
-  const nextWorkoutId = useNextWorkoutId();
+  const store = useStore<GlobalState>();
   const lastTrainingInMicro = useLastTrainingInMicro(trainingsPlanId, trainingsNumber, microNumber);
   const workoutIds = lastTrainingInMicro
     ? [...Object.values(lastTrainingInMicro.doneWorkoutIds ?? {}), ...Object.values(lastTrainingInMicro.plannedWorkouts ?? {})]
@@ -63,17 +63,21 @@ export const usePlanFromAi = (
   const planTraining = useCallback(
     (exercises: AiPlanExercise[]) => {
       if (lastTrainingInMicro === undefined) return;
+      // The caller runs this after an AI request that can take a while. Allocate the ids from the
+      // store NOW, not from the render that started the request: a workout or training created in
+      // the meantime would otherwise be overwritten by this one.
+      const state = store.getState();
       dispatch(
         buildAiPlanAction(
           {trainingsPlanId, microNumber, trainingInMicroNumber: trainingsNumber},
           lastTrainingInMicro,
           exercises,
-          nextTrainingsId,
-          nextWorkoutId,
+          determineNewId(state.trainings),
+          determineNewWorkoutId(state.workouts),
         ) as Action,
       );
     },
-    [dispatch, lastTrainingInMicro, microNumber, nextTrainingsId, nextWorkoutId, trainingsNumber, trainingsPlanId],
+    [dispatch, lastTrainingInMicro, microNumber, store, trainingsNumber, trainingsPlanId],
   );
   return {base, planTraining};
 };
