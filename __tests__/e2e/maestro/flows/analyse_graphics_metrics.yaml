@@ -1,7 +1,7 @@
 appId: com.powerliftingworkoutplanner
 ---
-# Feature F7 Analyse tab - T7.2 Analysis graphs, metric filter, empty states,
-# date range picker, Metrics Overview.
+# Feature F7 Analyse tab - T7.2 Analysis graphs, filter panel, empty states,
+# date range, Metrics Overview.
 #
 # Purpose:
 #   * GH-458 H3: the chart's empty cases read differently - no selection on an
@@ -10,25 +10,29 @@ appId: com.powerliftingworkoutplanner
 #   * GH-169 (crash regression): an EXERCISE filter with every metric incl.
 #     Frequency renders the Frequency chart, no error boundary.
 #   * GH-468 (round 4): without an exercise every metric is charted; metrics are
-#     filtered in the picker (Volume + Frequency + Week -> only those two charts);
+#     filtered in the panel (Volume + Frequency + Week -> only those two charts);
 #     tapping a weekly point lists exactly that week's trainings.
-#   * ANA-002 / GH-207: the date range picker opens and Save keeps the range.
-#   * GH-225: Metrics Overview opens from the drawer with its picker.
+#   * GH-642: the filter panel replaced the sharingan picker AND the separate
+#     DateRangePicker. Collapsed card = period · selection · group by + metrics;
+#     arrows and swipes step the period (never past today, a swipe does not
+#     expand), a tap expands. Expanded: Group by in one tap, metric chips,
+#     3 most-trained exercises in 3 taps, muscle grid + Clear, the search sheet,
+#     Custom opens the date dialog (Save keeps the range).
+#   * GH-225: Metrics Overview opens from the drawer with its filter panel.
 #
 # Data basis: READ-ONLY on the baseline import (fixtures/baseline.gains, last
 #   training Sat 28/02/26; Front squat last trained Fri 27/02/26; Mmkv has no
-#   logged set). Run 00_import_baseline.yaml once before. The default chart range
-#   (last 3 months) is empty on the baseline from now on.
+#   logged set; most trained: Adductor, Leg extension, Cable lateral raise).
+#   Run 00_import_baseline.yaml once before. The default chart range (last 3
+#   months) is empty on the baseline from now on.
 #
-# Coordinates: chart data points (MPAndroidChart) and the picker rows are not
-#   addressable otherwise - see the comments at each point tap.
+# Coordinates: chart data points (MPAndroidChart) are not addressable
+#   otherwise - see the comment at the point tap.
 #
 # Merged from: gh468_analyse_multi_metric, gh468_r4_point_tap_metric_filter,
 #   gh468_r3_metric_filter_muscle_share, gh468_r3_muscle_point_trainings,
 #   gh169_frequency_exercise_no_crash, gh97_frequency_metric,
-#   gh458_chart_empty_states, analyse_date_range_picker, 11_metrics_overview_slots
-#   (round-3 metric chip ids and the "Exercise Graphs" / "Alle Metriken" texts
-#   are stale and were not carried over).
+#   gh458_chart_empty_states, analyse_date_range_picker, 11_metrics_overview_slots.
 - launchApp:
     clearState: false
 - runFlow:
@@ -68,10 +72,12 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible: 'Close drawer'
     timeout: 15000
+# No retry: a repeated tap would land on the filter card under the drawer item.
 - tapOn:
     text: '^Analysis$'
     below:
       id: 'analyse-drawer-toggle'
+    retryTapIfNoChange: false
 - waitForAnimationToEnd
 
 # ------------------------------------- case 0: nothing selected, empty period
@@ -79,9 +85,22 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'analyse-chart-empty-range'
     timeout: 60000
-- assertVisible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
-# only the default accumulation mode "Day" is selected
-- assertVisible: '1 selected'
+# GH-642: the panel starts collapsed - period, "All exercises", "Day · All metrics".
+- assertVisible:
+    id: 'filter-selection-summary'
+    text: 'All exercises'
+- assertVisible:
+    id: 'filter-groupby-summary'
+    text: 'Day · All metrics'
+- assertVisible:
+    id: 'filter-range-label'
+    text: '\d{1,2} [A-Z][a-z]{2}( \d{4})? – \d{1,2} [A-Z][a-z]{2} \d{4}'
+# the default period ends this week -> no step into the future
+- assertVisible:
+    id: 'filter-range-next'
+    enabled: false
+- assertNotVisible:
+    id: 'filter-panel-collapse'
 - assertVisible:
     id: 'analyse-chart-empty-range-description'
     text: 'There are no logged sets between .* to .*\. The last one was on Sat, 28/02/26\.'
@@ -96,60 +115,29 @@ appId: com.powerliftingworkoutplanner
     id: 'analyse-chart-misconfigured'
 
 # ------------------------------------- case 1: an exercise never trained once
-- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+- tapOn:
+    id: 'filter-panel-card'
 - extendedWaitUntil:
     visible:
-      id: 'search-bar'
-    timeout: 30000
-- tapOn:
-    id: 'search-bar'
-- eraseText: 30
-- inputText: 'Mmkv'
-- waitForAnimationToEnd
-# Coordinates: a text tap on the result row does not select it (verified on the
-# emulator: the row stays, no chip) and `tapOn: 'Mmkv'` would hit the search
-# field that holds the same text. The only result row sits right under the
-# field. Re-tap only if the chip did not appear (the keyboard can eat a tap).
-- tapOn:
-    point: '30%, 26%'
-    retryTapIfNoChange: false
-- waitForAnimationToEnd
-- runFlow:
-    when:
-      notVisible:
-        id: 'chip'
-        text: 'Mmkv'
-    commands:
-      - tapOn:
-          point: '30%, 26%'
-          retryTapIfNoChange: false
-      - waitForAnimationToEnd
+      id: 'filter-panel-collapse'
+    timeout: 10000
 - assertVisible:
-    id: 'chip'
-    text: 'Mmkv'
-# Close the list: same two-back pattern as in part 2 (GH-636 comment there).
+    id: 'filter-exercise-section-title'
+    text: 'Exercises \(0\)'
 - runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
+    file: pick_exercise_in_search_sheet.yaml
+    env:
+      NAME: 'Mmkv'
+- assertVisible:
+    id: 'filter-exercise-section-title'
+    text: 'Exercises \(1\)'
+- tapOn:
+    id: 'filter-panel-collapse'
 - extendedWaitUntil:
-    notVisible:
-      id: 'search-bar'
-    timeout: 3000
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
-- extendedWaitUntil:
-    notVisible:
-      id: 'search-bar'
-    timeout: 15000
-- waitForAnimationToEnd
+    visible:
+      id: 'filter-selection-summary'
+      text: 'Mmkv'
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: 'analyse-chart-never-trained'
@@ -171,59 +159,29 @@ appId: com.powerliftingworkoutplanner
     timeout: 30000
 - assertNotVisible:
     id: 'analyse-chart-never-trained'
+- assertVisible:
+    id: 'filter-selection-summary'
+    text: 'All exercises'
 
 # ---------------------- case 2: trained plenty, just not in the default period
-- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+- tapOn:
+    id: 'filter-panel-card'
 - extendedWaitUntil:
     visible:
-      id: 'search-bar'
-    timeout: 30000
+      id: 'filter-panel-collapse'
+    timeout: 10000
+# "Front squat" is the only catalogue entry with that name.
+- runFlow:
+    file: pick_exercise_in_search_sheet.yaml
+    env:
+      NAME: 'Front squat'
 - tapOn:
-    id: 'search-bar'
-- eraseText: 30
-# "Front squat" is the only catalogue entry containing that string.
-- inputText: 'Front squat'
-- waitForAnimationToEnd
-# Same position tap as for Mmkv (the only result row under the field).
-- tapOn:
-    point: '30%, 26%'
-    retryTapIfNoChange: false
-- waitForAnimationToEnd
-- runFlow:
-    when:
-      notVisible:
-        id: 'chip'
-        text: 'Front squat'
-    commands:
-      - tapOn:
-          point: '30%, 26%'
-          retryTapIfNoChange: false
-      - waitForAnimationToEnd
-- assertVisible:
-    id: 'chip'
-    text: 'Front squat'
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
+    id: 'filter-panel-collapse'
 - extendedWaitUntil:
-    notVisible:
-      id: 'search-bar'
-    timeout: 3000
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
-- extendedWaitUntil:
-    notVisible:
-      id: 'search-bar'
-    timeout: 15000
-- waitForAnimationToEnd
+    visible:
+      id: 'filter-selection-summary'
+      text: 'Front squat'
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: 'analyse-chart-empty-range'
@@ -248,8 +206,8 @@ appId: com.powerliftingworkoutplanner
     timeout: 60000
 # rangeEndingAt(27/02/26): 3 months back, inclusive.
 - assertVisible:
-    id: 'date-range-picker-button'
-    text: 'Thu, 27/11/25 to Fri, 27/02/26'
+    id: 'filter-range-label'
+    text: '27 Nov 2025 – 27 Feb 2026'
 - assertNotVisible:
     id: 'analyse-chart-empty-range'
 - assertVisible: 'Volume \(sum\)'
@@ -273,8 +231,8 @@ appId: com.powerliftingworkoutplanner
     id: 'analyse-error-boundary'
 
 # =============================================================================
-# Part 2 - no exercise: all metrics, metric filter, point tap (GH-468 round 4).
-# A relaunch resets the Analysis screen's local state (selection + range).
+# Part 2 - no exercise: all metrics, period stepping, metric filter, point tap
+# (GH-468 round 4, GH-642). A relaunch resets the Analysis screen's local state.
 # =============================================================================
 - launchApp:
     clearState: false
@@ -308,13 +266,16 @@ appId: com.powerliftingworkoutplanner
           text: '^Analysis$'
           below:
             id: 'analyse-drawer-toggle'
+          retryTapIfNoChange: false
 - extendedWaitUntil:
     visible:
       id: 'analyse-chart-jump-to-last'
       text: 'Jump to Sat, 28/02/26'
     timeout: 60000
 # Fresh state: no exercise picked (the Front squat filter of part 1 is gone).
-- assertVisible: '1 selected'
+- assertVisible:
+    id: 'filter-selection-summary'
+    text: 'All exercises'
 - tapOn:
     id: 'analyse-chart-jump-to-last'
 - extendedWaitUntil:
@@ -322,8 +283,8 @@ appId: com.powerliftingworkoutplanner
       id: 'analyse-chart-Volume'
     timeout: 60000
 - assertVisible:
-    id: 'date-range-picker-button'
-    text: 'Fri, 28/11/25 to Sat, 28/02/26'
+    id: 'filter-range-label'
+    text: '28 Nov 2025 – 28 Feb 2026'
 
 # (a) no selection, no metric filter -> every metric is charted
 - assertVisible: 'Volume \(sum\)'
@@ -334,9 +295,62 @@ appId: com.powerliftingworkoutplanner
 - assertNotVisible:
     id: 'analyse-chart-misconfigured'
 
-# Date range picker: opens as a modal, Save without a change keeps the range.
+# GH-642: step the period on the collapsed card. The arrow and a swipe to the
+# right go one period back, a swipe to the left forward again; none expands.
+# (Each step moves by the range length + 1 s, hence 28 or 29 Aug.)
+- assertVisible:
+    id: 'filter-range-next'
+    enabled: true
 - tapOn:
-    id: 'date-range-picker-button'
+    id: 'filter-range-previous'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-range-label'
+      text: '(28|29) Aug – 28 Nov 2025'
+    timeout: 10000
+- swipe:
+    from:
+      id: 'filter-range-label'
+    direction: LEFT
+    duration: 300
+- extendedWaitUntil:
+    visible:
+      id: 'filter-range-label'
+      text: '2[78] Nov 2025 – 28 Feb 2026'
+    timeout: 10000
+- swipe:
+    from:
+      id: 'filter-range-label'
+    direction: RIGHT
+    duration: 300
+- extendedWaitUntil:
+    visible:
+      id: 'filter-range-label'
+      text: '(28|29) Aug – 28 Nov 2025'
+    timeout: 10000
+- assertNotVisible:
+    id: 'filter-panel-collapse'
+- tapOn:
+    id: 'filter-range-next'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-range-label'
+      text: '2[78] Nov 2025 – 28 Feb 2026'
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-Volume'
+    timeout: 30000
+
+# Custom opens the date dialog; Save without a change keeps the range.
+- tapOn:
+    id: 'filter-panel-card'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-panel-collapse'
+    timeout: 10000
+- tapOn:
+    id: 'filter-range-preset-custom'
 - extendedWaitUntil:
     visible: '^Save$'
     timeout: 15000
@@ -348,129 +362,46 @@ appId: com.powerliftingworkoutplanner
     notVisible: '^Save$'
     timeout: 15000
 - assertVisible:
-    id: 'date-range-picker-button'
-    text: 'Fri, 28/11/25 to Sat, 28/02/26'
+    id: 'filter-range-label'
+    text: '2[78] Nov 2025 – 28 Feb 2026'
 
-# (b) Volume + Frequency + Week in the picker
-- tapOn: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+# (b) Volume + Frequency + Week: one tap each in the expanded panel.
+- tapOn:
+    id: 'filter-metric-Volume'
+- assertVisible:
+    id: 'filter-metric-Volume'
+    selected: true
+- assertVisible:
+    id: 'filter-metric-Sets'
+    selected: false
+# Frequency is the last chip of the horizontal row: swipe the row to reach it.
+- repeat:
+    while:
+      notVisible:
+        id: 'filter-metric-Frequency'
+    times: 3
+    commands:
+      - swipe:
+          from:
+            id: 'filter-metric-Reps'
+          direction: LEFT
+          duration: 400
+- tapOn:
+    id: 'filter-metric-Frequency'
+- assertVisible:
+    id: 'filter-metric-Frequency'
+    selected: true
+- tapOn:
+    id: 'filter-groupby-Week'
+- tapOn:
+    id: 'filter-panel-collapse'
 - extendedWaitUntil:
     visible:
-      id: 'search-bar'
-    timeout: 30000
-- tapOn:
-    id: 'search-bar'
-- eraseText: 30
-- inputText: 'Volume'
-- waitForAnimationToEnd
-# Same position tap as above: the only result row under the search field.
-- tapOn:
-    point: '30%, 26%'
-    retryTapIfNoChange: false
-- waitForAnimationToEnd
-- runFlow:
-    when:
-      notVisible:
-        id: 'chip'
-        text: 'Volume'
-    commands:
-      - tapOn:
-          point: '30%, 26%'
-          retryTapIfNoChange: false
-      - waitForAnimationToEnd
-- assertVisible:
-    id: 'chip'
-    text: 'Volume'
-- tapOn:
-    id: 'search-bar-clear-icon'
-    optional: true
-- tapOn:
-    id: 'search-bar'
-- eraseText: 30
-- inputText: 'Frequency'
-- waitForAnimationToEnd
-- tapOn:
-    point: '30%, 26%'
-    retryTapIfNoChange: false
-- waitForAnimationToEnd
-- runFlow:
-    when:
-      notVisible:
-        id: 'chip'
-        text: 'Frequency'
-    commands:
-      - tapOn:
-          point: '30%, 26%'
-          retryTapIfNoChange: false
-      - waitForAnimationToEnd
-- assertVisible:
-    id: 'chip'
-    text: 'Frequency'
-- tapOn:
-    id: 'search-bar-clear-icon'
-    optional: true
-- tapOn:
-    id: 'search-bar'
-- eraseText: 30
-- inputText: 'Week'
-- waitForAnimationToEnd
-- tapOn:
-    point: '30%, 26%'
-    retryTapIfNoChange: false
-- waitForAnimationToEnd
-- runFlow:
-    when:
-      notVisible:
-        id: 'chip'
-        text: 'Week'
-    commands:
-      - tapOn:
-          point: '30%, 26%'
-          retryTapIfNoChange: false
-      - waitForAnimationToEnd
-# Week replaces Day (one accumulation mode at a time); both metrics stay.
-- assertVisible:
-    id: 'chip'
-    text: 'Week'
-- assertNotVisible:
-    id: 'chip'
-    text: 'Day'
-- assertVisible:
-    id: 'chip'
-    text: 'Volume'
-- tapOn:
-    id: 'search-bar-clear-icon'
-    optional: true
-# GH-636: close the list with at most two backs (keyboard, then list) and wait
-# until the list is really gone before deciding on the second one. With only
-# waitForAnimationToEnd the second `when: visible search-bar` could still see the
-# fading list, and the extra back left Analysis for the Dashboard (no picker ->
-# "3 selected" not found).
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
-- extendedWaitUntil:
-    notVisible:
-      id: 'search-bar'
-    timeout: 3000
-    optional: true
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
-- extendedWaitUntil:
-    notVisible:
-      id: 'search-bar'
-    timeout: 15000
-- waitForAnimationToEnd
-# still on Analysis (a stray back would have opened the Dashboard)
+      id: 'filter-groupby-summary'
+      text: 'Week · Volume, Frequency'
+    timeout: 10000
 - assertVisible:
     id: 'analyse-chart-Volume'
-- assertVisible: '3 selected'
 - assertVisible: 'Volume \(sum\)'
 - assertVisible: 'Frequency \(training days\)'
 - assertNotVisible:
@@ -508,11 +439,11 @@ appId: com.powerliftingworkoutplanner
 - assertNotVisible: 'Sun, 22/02/26'
 - assertNotVisible: 'Sat, 21/02/26'
 # the charts are still there after the tap (not recomputed away). GH-636: scroll
-# up to the picker anchor itself - "Volume (sum)" can already be on screen while
-# the "N selected" row above it is still scrolled off.
+# up to the asserted element itself, not to a neighbour.
 - repeat:
     while:
-      notVisible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+      notVisible:
+        id: 'filter-groupby-summary'
     times: 8
     commands:
       - swipe:
@@ -522,7 +453,134 @@ appId: com.powerliftingworkoutplanner
       - waitForAnimationToEnd
 - assertVisible: 'Volume \(sum\)'
 - assertVisible: 'Frequency \(training days\)'
-- assertVisible: '3 selected'
+- assertVisible:
+    id: 'filter-groupby-summary'
+    text: 'Week · Volume, Frequency'
+
+# =============================================================================
+# Part 3 - GH-642 selection in taps: 3 most-trained exercises = 3 taps, muscles
+# straight from the grid (no search), Clear; Micro group by.
+# =============================================================================
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible:
+        id: 'analyse-chart-jump-to-last'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - runFlow:
+          when:
+            notVisible: 'Close drawer'
+          commands:
+            - tapOn:
+                id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Close drawer'
+          timeout: 15000
+      - tapOn:
+          text: '^Analysis$'
+          below:
+            id: 'analyse-drawer-toggle'
+          retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-jump-to-last'
+    timeout: 60000
+- assertVisible:
+    id: 'filter-selection-summary'
+    text: 'All exercises'
+- tapOn:
+    id: 'filter-panel-card'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-panel-collapse'
+    timeout: 10000
+- tapOn:
+    id: 'filter-exercise-chip-.*'
+    text: 'Adductor'
+- tapOn:
+    id: 'filter-exercise-chip-.*'
+    text: 'Leg extension'
+- tapOn:
+    id: 'filter-exercise-chip-.*'
+    text: 'Cable lateral raise'
+- assertVisible:
+    id: 'filter-exercise-section-title'
+    text: 'Exercises \(3\)'
+- assertVisible:
+    id: 'filter-exercise-chip-.*'
+    text: 'Leg extension'
+    selected: true
+# muscles: their own section, one tap each, no search
+- scrollUntilVisible:
+    element:
+      id: 'filter-muscle-Quads'
+    direction: DOWN
+- tapOn:
+    id: 'filter-muscle-Quads'
+- assertVisible:
+    id: 'filter-muscle-section-title'
+    text: 'Muscles \(1\)'
+- assertVisible:
+    id: 'filter-muscle-Quads'
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: 'filter-panel-collapse'
+    direction: UP
+- tapOn:
+    id: 'filter-panel-collapse'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-selection-summary'
+      text: 'Adductor, Leg extension, Cable lateral raise · Quads'
+    timeout: 10000
+# Clear empties the muscle selection only
+- tapOn:
+    id: 'filter-panel-card'
+- scrollUntilVisible:
+    element:
+      id: 'filter-muscle-clear'
+    direction: DOWN
+- tapOn:
+    id: 'filter-muscle-clear'
+- assertVisible:
+    id: 'filter-muscle-section-title'
+    text: 'Muscles \(0\)'
+- assertVisible:
+    id: 'filter-exercise-section-title'
+    text: 'Exercises \(3\)'
+# Group by Micro: one tap, grouped by the micros of a plan
+- scrollUntilVisible:
+    element:
+      id: 'filter-groupby-Micro'
+    direction: UP
+- tapOn:
+    id: 'filter-groupby-Micro'
+- scrollUntilVisible:
+    element:
+      id: 'filter-panel-collapse'
+    direction: UP
+- tapOn:
+    id: 'filter-panel-collapse'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-groupby-summary'
+      text: 'Micro \(.+\) · All metrics'
+    timeout: 10000
+- assertNotVisible:
+    id: 'analyse-error-boundary'
 
 # ------------------------------------- GH-225: Metrics Overview from the drawer
 - tapOn:
@@ -540,13 +598,25 @@ appId: com.powerliftingworkoutplanner
     text: '^Metrics Overview$'
     below:
       id: 'analyse-drawer-toggle'
-- extendedWaitUntil:
-    visible: 'Select Exercises, Metrics, Accumulation Mode'
-    timeout: 30000
+    retryTapIfNoChange: false
 - extendedWaitUntil:
     notVisible: 'Close drawer'
     timeout: 15000
 - assertVisible: '^Metrics Overview$'
-- assertNotVisible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+# Its own filter panel: exercises and muscles only (no group by / metrics line).
+- runFlow:
+    when:
+      visible:
+        id: 'filter-panel-collapse'
+    commands:
+      - tapOn:
+          id: 'filter-panel-collapse'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-selection-summary'
+      text: 'All exercises'
+    timeout: 30000
+- assertNotVisible:
+    id: 'filter-groupby-summary'
 - assertNotVisible:
     id: 'analyse-error-boundary'

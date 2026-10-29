@@ -25,10 +25,10 @@ appId: com.powerliftingworkoutplanner
 # Merged from: gh418_edit_mode (base), gh466_plan_fractional_rir,
 #   gh403_picker_opens_directly, gh401_picker_keeps_list, gh406_add_set_carryover.
 #   Dropped: gh418 long-press-does-nothing check (negative-only); committing a
-#   pick in the sharingan picker (Maestro row taps do not commit reliably,
-#   agent memory "Exercise picker sharingan dropdown"; covered by
-#   TrainingElementPickerList.spec.tsx) — so "list kept AFTER a pick" is not
-#   asserted here, only "opens directly + search filters/refills".
+#   pick in the old sharingan picker. GH-642: the "+" tile opens the exercise
+#   search sheet ("Done · 11 selected", checked rows); picking in the sheet is
+#   covered by train_delete_exercise_running.yaml and AnalyseFilterPanel.spec.tsx,
+#   here only "opens directly + search filters/refills".
 
 - runFlow: 00_import_baseline.yaml
 - runFlow:
@@ -208,48 +208,53 @@ appId: com.powerliftingworkoutplanner
           duration: 300
       - waitForAnimationToEnd:
           timeout: 3000
+# GH-642: the "+" tile opens the exercise search sheet directly; the plan's 11
+# exercises are checked and counted in its "Done · N selected" button.
 - tapOn:
     id: 'training-add-exercise-box'
+# (The Paper button's label is its child text node, so it is matched by text.)
 - extendedWaitUntil:
-    visible: '11 selected'
+    visible: 'Done · 11 selected'
     timeout: 30000
 - assertVisible:
-    id: 'search-bar'
-- assertVisible: 'Adductor'
+    id: 'exercise-search-bar'
+- assertVisible:
+    id: 'exercise-search-row-.*'
+    text: 'Adductor'
+    checked: true
 - tapOn:
-    id: 'search-bar'
+    id: 'exercise-search-bar'
 - eraseText: 30
 - inputText: 'squat'
 - extendedWaitUntil:
-    visible: 'Front squat'
+    visible:
+      id: 'exercise-search-row-.*'
+      text: 'Front squat'
     timeout: 20000
-- assertVisible: 'Bulgarian split squat'
-- assertVisible: 'Safety bar squat'
-- assertNotVisible: 'Adductor'
+- assertVisible:
+    id: 'exercise-search-row-.*'
+    text: 'Bulgarian split squat'
+- assertVisible:
+    id: 'exercise-search-row-.*'
+    text: 'Safety bar squat'
+- assertNotVisible:
+    id: 'exercise-search-row-.*'
+    text: 'Adductor'
 - eraseText: 6
 - extendedWaitUntil:
-    visible: 'Adductor'
+    visible:
+      id: 'exercise-search-row-.*'
+      text: 'Adductor'
     timeout: 20000
 # The counter is unchanged: the search touched nothing.
-- assertVisible: '11 selected'
-# Close the picker with ONE guarded BACK each (keyboard, then picker); a BACK
-# without the picker would leave the screen.
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
-      - waitForAnimationToEnd:
-          timeout: 3000
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
-      - waitForAnimationToEnd:
-          timeout: 3000
+- assertVisible: 'Done · 11 selected'
+- hideKeyboard
+- tapOn:
+    id: 'exercise-search-done'
+- extendedWaitUntil:
+    notVisible:
+      id: 'exercise-search-sheet'
+    timeout: 10000
 - assertVisible:
     id: 'header-plan-meso-name'
     text: 'Push pull upper lower › .*'

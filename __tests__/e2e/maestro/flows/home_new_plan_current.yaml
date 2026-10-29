@@ -95,17 +95,16 @@ appId: com.powerliftingworkoutplanner
           retryTapIfNoChange: false
       - waitForAnimationToEnd:
           timeout: 10000
+# GH-642: the "+" tile opens the exercise search sheet (nothing selected yet).
 - tapOn:
     id: 'training-add-exercise-box'
 - extendedWaitUntil:
-    visible: 'Bench Press'
+    visible: 'Done · 0 selected'
     timeout: 15000
-- tapOn: 'Bench Press'
-- assertVisible: '1 selected'
-# Coordinate tap: the picker (own react-native-modal window) closes on a tap outside the
-# list; it has no close control with an id, and BACK/hideKeyboard can leave the screen.
-- tapOn:
-    point: '50%, 85%'
+- runFlow:
+    file: pick_exercise_in_search_sheet.yaml
+    env:
+      NAME: 'Bench Press'
 - extendedWaitUntil:
     visible: 'Add Set'
     timeout: 15000

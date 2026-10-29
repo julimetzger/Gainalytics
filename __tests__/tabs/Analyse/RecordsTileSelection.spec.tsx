@@ -29,30 +29,20 @@ jest.mock('../../../app/redux/Workout/use/useWorkoutsIn', () => ({useWorkoutsIn:
 jest.mock('../../../app/redux/Exercises/use/useAllExercises', () => ({useAlleExercises: () => [mockSquat, mockBench]}));
 jest.mock('../../../app/redux/Exercises/use/useExercisesForMuscles', () => ({useExercisesForMuscles: () => []}));
 
-jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () => {
-  const actual = jest.requireActual('../../../app/components/picker/elements/TrainingElementPicker');
-  const {Text, TouchableOpacity} = require('react-native');
+jest.mock('../../../app/components/picker/filter/AnalyseFilterPanel', () => {
+  const {Range} = jest.requireActual('../../../app/components/picker/date/DateRangePicker');
+  const {Text, TouchableOpacity, View} = require('react-native');
   return {
     __esModule: true,
-    Accumulation: actual.Accumulation,
-    default: ({setExercise, visible, collapseToSummary}: {setExercise: (exercises: Exercise[]) => void; visible?: boolean; collapseToSummary?: boolean}) => (
-      <TouchableOpacity testID="mock-pick-squat" onPress={() => setExercise([mockSquat])}>
-        <Text testID="mock-picker-state">{`visible=${String(visible)} collapseToSummary=${String(collapseToSummary)}`}</Text>
-      </TouchableOpacity>
-    ),
-  };
-});
-
-jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
-  const actual = jest.requireActual('../../../app/components/picker/date/DateRangePicker');
-  const {Text, TouchableOpacity} = require('react-native');
-  return {
-    __esModule: true,
-    Range: actual.Range,
-    default: ({setRange}: {setRange: (range: unknown) => void}) => (
-      <TouchableOpacity testID="mock-set-range" onPress={() => setRange(new actual.Range(new Date(2026, 6, 1), new Date(2026, 6, 31, 23, 59, 59)))}>
-        <Text>range</Text>
-      </TouchableOpacity>
+    default: ({setExercise, setRange, initiallyExpanded}: {setExercise: (exercises: Exercise[]) => void; setRange: (range: unknown) => void; initiallyExpanded?: boolean}) => (
+      <View>
+        <TouchableOpacity testID="mock-pick-squat" onPress={() => setExercise([mockSquat])}>
+          <Text testID="mock-picker-state">{`initiallyExpanded=${String(initiallyExpanded)}`}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity testID="mock-set-range" onPress={() => setRange(new Range(new Date(2026, 6, 1), new Date(2026, 6, 31, 23, 59, 59)))}>
+          <Text>range</Text>
+        </TouchableOpacity>
+      </View>
     ),
   };
 });
@@ -75,7 +65,7 @@ describe('Records tile selection (GH-617)', () => {
 
   it('mounts the filter header collapsed to its summary', () => {
     renderScreen();
-    expect(screen.getByTestId('mock-picker-state')).toHaveTextContent('visible=false collapseToSummary=true');
+    expect(screen.getByTestId('mock-picker-state')).toHaveTextContent('initiallyExpanded=undefined');
   });
 
   it('filters the list to the tapped tile and restores it on a second tap', () => {

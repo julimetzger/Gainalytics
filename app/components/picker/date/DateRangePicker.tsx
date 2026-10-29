@@ -1,15 +1,13 @@
-import {DatePickerInput} from 'react-native-paper-dates';
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Button, Icon, Modal, Portal} from 'react-native-paper';
+import React, {useRef, useState} from 'react';
+import {Button, Icon} from 'react-native-paper';
 import {getDateStringFromDate} from '../../../utils/DateHelper';
-import {StyleSheet, View} from 'react-native';
+import {View} from 'react-native';
 // GH-588: react-native-gesture-handler 3 removed the legacy `Swipeable` export; importing it
 // yielded `undefined` and crashed every screen with a range picker (Metrics Overview, History,
 // Records, ...) into the Analyse error boundary.
 import ReanimatedSwipeable, {SwipeableMethods, SwipeDirection} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, {SharedValue, useAnimatedStyle} from 'react-native-reanimated';
-import {DatePickerModal} from './DatePickerModal';
-import {NullableRange} from './NullableRange';
+import DateRangeDialog from './DateRangeDialog';
 
 // The legacy Swipeable hid its actions while closed; ReanimatedSwipeable always draws them
 // behind the row, and the outlined (transparent) button would show both chevrons at rest.
@@ -24,24 +22,6 @@ const SwipeAction = ({progress, source}: {progress: SharedValue<number>; source:
 
 const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
   const [open, setOpen] = useState(false);
-  const [uncompleteRange, setUncompleteRange] = useState<NullableRange>(new NullableRange(range.startDate, range.endDate));
-  // true when the calendar has confirmed both start and end; false after a single-day tap.
-  // Text-input edits do NOT change this flag so that a single-day tap always falls back to
-  // today on Save, regardless of what the user types in the end input afterward.
-  const calendarEndSelectedRef = useRef(true);
-
-  useEffect(() => {
-    if (open) {
-      setUncompleteRange(new NullableRange(range.startDate, range.endDate));
-      // The confirmed range always has an end date, so mark it as selected.
-      calendarEndSelectedRef.current = true;
-    }
-  }, [open]);
-
-  const handleCalendarChange = useCallback((newRange: NullableRange) => {
-    calendarEndSelectedRef.current = !!newRange.endDate;
-    setUncompleteRange(newRange);
-  }, []);
 
   let swipeableRef = useRef<SwipeableMethods>(null);
   let close = () => {
@@ -49,17 +29,6 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
       swipeableRef?.current?.close();
     }, 250);
   };
-
-  function onSubmit() {
-    setOpen(false);
-    if (uncompleteRange.startDate) {
-      // Use the calendar-selected end date only when the calendar confirmed it.
-      // When the user tapped a single day (calendarEndSelectedRef = false), always
-      // fall back to today — ignoring any value typed into the end text input.
-      const endDate = calendarEndSelectedRef.current && uncompleteRange.endDate ? uncompleteRange.endDate : new Date();
-      setRange(new Range(uncompleteRange.startDate, endDate));
-    }
-  }
 
   return (
     <>
@@ -94,26 +63,7 @@ const DateRangePicker = ({range, setRange}: DateRangePickerProps) => {
           </Button>
         </ReanimatedSwipeable>
       </View>
-      <Portal>
-        <Modal visible={open} onDismiss={() => setOpen(false)} contentContainerStyle={styles.modal}>
-          <View style={styles.modalContent}>
-            <View style={{flexDirection: 'row', display: 'flex', justifyContent: 'flex-start'}}>
-              <View style={{flex: 1}}>
-                <DatePickerInput testID="date-range-start-input" locale="en" withModal={false} value={uncompleteRange.startDate} onChange={(d) => (d ? setUncompleteRange((prev) => new NullableRange(d, prev.endDate)) : null)} inputMode="start" />
-              </View>
-              <View style={{flex: 1}}>
-                <DatePickerInput testID="date-range-end-input" locale="en" withModal={false} value={uncompleteRange.endDate} onChange={(d) => (d ? setUncompleteRange((prev) => new NullableRange(prev.startDate, d)) : null)} inputMode="end" />
-              </View>
-              <View style={{flex: 1}}>
-                <Button mode="elevated" onPress={onSubmit}>
-                  Save
-                </Button>
-              </View>
-            </View>
-            <DatePickerModal date={uncompleteRange} onChange={handleCalendarChange} />
-          </View>
-        </Modal>
-      </Portal>
+      <DateRangeDialog visible={open} range={range} onDismiss={() => setOpen(false)} onSave={(startDate, endDate) => setRange(new Range(startDate, endDate))} />
     </>
   );
 };
@@ -158,15 +108,3 @@ export class Range {
 }
 
 export default DateRangePicker;
-const styles = StyleSheet.create({
-  modal: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    marginTop: 64,
-  },
-  modalContent: {
-    width: '100%',
-    height: '100%',
-  },
-});
