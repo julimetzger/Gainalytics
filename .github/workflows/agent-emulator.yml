@@ -11,6 +11,10 @@
 #   publish   takes the agent's commits (git bundle artifact), checks them, pushes them
 #             to agent/emulator-* and opens a draft PR. Never pushes to master.
 #
+# Automatic rounds: agent-codex-review.yml dispatches this workflow with auto_review=true when Codex
+# reviews a PR with findings. The agent fixes what it agrees with, declines the rest with a reason
+# (.agent-run/review-reply.md, posted as a PR comment) and may decline everything without committing.
+#
 # Feedback rounds: run the workflow on the head branch of an open PR (dispatch with that ref).
 # The agent then also gets the PR description, comments and review comments, and the publish
 # job pushes its commits onto that same branch and updates the PR instead of opening a new one.
@@ -41,6 +45,11 @@ on:
           - sonnet
           - haiku
         default: opus
+      auto_review:
+        description: "Automatic round after a Codex review (set by agent-codex-review.yml)"
+        required: false
+        type: boolean
+        default: false
   issues:
     types: [labeled]
 
@@ -80,6 +89,7 @@ jobs:
       has_question: ${{ steps.collect.outputs.has_question }}
       ticket: ${{ steps.mode.outputs.ticket }}
       issue_number: ${{ steps.mode.outputs.issue_number }}
+      auto_review: ${{ steps.mode.outputs.auto_review }}
     steps:
       - name: Check actor and decide mode
         id: mode
@@ -92,6 +102,7 @@ jobs:
           IN_ISSUE: ${{ inputs.issue_number }}
           IN_TASK: ${{ inputs.task }}
           IN_SMOKE: ${{ inputs.smoke_only }}
+          IN_AUTO: ${{ inputs.auto_review }}
           LABEL_ISSUE: ${{ github.event.issue.number }}
           ISSUE_AUTHOR_ASSOC: ${{ github.event.issue.author_association }}
           SHA: ${{ github.sha }}
@@ -104,13 +115,19 @@ jobs:
           if [[ "${REF_TYPE}" != "branch" ]]; then
             echo "::error::Run this workflow from a branch, not a ${REF_TYPE}"; exit 1
           fi
+          auto="false"
           if [[ "${ACTOR}" == "${OWNER}" ]]; then
             perm="admin"
+          elif [[ "${ACTOR}" == "github-actions[bot]" && "${EVENT}" == "workflow_dispatch" && "${IN_AUTO}" == "true" ]]; then
+            # Dispatched by agent-codex-review.yml with this repo's GITHUB_TOKEN (needs actions:write,
+            # which fork workflows never get). Checked again below: it must be a feedback round on an open PR.
+            perm="write"
           else
             perm="$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" --jq .permission 2>/dev/null || echo none)"
           fi
           echo "actor permission: ${perm}"
           case "${perm}" in admin|maintain|write) ;; *) echo "::error::${ACTOR} is not owner/collaborator with write access"; exit 1 ;; esac
+          if [[ "${EVENT}" == "workflow_dispatch" && "${IN_AUTO}" == "true" ]]; then auto="true"; fi
           issue=""
           mode="agent"
           case "${EVENT}" in
@@ -119,7 +136,8 @@ jobs:
               if [[ "${IN_SMOKE}" == "true" ]]; then mode="smoke"; fi
               # Built-in harmless dummy task (.github/agent-emulator/test-task.md) to test the pipeline.
               if [[ "${IN_TASK}" == "dummy" ]]; then mode="agent-test"; fi
-              if [[ "${mode}" == "agent" && -z "${issue}" && -z "${IN_TASK}" ]]; then
+              # An automatic review round needs neither: the PR and its review comments are the task.
+              if [[ "${mode}" == "agent" && -z "${issue}" && -z "${IN_TASK}" && "${auto}" != "true" ]]; then
                 echo "::error::Give an issue number or a task text (or choose smoke_only)"; exit 1
               fi
               ;;
@@ -138,7 +156,11 @@ jobs:
             pr="$(gh api "repos/${REPO}/pulls?state=open&head=${OWNER}:${REF_NAME}" \
               --jq "[.[] | select((.head.repo.full_name | ascii_downcase) == (\"${REPO}\" | ascii_downcase))][0].number // empty")"
           fi
+          if [[ "${auto}" == "true" && ( -z "${pr}" || "${mode}" != "agent" ) ]]; then
+            echo "::error::auto_review needs an open PR on the dispatched branch"; exit 1
+          fi
           {
+            echo "auto_review=${auto}"
             echo "mode=${mode}"
             echo "issue_number=${issue}"
             echo "ticket=${ticket}"
@@ -346,6 +368,7 @@ jobs:
           IN_TASK: ${{ inputs.task }}
           PR: ${{ steps.mode.outputs.pr_number }}
           REF_NAME: ${{ github.ref_name }}
+          AUTO: ${{ steps.mode.outputs.auto_review }}
         run: |
           set -euo pipefail
           f=.agent-run/task.md
@@ -360,6 +383,25 @@ jobs:
           rounds may already be done), do not start over. Your commits are pushed onto this branch, and
           \`.agent-run/pr-body.md\` REPLACES the PR description: write it complete (the whole change, not only
           this round), with a short "Feedback round" note on what changed now.
+
+          EOF
+          fi
+          if [[ "${AUTO}" == "true" ]]; then
+            cat >> "$f" <<'EOF'
+          ## Automatic round after a Codex review
+
+          Nobody asked for this round by hand: it was started because the Codex review bot left findings.
+          Only the findings of the newest Codex review that are not yet addressed are your task (the
+          issue text, if present, is background). Judge each finding yourself first — Codex can be wrong,
+          miss context or ask for something that does not fit the project:
+
+          - Agree: fix it, with a test where it makes sense, as the skill requires.
+          - Disagree or not worth it: do not change code for it.
+
+          In both cases write `.agent-run/review-reply.md`: one bullet per finding with file, a short
+          title, **Fixed** or **Declined** and one or two sentences why. It is posted as a PR comment.
+          If you decline every finding, do not commit anything and do not touch `pr-body.md`; the reply
+          alone is the result. Do not start new work beyond the findings.
 
           EOF
           fi
@@ -485,14 +527,17 @@ jobs:
           echo "::notice title=agent commits::${n} $(git log --format=%s "${BASE}..HEAD" | tr '\n' ';')"
           git log --oneline "${BASE}..HEAD" || true
           mkdir -p "$RUNNER_TEMP/agent-result"
-          cp .agent-run/pr-title.txt .agent-run/pr-body.md "$RUNNER_TEMP/agent-result/" 2>/dev/null || true
+          for f in pr-title.txt pr-body.md review-reply.md; do
+            cp ".agent-run/${f}" "$RUNNER_TEMP/agent-result/" 2>/dev/null || true
+          done
           if [[ "${n}" -gt 0 ]]; then
             git bundle create "$RUNNER_TEMP/agent-result/agent.bundle" "${BASE}..HEAD"
             echo "has_commits=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_commits=false" >> "$GITHUB_OUTPUT"
-            # No commits but the agent reported a blocker/question: the publish job posts it on the issue.
-            if grep -q '^## Open question' .agent-run/pr-body.md 2>/dev/null; then
+            # No commits but the agent reported a blocker/question, or declined all review findings
+            # (review-reply.md): the publish job posts it on the issue/PR.
+            if grep -q '^## Open question' .agent-run/pr-body.md 2>/dev/null || [[ -s .agent-run/review-reply.md ]]; then
               echo "has_question=true" >> "$GITHUB_OUTPUT"
             fi
           fi
@@ -556,8 +601,15 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          R="$RUNNER_TEMP/agent-result"
+          if grep -q '^## Open question' "$R/pr-body.md" 2>/dev/null; then
+            text="$(cat "$R/pr-body.md")"
+          else
+            # Declined every review finding: the assessment is the whole answer.
+            text="$(printf '## Review findings: no changes\n\n%s' "$(cat "$R/review-reply.md")")"
+          fi
           body="$(printf '%s\n\n---\nEmulator agent stopped without changes ([run](%s)). Evidence artifact: `agent-emulator-evidence`.\n' \
-            "$(cat "$RUNNER_TEMP/agent-result/pr-body.md")" "${RUN_URL}")"
+            "${text}" "${RUN_URL}")"
           echo "${body}" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${PR}" ]]; then
             # Feedback round: the question belongs where the feedback was given.
@@ -578,6 +630,7 @@ jobs:
           TICKET: ${{ needs.emulator.outputs.ticket }}
           ISSUE: ${{ needs.emulator.outputs.issue_number }}
           PR: ${{ needs.emulator.outputs.pr_number }}
+          AUTO: ${{ needs.emulator.outputs.auto_review }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -604,10 +657,21 @@ jobs:
                 body="$(printf '%s\n\n---\nLast updated by the emulator agent workflow ([run](%s)). Evidence artifact: `agent-emulator-evidence`.\n' "${body}" "${RUN_URL}")"
                 jq -n --arg body "${body}" '{body:$body}' | gh api -X PATCH "repos/${REPO}/pulls/${PR}" --input - --jq .html_url
               fi
-              gh api "repos/${REPO}/issues/${PR}/comments" \
-                -f body="Feedback round: emulator agent pushed ${n} commit(s) to \`${BASE_REF}\` and updated the description ([run](${RUN_URL}))." >/dev/null
+              msg="Feedback round: emulator agent pushed ${n} commit(s) to \`${BASE_REF}\` and updated the description ([run](${RUN_URL}))."
+              if [[ -s "$R/review-reply.md" ]]; then
+                msg="$(printf '%s\n\n## Review findings\n\n%s\n' "${msg}" "$(cat "$R/review-reply.md")")"
+              fi
+              gh api "repos/${REPO}/issues/${PR}/comments" -f body="${msg}" >/dev/null
               echo "::notice title=feedback round::PR #${PR} updated (${n} commits on ${BASE_REF})"
               echo "PR #${PR} updated: ${n} commit(s) pushed to ${BASE_REF}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            if [[ "${AUTO}" == "true" ]]; then
+              # Automatic round: no second PR. Keep the commits on a side branch and say so on the PR.
+              side="agent/review-pr${PR}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              git push origin "agent-tmp:refs/heads/${side}"
+              gh api "repos/${REPO}/issues/${PR}/comments" -f body="Automatic review round could not push to \`${BASE_REF}\` (PR closed, or the branch moved since the run started). The ${n} commit(s) are on \`${side}\` ([compare](${GITHUB_SERVER_URL}/${REPO}/compare/${BASE_REF}...${side}), [run](${RUN_URL}))." >/dev/null
+              echo "::warning title=feedback round::branch moved; commits kept on ${side}"
               exit 0
             fi
             echo "::warning title=feedback round::could not update PR #${PR} on ${BASE_REF} (closed, or the branch moved since the run started) -- opening a separate draft PR instead"
