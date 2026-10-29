@@ -417,7 +417,7 @@ jobs:
           # Lets the agent block on `tool.sh wait-ready` (up to 9 min per call) in the foreground.
           BASH_DEFAULT_TIMEOUT_MS: "600000"
           BASH_MAX_TIMEOUT_MS: "600000"
-        uses: anthropics/claude-code-action/base-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
+        uses: anthropics/claude-code-action/base-action@8041f1d17e0e7d2f2cfe35002962e9f26237c0bb # v1.0.263
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
