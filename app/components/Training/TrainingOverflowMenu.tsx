@@ -60,8 +60,7 @@ const TrainingOverflowMenu = ({
           <>
             <Menu.Item
               testID="overflow-edit-plan"
-              leadingIcon="pencil-outline"
-              title={<Text style={primaryStyle.label}>Edit plan</Text>}
+              title={<Text style={primaryStyle.label}>Edit Plan</Text>}
               onPress={() => {
                 onDismiss();
                 onEditPlan();
@@ -70,8 +69,7 @@ const TrainingOverflowMenu = ({
             {canClearPlan && onClearPlan && (
               <Menu.Item
                 testID="overflow-clear-plan"
-                leadingIcon="broom"
-                title="Clear planned training"
+                title="Clear planned Training"
                 onPress={() => {
                   onDismiss();
                   onClearPlan();
@@ -103,7 +101,7 @@ const TrainingOverflowMenu = ({
             {(trainingState === TrainingsState.PLANNED || trainingState === TrainingsState.STARTED || trainingState === TrainingsState.FINISHED) && (
               <Menu.Item
                 testID="overflow-edit"
-                title="Edit training"
+                title="Edit Training"
                 onPress={() => {
                   onDismiss();
                   onEditTraining();
