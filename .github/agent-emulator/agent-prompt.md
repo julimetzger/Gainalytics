@@ -114,7 +114,10 @@ public. Rules:
 
 1. The change is committed (`git commit -m "<TICKET>: <summary>"`), `.agent-run/` is not committed.
 2. For UI or flow changes it was verified **on the emulator with imported baseline data**: a Maestro
-   flow that asserts the actual resulting value, plus before and after screenshots.
+   flow that asserts the actual resulting value, plus before and after screenshots. That flow is
+   the **committed** target flow from `__tests__/e2e/maestro/FLOW_AUDIT.md`, extended for this
+   change (row in `FLOW_AUDIT.md` updated), and run with `tool.sh flow`; a flow kept only in
+   `.agent-run/` does not count. No assertable behaviour (pure styling)? State that and why in the PR body.
 3. At most 5 evidence screenshots are committed under `screenshots/<TICKET>/`.
 4. New learnings are appended to the `## Inbox (new entries)` section of
    `docs/memory/agent-memory.md` and committed.
