@@ -20,6 +20,10 @@ export interface SetData {
   rir: number;
   /** Velocity loss percent from video analysis, if available for this set */
   vl_percent?: number;
+  /** GH-645: upper bounds of a planned rep / load / RIR range (planned sets only) */
+  reps_max?: number;
+  weight_max_kg?: number;
+  rir_max?: number;
 }
 
 export interface ExerciseSession {
@@ -80,17 +84,19 @@ function primaryMuscles(exercise: Exercise | undefined): string[] {
 }
 
 /**
- * Convert a Training's doneWorkoutIds to ExerciseSessions with raw set data.
+ * Convert a Training's doneWorkoutIds (GH-645: or its plannedWorkouts) to ExerciseSessions with raw set data.
  */
 function trainingToSessions(
   training: Training,
   workoutsById: Record<number, Workout>,
   exercisesById: Record<number, Exercise>,
   vlLookup: Map<string, number>,
+  side: 'done' | 'plan' = 'done',
 ): ExerciseSession[] {
   const sessions: ExerciseSession[] = [];
+  const workoutIds = (side === 'plan' ? training.plannedWorkouts : training.doneWorkoutIds) ?? {};
 
-  for (const [exIdStr, workoutId] of Object.entries(training.doneWorkoutIds)) {
+  for (const [exIdStr, workoutId] of Object.entries(workoutIds)) {
     const exerciseId = parseInt(exIdStr, 10);
     const workout = workoutsById[workoutId];
     if (!workout || !workout.sets || workout.sets.length === 0) continue;
@@ -108,6 +114,9 @@ function trainingToSessions(
         rir: s.rir,
       };
       if (vlPct != null) setData.vl_percent = vlPct;
+      if (s.repsMax != null) setData.reps_max = s.repsMax;
+      if (s.weightMax != null) setData.weight_max_kg = s.weightMax;
+      if (s.rirMax != null) setData.rir_max = s.rirMax;
       return setData;
     });
 
@@ -164,29 +173,34 @@ export function buildRawTrainingData(
 // Prompt builder
 // ─────────────────────────────────────────────────────────────────────────────
 
-import {DEFAULT_TRAINING_PROMPT} from '../constants/aiPrompts';
+import {DEFAULT_SESSION_PROMPT, DEFAULT_TRAINING_PROMPT} from '../constants/aiPrompts';
+
+const range = (low: number, high: number | undefined) => (high != null && high !== low ? `${low}–${high}` : `${low}`);
+
+/** Render exercises as structured text (not JSON — shorter token count). */
+function renderExercises(lines: string[], exercises: ExerciseSession[]): void {
+  for (const ex of exercises) {
+    const muscleStr = ex.primary_muscles.length > 0
+      ? ` [${ex.primary_muscles.join(', ')}]`
+      : '';
+    lines.push(`  ${ex.name}${muscleStr}`);
+    for (const s of ex.sets) {
+      const vlStr = s.vl_percent != null ? `, VL%=${s.vl_percent}` : '';
+      lines.push(`    ${range(s.weight_kg, s.weight_max_kg)}kg × ${range(s.reps, s.reps_max)} reps, RIR ${range(s.rir, s.rir_max)}${vlStr}`);
+    }
+  }
+}
 
 export function buildCoachPrompt(input: CoachInsightInput, systemOverride?: string): {system: string; user: string} {
   const system = systemOverride ?? DEFAULT_TRAINING_PROMPT;
 
-
-  // Render sessions as structured text (not JSON — shorter token count)
   const sessionLines: string[] = [];
   for (const session of input.sessions) {
     const label = session.is_current_training
       ? `=== CURRENT TRAINING (${session.date}) ===`
       : `--- Session ${session.date} ---`;
     sessionLines.push(label);
-    for (const ex of session.exercises) {
-      const muscleStr = ex.primary_muscles.length > 0
-        ? ` [${ex.primary_muscles.join(', ')}]`
-        : '';
-      sessionLines.push(`  ${ex.name}${muscleStr}`);
-      for (const s of ex.sets) {
-        const vlStr = s.vl_percent != null ? `, VL%=${s.vl_percent}` : '';
-        sessionLines.push(`    ${s.weight_kg}kg × ${s.reps} reps, RIR ${s.rir}${vlStr}`);
-      }
-    }
+    renderExercises(sessionLines, session.exercises);
   }
 
   const user =
@@ -195,4 +209,77 @@ export function buildCoachPrompt(input: CoachInsightInput, systemOverride?: stri
     `\n\nCoach insight:`;
 
   return {system, user};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GH-645: one training — its plan, what was done, and the last training at its position
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SingleSessionInput {
+  /** e.g. "Micro 2 · Push squat" */
+  name: string;
+  date: string;
+  finished: boolean;
+  plan: ExerciseSession[];
+  done: ExerciseSession[];
+  /** The last training at the same position that was trained ("vs last"), if any. */
+  previous?: {name: string; date: string; done: ExerciseSession[]};
+}
+
+const isoDate = (training: Training) => {
+  const at = training.end ?? training.start;
+  return at ? new Date(at).toISOString().substring(0, 10) : 'unknown';
+};
+
+/**
+ * Only this training (plan + done) and its comparison training (done) — no other session
+ * reaches the prompt. Undefined when nothing was logged in this training yet.
+ */
+export function buildSingleSessionData(
+  training: Training,
+  name: string,
+  previous: {training: Training; name: string} | undefined,
+  workoutsById: Record<number, Workout>,
+  exercisesById: Record<number, Exercise>,
+  videoAnalysesById: Record<number, VideoAnalysis>,
+): SingleSessionInput | undefined {
+  const vlLookup = buildVlLookup(videoAnalysesById);
+  const done = trainingToSessions(training, workoutsById, exercisesById, vlLookup);
+  if (done.length === 0) return undefined;
+  const input: SingleSessionInput = {
+    name,
+    date: isoDate(training),
+    finished: training.state === TrainingsState.FINISHED,
+    plan: trainingToSessions(training, workoutsById, exercisesById, vlLookup, 'plan'),
+    done,
+  };
+  if (previous) {
+    const previousDone = trainingToSessions(previous.training, workoutsById, exercisesById, vlLookup);
+    if (previousDone.length > 0) {
+      input.previous = {name: previous.name, date: isoDate(previous.training), done: previousDone};
+    }
+  }
+  return input;
+}
+
+export function buildSingleSessionPrompt(input: SingleSessionInput, systemOverride?: string): {system: string; user: string} {
+  const system = systemOverride ?? DEFAULT_SESSION_PROMPT;
+  const lines: string[] = [`Training: ${input.name} (${input.finished ? 'finished' : 'in progress'}, ${input.date})`, ''];
+
+  lines.push('=== PLAN OF THIS TRAINING ===');
+  if (input.plan.length > 0) {
+    renderExercises(lines, input.plan);
+  } else {
+    lines.push('  (nothing planned)');
+  }
+  lines.push(`=== DONE IN THIS TRAINING (${input.date}) ===`);
+  renderExercises(lines, input.done);
+  if (input.previous) {
+    lines.push(`--- LAST TIME: ${input.previous.name} (${input.previous.date}), done ---`);
+    renderExercises(lines, input.previous.done);
+  } else {
+    lines.push('--- LAST TIME: no earlier training at this position ---');
+  }
+
+  return {system, user: lines.join('\n') + '\n\nCoach insight for this session:'};
 }

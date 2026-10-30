@@ -14,6 +14,7 @@ import ComparisonKpiCards from '../../analyse/ComparisonKpiCards';
 import MuscleMapCard from '../../analyse/MuscleMapCard';
 import {durationKpi, Kpi, setsKpi, trainingDurationMs, volumeKpi} from '../../../utils/overview-comparison';
 import {useTrainingComparison} from './useTrainingComparison';
+import TrainingCoachInsightCard from './TrainingCoachInsightCard';
 
 interface TrainingsOverviewProps {
   training: Training;
@@ -22,6 +23,8 @@ interface TrainingsOverviewProps {
   trainingInMicro: number;
   /** The Plan | Train toggle — GH-526 puts it at the start of the compare chip row. */
   toggle?: React.ReactNode;
+  /** GH-645: false while this pane is off-screen (swiper) — the Coach Insight makes no request. */
+  isActive?: boolean;
 }
 
 /**
@@ -31,7 +34,7 @@ interface TrainingsOverviewProps {
  * training, or the micro's plan (as a share). The line under the chips names
  * both sides; KPI cards, muscle map and Muscle Overview / Exercises all follow it.
  */
-const TrainingsOverview = ({training, trainingsPlan, currentMicro, trainingInMicro, toggle}: TrainingsOverviewProps) => {
+const TrainingsOverview = ({training, trainingsPlan, currentMicro, trainingInMicro, toggle, isActive = true}: TrainingsOverviewProps) => {
   const theme = useTheme();
   const trainingWorkoutIds = useMemo(() => new Set(Object.values(training.doneWorkoutIds) as number[]), [training.doneWorkoutIds]);
   const vlInsights = useVelocityLossInsights(trainingsPlan, currentMicro, trainingWorkoutIds);
@@ -75,6 +78,14 @@ const TrainingsOverview = ({training, trainingsPlan, currentMicro, trainingInMic
         {/* PERF-003: the sections below the summary cards arrive in later stages when the screen
             builds progressively (see ProgressiveMount); everywhere else all stages are on at once. */}
         <Stage at={1}>
+          <TrainingCoachInsightCard
+            training={training}
+            previous={comparison.lastDone}
+            trainingsPlan={trainingsPlan}
+            micro={currentMicro}
+            trainingInMicro={trainingInMicro}
+            isActive={isActive}
+          />
           {vlInsights.length > 0 && (
             <View style={{marginTop: 4}}>
               {vlInsights.map((insight) => (
