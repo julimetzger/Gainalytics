@@ -134,7 +134,7 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd:
     timeout: 8000
 # The SAF picker remembers its last folder -> steer it to Downloads via
-# "Show roots" (an edge swipe is the system BACK gesture), only when the clip
+# "Show roots" (German UI: "Root-Verzeichnis anzeigen"; an edge swipe is the system BACK gesture), only when the clip
 # is not listed after the picker had time to load.
 - extendedWaitUntil:
     visible: 'squat-3reps.mp4'
@@ -144,7 +144,7 @@ appId: com.powerliftingworkoutplanner
     when:
       notVisible: 'squat-3reps.mp4'
     commands:
-      - tapOn: 'Show roots'
+      - tapOn: 'Show roots|Root-Verzeichnis anzeigen'
       - extendedWaitUntil:
           visible: 'Downloads'
           timeout: 15000
@@ -393,7 +393,7 @@ appId: com.powerliftingworkoutplanner
     when:
       notVisible: 'squat-person-2reps.mp4'
     commands:
-      - tapOn: 'Show roots'
+      - tapOn: 'Show roots|Root-Verzeichnis anzeigen'
       - extendedWaitUntil:
           visible: 'Downloads'
           timeout: 15000
