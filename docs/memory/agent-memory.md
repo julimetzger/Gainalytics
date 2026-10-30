@@ -931,6 +931,14 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-544 r2):** `ls $RUNNER_TEMP/ai-test-key` is blocked (outside the workdir), but `adb -s <serial> push /home/runner/work/_temp/ai-test-key/key /data/local/tmp/aikey` works without showing the content. Focus the empty key field with a flow, then `adb -s <serial> shell 'input text "$(cat /data/local/tmp/aikey)"'`, `adb shell rm /data/local/tmp/aikey`, and save via a second flow that waits for "API key saved". Remove it again the same way ("API key removed"). Maestro `takeScreenshot` only accepts paths inside its output folder (absolute paths fail the flow).
 **Apply when:** a ticket needs the live-key check in the agent-emulator workflow.
 
+### Live AI check: `adb shell input text <key>` drops characters in the secure API-key field — type in chunks, verify by counting bullets
+**Problem (GH-645):** one `input text` with the 106-char test key saved only 91 characters ("API key saved", then "Invalid API key" = one wasted live request).
+**Fix / Rule:** push the key file to `/data/local/tmp/k`, clear the field (tap, `keyevent 123`, ~130× `67`), then type on the device: `adb shell 'k=$(tr -d "\n\r " < /data/local/tmp/k); while [ -n "$k" ]; do input text "${k:0:8}"; k=${k:8}; sleep 0.6; done; rm /data/local/tmp/k'`. Before saving, `uiautomator dump` + `grep -o '•' dump.xml | wc -l`: the password field holds one `•` per character (no plaintext), which must match the key length (`adb push` prints the byte count).
+**Apply when:** a live check with `$RUNNER_TEMP/ai-test-key/key`.
+
+### A cached Claude Coach Insight stays visible after the key is removed — "Ask again" shows the no-key notice
+**Observation (GH-645):** `useCoachInsight` reads the cache before checking the key (only ChatGPT hides cached answers when signed out), so after a live check the card still shows the answer. Pressing `training-coach-insight-refresh` / `coach-insight-refresh` deletes the cache entry and, without a key, turns the card into the notice with no request — also a cheap proof that the key is gone. The single-training card has no 28-day window, so it works on the stale baseline fixture (unlike the micro card).
+**Apply when:** cleaning up after a live AI check, or a flow expects the no-key notice on a device that had a key.
 ### CI emulator: a flow with `clearState: true` (or `pm clear`) silently switches the app back to the stale job Metro
 **Problem (GH-642):** after JS edits the only way to new code here is `tool.sh rebuild` + `debug_http_host=10.0.2.2:9` (GH-589 entry). `home_new_plan_current.yaml` (`launchApp: clearState: true`) deleted that pref, so it and every later flow ran the FIRST Metro bundle. Flows still passed or failed plausibly, so wrong conclusions followed (a working keyboard fix looked broken). `00_import_baseline.yaml` does not clear prefs.
 **Fix / Rule:** after every flow, check a marker that only the newest code renders, or `run-as <pkg> ls shared_prefs` (the prefs file must exist). Run clearState flows as a copy in `.agent-run/flows/` with `clearState: false`, after `pm clear` + `pm grant … POST_NOTIFICATIONS` + rewriting the pref.
@@ -960,3 +968,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### CI emulator: a full flow over 10 min — run a trimmed copy from `.agent-run/flows/`
 **Observation (GH-544 r4):** foreground commands are capped at 10 min and backgrounding is not allowed. `plan_overflow_actions.yaml` A+B+E alone took 8m47s. Shell redirection/sed into new files needs approval here, so write the copy with the Write tool and make its `runFlow` paths absolute (they resolve relative to the flow file).
 **Apply when:** the flow to re-run has sections you don't need.
+### The second "move the cursor" tap of a tap+erase pair hits the KEYBOARD when the field sits low
+**Problem (GH-636):** ai_settings_provider (Claude model field) ended as `claude-sonnet-4-5251001`. The log showed the field at y 1515–1641 of 2400, `focused=true`: Settings does not resize under the IME (edge-to-edge), so after the first tap the keyboard covered the field and the second `tapOn: {id}` at the field centre landed on a key. The nightly variant of the same race: "Element not found: settings-anthropic-model-input". It depends on where `scrollUntilVisible` stopped, so it changes with the screen geometry.
+**Fix / Rule:** `tapOn` → `eraseText` → `hideKeyboard` → `waitForAnimationToEnd` → `tapOn` → `eraseText`, then assert the exact typed value.
+**Apply when:** a flow clears a prefilled TextInput in the lower half of a non-resizing screen.
+
+### Timer assertions: compare the ring with the wall time since the tap, not a fixed clock window
+**Problem (GH-636):** train_rest_timer_1rm waited for `01:(2[0-9]|30)` after Reset (a 10 s window). On the ticking rest screen a `tapOn` spends ~11 s waiting for a settled hierarchy before tapping, so a loaded nightly emulator missed the window.
+**Fix / Rule:** `evalScript: "${output.t0 = Date.now()}"` right before the tap (Maestro's JS has `Date.now()`), then `copyTextFrom` the ring, parse it into elapsed seconds and require `!over && elapsed <= ceil((Date.now()-t0)/1000)+1`. Re-read in a `repeat: {times: 8, while: {true: "${output.v != 'PASS'}"}}` loop for late taps. Negative control (Reset tap removed) failed as expected.
+**Apply when:** asserting any countdown/elapsed display after a tap.

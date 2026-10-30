@@ -1,4 +1,4 @@
-import {buildRawTrainingData} from '../../app/utils/coachInsight';
+import {buildRawTrainingData, buildSingleSessionData} from '../../app/utils/coachInsight';
 import {Training} from '../../app/models/entities/Training';
 import {Workout} from '../../app/models/entities/Workout';
 import {Exercise} from '../../app/models/entities/Exercise';
@@ -76,5 +76,55 @@ describe('buildRawTrainingData – VL lookup (GH-175 regression)', () => {
     );
 
     expect(result.sessions[0].exercises[0].sets[0].vl_percent).toBeUndefined();
+  });
+});
+
+describe('buildSingleSessionData (GH-645)', () => {
+  const workout = (id: number, weight: number) =>
+    ({id, exerciseId: 10, sets: [{index: 1, reps: 5, weight, rir: 2, date: new Date()}]}) as unknown as Workout;
+  const training = (id: number, plannedId: number | undefined, doneId: number | undefined, end: string): Training =>
+    ({
+      id,
+      plannedWorkouts: plannedId ? {10: plannedId} : {},
+      doneWorkoutIds: doneId ? {10: doneId} : {},
+      exercises: [10],
+      state: TrainingsState.FINISHED,
+      end: new Date(end),
+    }) as Training;
+  const exercises = {10: makeExercise(10, 'Squat')};
+
+  it('holds the plan, the done sets with VL% and the done sets of the comparison training', () => {
+    const vl: VideoAnalysis = {
+      id: 1,
+      workoutId: 101,
+      exerciseId: 10,
+      setIndex: 1,
+      status: VideoAnalysisStatus.DONE,
+      setResult: {velocityLossPercent: 31.4} as any,
+      sourceUri: '',
+      createdAt: new Date(),
+      videoMeta: {durationMs: 0, fps: 0, width: 0, height: 0},
+    };
+    const result = buildSingleSessionData(
+      training(2, 100, 101, '2026-04-08T10:00:00Z'),
+      'Micro 2 · Legs',
+      {training: training(1, undefined, 200, '2026-04-01T10:00:00Z'), name: 'Micro 1 · Legs'},
+      {100: workout(100, 140), 101: workout(101, 142.5), 200: workout(200, 137.5)},
+      exercises,
+      {1: vl},
+    );
+
+    expect(result).toEqual({
+      name: 'Micro 2 · Legs',
+      date: '2026-04-08',
+      finished: true,
+      plan: [{name: 'Squat', primary_muscles: [], sets: [{reps: 5, weight_kg: 140, rir: 2}]}],
+      done: [{name: 'Squat', primary_muscles: [], sets: [{reps: 5, weight_kg: 142.5, rir: 2, vl_percent: 31}]}],
+      previous: {name: 'Micro 1 · Legs', date: '2026-04-01', done: [{name: 'Squat', primary_muscles: [], sets: [{reps: 5, weight_kg: 137.5, rir: 2}]}]},
+    });
+  });
+
+  it('is undefined while nothing was logged in the training', () => {
+    expect(buildSingleSessionData(training(2, 100, undefined, '2026-04-08'), 'Micro 2 · Legs', undefined, {100: workout(100, 140)}, exercises, {})).toBeUndefined();
   });
 });

@@ -1,6 +1,6 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/SettingsRouter';
-import React, {useState, useEffect, useMemo} from 'react';
+import React, {useState, useEffect, useMemo, useRef} from 'react';
 import {Alert, NativeModules, ScrollView, View, StyleSheet, Platform} from 'react-native';
 import {Button, Dialog, Divider, HelperText, List, Portal, SegmentedButtons, Switch, Text, TextInput, useTheme} from 'react-native-paper';
 import SettingsSection from '../../components/settings/SettingsSection';
@@ -45,6 +45,7 @@ import {isStrongCsvShareAvailable} from '../../utils/strongCsv/strongCsvShare';
 import {useStrongCsvState} from '../../redux/fullstateactions/use/useStrongCsvState';
 import {buildStrongImport, ParsedStrongFile, parseStrongCsv, StrongCsvError, WeightUnit} from '../../utils/strongCsv/strongImport';
 import HealthConnectSection from '../../components/settings/HealthConnectSection';
+import AiSessionPromptEditor from '../../components/settings/AiSessionPromptEditor';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
@@ -106,6 +107,27 @@ const SettingsTab = ({navigation, route}: Props) => {
     setImportDialog(true);
     navigation.setParams({openImport: undefined});
   }, [openImportRequested, navigation]);
+
+  // GH-645: the Coach Insight notice lands here with the AI Configuration open and in view.
+  const scrollRef = useRef<ScrollView>(null);
+  const aiSectionY = useRef<number | undefined>(undefined);
+  const [scrollToAiPending, setScrollToAiPending] = useState(false);
+  const openAiConfigRequested = route.params?.openAiConfig === true;
+  useEffect(() => {
+    if (!openAiConfigRequested) return;
+    setAiConfigExpanded(true);
+    setScrollToAiPending(true);
+    navigation.setParams({openAiConfig: undefined});
+  }, [openAiConfigRequested, navigation]);
+  const scrollToAiSection = () => {
+    if (aiSectionY.current === undefined) return;
+    scrollRef.current?.scrollTo({y: aiSectionY.current, animated: false});
+    setScrollToAiPending(false);
+  };
+  useEffect(() => {
+    if (scrollToAiPending) scrollToAiSection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToAiPending]);
   let setPauseTimer = dispatchSetPauseTimer();
   let setFinishTrainingTimer = dispatchSetFinishTrainingTimer();
 
@@ -345,7 +367,7 @@ const SettingsTab = ({navigation, route}: Props) => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent}>
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
       <SettingsSection title="Appearance" testID="settings-section-theme">
         <ThemeModeSelector />
         <ThemeColorSelector />
@@ -411,6 +433,12 @@ const SettingsTab = ({navigation, route}: Props) => {
         <TimeRangePicker setPauseTimer={setFinishTrainingTimer} title={'Finish Training Timer: '} testID="settings-finish-training-timer" timeRange={settings.localNotification?.finishTrainingTimerInSeconds} />
       </SettingsSection>
 
+      <View
+        onLayout={(e) => {
+          aiSectionY.current = e.nativeEvent.layout.y;
+          if (scrollToAiPending) scrollToAiSection();
+        }}
+      >
       <SettingsSection title="AI Coach" testID="settings-section-ai">
         <List.Accordion
           title="AI Configuration"
@@ -554,9 +582,12 @@ const SettingsTab = ({navigation, route}: Props) => {
                 Reset to Default
               </Button>
             </View>
+            <Divider style={{marginVertical: 12}} />
+            <AiSessionPromptEditor />
           </View>
         </List.Accordion>
       </SettingsSection>
+      </View>
 
       <HealthConnectSection />
 
