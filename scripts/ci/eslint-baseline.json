@@ -12,7 +12,6 @@
   "__tests__/components/Workout/show/WorkoutSetView.spec.tsx :: @typescript-eslint/no-unused-vars": 1,
   "__tests__/components/Workout/show/WorkoutView.spec.tsx :: @typescript-eslint/no-unused-vars": 3,
   "__tests__/components/analyse/AnalyseEmptyStatesInScreens.spec.tsx :: @typescript-eslint/no-unused-vars": 1,
-  "__tests__/components/picker/elements/TrainingElementPicker.spec.tsx :: @typescript-eslint/no-unused-vars": 5,
   "__tests__/components/video/VideoAnalysisPlaybackOverlayCard.test.tsx :: @typescript-eslint/no-unused-vars": 1,
   "__tests__/redux/currentTrainingsPlan.spec.ts :: @typescript-eslint/no-unused-vars": 1,
   "__tests__/redux/exercise/exerciseReducerTest.spec.ts :: @typescript-eslint/no-unused-vars": 1,

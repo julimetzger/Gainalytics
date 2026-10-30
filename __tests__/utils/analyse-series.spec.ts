@@ -1,7 +1,7 @@
 import {aggregateMetric, buildMetricSeries, MetricPoint, selectionWeight} from '../../app/utils/analyse-series';
 import {Metric} from '../../app/models/Metric';
 import {Workout} from '../../app/models/entities/Workout';
-import {Accumulation} from '../../app/components/picker/elements/TrainingElementPicker';
+import {Accumulation} from '../../app/models/Accumulation';
 import {AccumulationMode} from '../../app/models/AccumulationMode';
 import {Exercise} from '../../app/models/entities/Exercise';
 import {Muscles} from '../../app/models/Muscles';

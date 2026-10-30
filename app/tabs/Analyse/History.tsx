@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {StyleSheet, View} from 'react-native';
-import {IconButton, Text, useTheme} from 'react-native-paper';
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {Text, useTheme} from 'react-native-paper';
 import {FlashList} from '@shopify/flash-list';
 import {useRoute, RouteProp} from '@react-navigation/native';
 import WorkoutViewTile from '../../components/Workout/show/WorkoutView';
@@ -10,7 +10,7 @@ import {useWorkoutsByFilters} from '../../redux/Workout/use/useWorkoutsByFilters
 import {Muscles} from '../../models/Muscles';
 import {Exercise} from '../../models/entities/Exercise';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
-import TrainingElementPicker from '../../components/picker/elements/TrainingElementPicker';
+import AnalyseFilterPanel from '../../components/picker/filter/AnalyseFilterPanel';
 
 const PAGE_SIZE = 20;
 
@@ -43,7 +43,6 @@ const History = () => {
   // an `exercise` param; pre-select that exercise so the list is filtered on mount.
   const routeExercise = route.params?.exercise;
 
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedMuscles, setSelectedMuscles] = useState<Muscles[]>(EMPTY_MUSCLES);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>(() =>
     routeExercise?.id !== undefined ? [routeExercise as Exercise] : EMPTY_EXERCISES,
@@ -112,28 +111,11 @@ const History = () => {
 
   return (
     <View testID="history-list-container" style={styles.container}>
-      {/* Wrapper is height:0/overflow:hidden when closed so the picker takes no vertical space.
-          The component stays mounted (not unmounted) to avoid react-native-modal crash. */}
-      <View style={pickerOpen ? undefined : styles.pickerWhenClosed}>
-        {/* GH-452: History only offers exercises and muscles, so the label must not
-            promise metrics or an accumulation mode like the shared default does. */}
-        <TrainingElementPicker
-          exercise={selectedExercises}
-          setExercise={setSelectedExercises}
-          muscle={selectedMuscles}
-          setMuscle={setSelectedMuscles}
-          hideIconButton={true}
-          dropdownLabel="Select Exercises, Muscles"
-        />
-      </View>
-      {/* Chevron floats top-right always. When picker is closed the wrapper has 0 height so
-          the list fills the screen and this button overlaps only the top-right corner. */}
-      <IconButton
-        icon={pickerOpen ? 'chevron-up' : 'chevron-down'}
-        testID="history-picker-toggle"
-        onPress={() => setPickerOpen((open) => !open)}
-        style={styles.pickerToggle}
-      />
+      {/* GH-452 / GH-642: History filters by exercises and muscles only. The panel starts
+          collapsed; expanded it scrolls on its own so the list keeps part of the screen. */}
+      <ScrollView style={styles.filter} keyboardShouldPersistTaps="handled">
+        <AnalyseFilterPanel exercise={selectedExercises} setExercise={setSelectedExercises} muscle={selectedMuscles} setMuscle={setSelectedMuscles} />
+      </ScrollView>
       {allIds.length === 0 ? (
         <View testID="history-filters-empty" style={styles.filtersEmpty}>
           <Text>No workouts match the current filters.</Text>
@@ -159,15 +141,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  pickerWhenClosed: {
-    height: 0,
-    overflow: 'hidden',
-  },
-  pickerToggle: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    zIndex: 10,
+  filter: {
+    flexGrow: 0,
+    maxHeight: '65%',
   },
   listContent: {
     paddingBottom: 16,

@@ -17,7 +17,7 @@ import {FullEditSnapshot, PendingPlanSetByExerciseId, PlanCellTarget, PlanChrome
 import PlanEditList from './PlanEditList';
 import PlanReadList from './PlanReadList';
 import DraggableExercise from '../DraggableExercise';
-import TrainingElementPicker from '../../picker/elements/TrainingElementPicker';
+import ExerciseSearchSheet from '../../picker/filter/ExerciseSearchSheet';
 
 interface PlanTabProps {
   training?: Training;
@@ -147,16 +147,8 @@ const PlanTab = ({
         onTogglePicker={onTogglePicker}
         pickerVisible={pickerVisible}
       />
-      <TrainingElementPicker
-        exercise={exercises}
-        setExercise={(nextExercises: Exercise[]) => handleSetExercises(nextExercises, true)}
-        dropdownLabel="Select Exercises for your Training"
-        hideChip={true}
-        visible={pickerVisible}
-        onToggle={onTogglePicker}
-        hideIconButton={true}
-        openListOnShow={true}
-      />
+      {/* GH-403 / GH-642: the "+" tile opens the exercise search sheet directly. */}
+      <ExerciseSearchSheet visible={pickerVisible} onDismiss={onTogglePicker} selected={exercises} onChange={(nextExercises: Exercise[]) => handleSetExercises(nextExercises, true)} />
       {selectedExercise === undefined ? (
         <View style={styles.emptyState}>
           <Text style={{color: theme.colors.onSurfaceVariant, textAlign: 'center'}} testID="plan-edit-empty-hint">

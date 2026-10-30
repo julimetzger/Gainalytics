@@ -1,5 +1,5 @@
 import {sum} from 'lodash';
-import {Accumulation} from '../components/picker/elements/TrainingElementPicker';
+import {Accumulation} from '../models/Accumulation';
 import {AccumulationMode} from '../models/AccumulationMode';
 import {Training} from '../models/entities/Training';
 import {TrainingsState} from '../models/TrainingsState';
