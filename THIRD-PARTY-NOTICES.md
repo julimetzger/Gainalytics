@@ -517,7 +517,6 @@ Where a package lists `A OR B`, Gainalytics uses it under the first permissive o
 | `react-is` | 19.2.5 | `MIT` | https://github.com/facebook/react |
 | `react-lodash` | 0.1.2 | `MIT` | https://github.com/typicode/react-lodash |
 | `react-native` | 0.84.1 | `MIT` | https://github.com/facebook/react-native |
-| `react-native-animatable` | 1.3.3 | `MIT` | https://github.com/oblador/react-native-animatable |
 | `react-native-calendars` | 1.1314.0 | `MIT` | https://github.com/wix/react-native-calendars |
 | `react-native-charts-wrapper` | 0.5.11 | `MIT` | https://github.com/wuxudong/react-native-charts-wrapper |
 | `react-native-document-picker` | 9.3.1 | `MIT` | https://github.com/react-native-documents/document-picker |
@@ -531,7 +530,6 @@ Where a package lists `A OR B`, Gainalytics uses it under the first permissive o
 | `react-native-keychain` | 10.0.0 | `MIT` | https://github.com/oblador/react-native-keychain |
 | `react-native-markdown-display` | 7.0.2 | `MIT` | https://github.com/iamacup/react-native-markdown-display |
 | `react-native-mmkv` | 3.3.3 | `(MIT AND BSD-3-Clause)` | https://github.com/mrousavy/react-native-mmkv |
-| `react-native-modal` | 13.0.1 | `MIT` | https://github.com/react-native-community/react-native-modal |
 | `react-native-outside-press` | 1.2.2 | `MIT` | https://github.com/dcangulo/react-native-outside-press |
 | `react-native-paper` | 5.15.1 | `MIT` | https://github.com/callstack/react-native-paper |
 | `react-native-paper-dates` | 0.22.57 | `MIT` | https://github.com/web-ridge/react-native-paper-dates |
@@ -575,7 +573,6 @@ Where a package lists `A OR B`, Gainalytics uses it under the first permissive o
 | `serve-static` | 1.16.3 | `MIT` | expressjs/serve-static |
 | `setprototypeof` | 1.2.0 | `ISC` | https://github.com/wesleytodd/setprototypeof |
 | `sf-symbols-typescript` | 2.2.0 | `MIT` | https://github.com/nandorojo/typescript-sf-symbols |
-| `sharingan-rn-modal-dropdown` | 1.4.0 | `MIT` | https://github.com/srk-sharingan/sharingan-rn-modal-dropdown |
 | `shebang-command` | 2.0.0 | `MIT` | kevva/shebang-command |
 | `shebang-regex` | 3.0.0 | `MIT` | sindresorhus/shebang-regex |
 | `shell-quote` | 1.8.3 | `MIT` | http://github.com/ljharb/shell-quote |
@@ -6029,7 +6026,7 @@ SOFTWARE.
 
 </details>
 
-<details><summary>react-native-animatable@1.3.3, react-native-keychain@10.0.0, react-native-vector-icons@10.3.0</summary>
+<details><summary>react-native-keychain@10.0.0, react-native-vector-icons@10.3.0</summary>
 
 ```text
 The MIT License (MIT)
@@ -6148,7 +6145,7 @@ SOFTWARE.
 
 </details>
 
-<details><summary>react-native-drawer-layout@4.2.2, react-native-modal@13.0.1</summary>
+<details><summary>react-native-drawer-layout@4.2.2</summary>
 
 ```text
 MIT License
@@ -7267,34 +7264,6 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 MIT License
 
 Copyright (c) 2023 Fernando Rojo
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-</details>
-
-<details><summary>sharingan-rn-modal-dropdown@1.4.0</summary>
-
-```text
-MIT License
-
-Copyright (c) 2020 Selvam Kumar
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

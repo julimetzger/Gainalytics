@@ -271,4 +271,16 @@ describe('settingsReducer', () => {
     const result = settingsReducer(initialState, action);
     expect(result.aiTrainingPrompt).toBeUndefined();
   });
+
+  it('GH-645: sets the trimmed aiSessionPrompt and leaves the training prompt alone', () => {
+    const initialState = {mode: 'dark', aiTrainingPrompt: 'Micro prompt'} satisfies AppSettings;
+    const result = settingsReducer(initialState, {type: 'SET_AI_SESSION_PROMPT', prompt: '  Session prompt  '});
+    expect(result).toEqual({mode: 'dark', aiTrainingPrompt: 'Micro prompt', aiSessionPrompt: 'Session prompt'});
+  });
+
+  it('GH-645: clears aiSessionPrompt on reset and on an empty save', () => {
+    const initialState = {mode: 'dark', aiSessionPrompt: 'Session prompt'} satisfies AppSettings;
+    expect(settingsReducer(initialState, {type: 'RESET_AI_SESSION_PROMPT'})).toEqual({mode: 'dark', aiSessionPrompt: undefined});
+    expect(settingsReducer(initialState, {type: 'SET_AI_SESSION_PROMPT', prompt: '   '})).toEqual({mode: 'dark', aiSessionPrompt: undefined});
+  });
 });

@@ -3,7 +3,7 @@ import {LayoutRectangle, View} from 'react-native';
 import KeyboardAwareScrollView from '../common/KeyboardAwareScrollView';
 import {NestableScrollContainerProvider, useNestableScrollContainerContext} from 'react-native-draggable-flatlist';
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
-import TrainingElementPicker from '../picker/elements/TrainingElementPicker';
+import ExerciseSearchSheet from '../picker/filter/ExerciseSearchSheet';
 import {TrainingsState} from '../../models/TrainingsState';
 import {Button, Text, useTheme} from 'react-native-paper';
 import {ConfirmDialog} from '../common/EditDialogScaffold';
@@ -596,16 +596,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                             onDismiss={() => setShowAlternativesDialog(false)}
                             onSelect={onReplaceExercise}
                           />
-                          <TrainingElementPicker
-                            exercise={exercises}
-                            setExercise={setExerciseWithSideEffects}
-                            dropdownLabel="Select Exercises for your Training"
-                            hideChip={true}
-                            visible={showPicker}
-                            onToggle={() => setShowPicker(!showPicker)}
-                            hideIconButton={true}
-                            openListOnShow={true}
-                          />
+                          <ExerciseSearchSheet visible={showPicker} onDismiss={() => setShowPicker(false)} selected={exercises} onChange={setExerciseWithSideEffects} />
                         </View>
                       )}
                       {chosenExercise && (
@@ -645,16 +636,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                             onTogglePicker={() => setShowPicker(!showPicker)}
                             pickerVisible={showPicker}
                           />
-                          <TrainingElementPicker
-                            exercise={exercises}
-                            setExercise={setExerciseWithSideEffects}
-                            dropdownLabel="Select Exercises for your Training"
-                            hideChip={true}
-                            visible={showPicker}
-                            onToggle={() => setShowPicker(!showPicker)}
-                            hideIconButton={true}
-                            openListOnShow={true}
-                          />
+                          <ExerciseSearchSheet visible={showPicker} onDismiss={() => setShowPicker(false)} selected={exercises} onChange={setExerciseWithSideEffects} />
                         </View>
                       )}
                       {isEditing && chosenExercise && (
@@ -701,6 +683,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                       currentMicro={micro}
                       trainingInMicro={trainingInMicro}
                       toggle={<AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />}
+                      isActive={isActive}
                     />
                   ) : (
                     <View>

@@ -1,7 +1,7 @@
 # Maestro flows — current overview (GH-584)
 
 All flows live in `__tests__/e2e/maestro/flows/`. Since GH-584 every feature has 2–3
-**target flows** that assert concrete values; shared steps live in 10 **helpers**. The per-ticket
+**target flows** that assert concrete values; shared steps live in 11 **helpers**. The per-ticket
 flows of earlier tickets were merged into these target flows or deleted (the "Merged from:"
 line in each flow header names its sources).
 
@@ -20,19 +20,19 @@ themselves. Every file named below must be in `/sdcard/Download` —
 | F2 Training home | `home_dashboard.yaml` | Micro hero values, Next/Last Training cards, plan list + search, cards open trainings (not the add-plan dialog) | baseline, read-only |
 | | `home_new_plan_current.yaml` | A new plan becomes current (snackbar, Undo, star); first plan on an empty store | empty store, then imports baseline |
 | F3 Planning | `plan_create_meso_template.yaml` | Plan new Training → edit mode, plan name required, Add Meso/Training, last meso not deletable, "From template" without duplicates | imports baseline |
-| | `plan_edit_sets.yaml` | "Edit plan" of a planned training: EDITING PLAN, Add Set carry-over, weight 100 → 105, decimal RIR, "+" opens the picker directly | imports baseline; `goto_micro69_push.yaml` (MODE=edit) |
-| | `plan_overflow_actions.yaml` | ⋮ menu per state: Clear planned training, empty training not startable, older training without the option | imports baseline |
+| | `plan_edit_sets.yaml` | "Edit plan" of a planned training: EDITING PLAN, Add Set carry-over, weight 100 → 105, decimal RIR, "+" opens the exercise search sheet directly ("Done · 11 selected", search filters/refills) | imports baseline; `goto_micro69_push.yaml` (MODE=edit) |
+| | `plan_overflow_actions.yaml` | ⋮ menu per state: Clear planned training, empty training not startable, older training without the option; GH-544 "Plan with AI" with a fixed answer (echo key `sk-ant-e2e-echo-answer`, no provider call): error keeps the slot unplanned, swap / set removed / set added / RIR −1 planned as returned | imports baseline; `set_dummy_api_key.yaml` (`API_KEY`) |
 | F4 Training execution | `train_start_log_finish.yaml` | Card → Train → Start → log set (100/5, RIR 0,5 → 125 kg / 1.5) → Finish; status labels; exercise switch clears input | imports baseline |
 | | `train_rest_timer_1rm.yaml` | Rest timer "target 01:30" shown once, no restart on correcting a logged set, Title Case menu labels, ESTIMATED 1RM 127 kg | imports baseline; `goto_micro69_push.yaml`, `open_rest_menu.yaml` |
 | | `train_delete_exercise_running.yaml` | Crash fix GH-486: deleting an exercise of the running training; dialog counters; training continues and finishes | imports baseline |
-| F5 Training analysis & edit | `training_analysis_compare.yaml` | FINISHED training opens (GH-117/119); vs Plan / vs last / vs Micro / plan position values; scroll keeps the duration | baseline, read-only; `goto_micro2_push.yaml` |
-| | `micro_overview_compare.yaml` | Micro swipe keeps the sub-tab; Micro 2 Overview Total/Plan compare values, English labels; GH-527: Micro 1 plan without removed exercises (41 sets, Back 12, Chest 0.8 in map + Muscle Overview), 1RM/intensity per muscle (Micro 1 Total vs Plan), "–" for muscles without sets (Micro 4 · Pull) | baseline, read-only (sets and restores the Muscle Overview columns) |
+| F5 Training analysis & edit | `training_analysis_compare.yaml` | FINISHED training opens (GH-117/119); vs Plan / vs last / vs Micro / plan position values; scroll keeps the duration; GH-645: single-training Coach Insight notice without a key (none on Plan), link opens Settings → AI Configuration, dummy key offline → card with "Network error" | baseline, read-only, no key stored (saves a dummy key in airplane mode and removes it again); `goto_micro2_push.yaml` |
+| | `micro_overview_compare.yaml` | Micro swipe keeps the sub-tab; Micro 2 Overview Total/Plan compare values, English labels; GH-527: Micro 1 plan without removed exercises (41 sets, Back 12, Chest 0.8 in map + Muscle Overview), 1RM/intensity per muscle (Micro 1 Total vs Plan), "–" for muscles without sets (Micro 4 · Pull); GH-644: Micro 6 Total vs Plan Trainings counter equals the Home counter (1/4, "3 open · 3 not planned"); GH-645: Coach Insight notice without a key | baseline, read-only (sets and restores the Muscle Overview columns) |
 | | `training_edit_delete.yaml` | FINISHED training in edit mode (times card, Add Workout, records modal); deleting lands on the Plan tab | imports baseline |
 | F6 Exercises | `exercises_list_detail.yaml` | e1RM sparklines of every session (Squat), detail Graph tab Frequency (dynamic end week) | imports baseline |
 | | `exercise_edit_alternatives_delete.yaml` | Alternatives picker sorted/searchable/keeps picks/saves; delete hint with counters, Cancel deletes nothing | imports baseline |
 | F7 Analyse tab | `analyse_dashboard_drilldown.yaml` | Stale-week banner, radar of an empty week, muscle drill-down into Metrics Overview | baseline, read-only |
-| | `analyse_graphics_metrics.yaml` | Chart empty states, Frequency + exercise without crash (GH-169), multi-metric/point tap, date range picker, Metrics Overview | baseline, read-only |
-| | `analyse_drawer_screens.yaml` | Crash fix GH-458 H1: every drawer entry opens; drawer closes; labels; Records KPIs; Records tile filter + collapsed filter header (GH-617); Training Length outliers; History picker label | baseline, read-only |
+| | `analyse_graphics_metrics.yaml` | Chart empty states, Frequency + exercise without crash (GH-169), multi-metric/point tap, GH-642 filter panel (collapsed summary, period arrows/swipes never past today, Custom date dialog, Group by + metrics in one tap each, 3 most-trained exercises in 3 taps, muscle grid + Clear, Micro), Metrics Overview | baseline, read-only |
+| | `analyse_drawer_screens.yaml` | Crash fix GH-458 H1: every drawer entry opens; drawer closes; labels; Records KPIs; Records tile filter + collapsed filter panel (GH-617/GH-642); Training Length outliers; History filter panel (exercises + muscles only) | baseline, read-only |
 | F8 Video analysis | `video_import_playback.yaml` | Analysis frame rate setting (default 30 FPS, picks `-e FPS=15\|20\|30`, default 15) + "Analysed at N fps", import via picker, analysis survives resume, Rep Summary (3 reps), secure video, readout follows playback, chart seek, hip/knee overlay: "not detected" on the synthetic clip, shown + "Show joints" toggle on a real person (GH-75) | imports baseline; `squat-3reps.mp4`, `squat-person-2reps.mp4` |
 | | `video_list_filters_vl.yaml` | List, filters (RIR/VL/exercise), search, VL reference calibration (14.3% VL, RIR 3-4 → 1-2) | imports `gh415-workout-linked-analysis.gains`; `gh415-result.json` copied into the app's files dir (see flow header) |
 | | `video_compare.yaml` | Set-based labels in header/picker, "N reps \| VL x%", synchronised playback | imports `gh393-compare-labels.gains`; `squat-3reps.mp4` |
@@ -89,7 +89,8 @@ instead of a flow with generated fixtures.
 | `open_rest_menu.yaml` | – | Reaches a running rest timer and opens its overflow menu |
 | `set_appearance.yaml` | `MODE` = light \| dark, `PALETTE` = blue \| purple \| custom, `HEX` (custom only) | Sets theme mode and colour in Settings |
 | `pick_file.yaml` | `FILE` (name or regex) | Settings › Import from Strong CSV › picks the file |
-| `set_dummy_api_key.yaml` | – | Stores a dummy Anthropic key so the chat renders (no request is sent) |
+| `pick_exercise_in_search_sheet.yaml` | `NAME` (exercise name) | GH-642: checks one exercise in the exercise search sheet (open, or opened via the expanded filter panel's "Search all") and closes it with Done; idempotent |
+| `set_dummy_api_key.yaml` | `API_KEY` (optional, default `sk-ant-dummy-not-a-real-key`) | Stores a dummy Anthropic key so the chat renders (no request is sent); `sk-ant-e2e-echo-answer` makes "Plan with AI" use the typed text as the answer (GH-544) |
 | `open_ai_chat.yaml` | – | Opens Analyse › AI Chat from anywhere |
 | `dismiss_system_anr.yaml` | `OWN_APP` (test only, default `Gainalytics`) | Closes a system "… isn't responding" dialog ("Wait" for `Process system`); leaves the app's own ANR and crash dialogs up so the flow fails. Called by the import helpers, `set_dummy_api_key.yaml` and `ai_chat_errors_history.yaml`. Test the dismiss path: freeze the app (`run-as <pkg> kill -STOP <pid>` + two taps) and run it with `-e OWN_APP=NotThisApp` |
 

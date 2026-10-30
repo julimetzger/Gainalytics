@@ -15,7 +15,7 @@ import {
   statusLine,
   unitForAccumulation,
 } from '../../app/utils/RecordsAnalysis';
-import {Accumulation} from '../../app/components/picker/elements/TrainingElementPicker';
+import {Accumulation} from '../../app/models/Accumulation';
 import {AccumulationMode} from '../../app/models/AccumulationMode';
 import {Exercise, Record} from '../../app/models/entities/Exercise';
 import {Muscles} from '../../app/models/Muscles';

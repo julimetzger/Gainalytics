@@ -13,6 +13,7 @@ import {TrainingsPlan} from '../models/entities/TrainingsPlan';
 import {VideoAnalysis} from '../models/entities/VideoAnalysis';
 import effectsReducer, {Effects} from './Effects/effectsReducer';
 import fullStateReducer from './fullstateactions/fullStateReducer';
+import {resolvePlanTrainingFromAi} from './fullstateactions/planTrainingFromAi';
 import videoAnalysisReducer from './VideoAnalysis/videoAnalysisReducer';
 import aiChatReducer, {AIChatState} from './AIChat/aiChatSlice';
 import healthConnectReducer, {HealthConnectState} from './HealthConnect/healthConnectReducer';
@@ -52,6 +53,10 @@ const combinedReducer = combineReducers({
 // cross-cutting full-state actions. Written out so the result is a redux Reducer that accepts the
 // undefined initial state — reduce-reducers' own typing does not, which made every
 // createStore(rootReducer) / rootReducer(undefined, …) a type error.
-const rootReducer: Reducer<GlobalState, AnyAction> = (state, action) => fullStateReducer(combinedReducer(state, action), action);
+// GH-544: PLAN_TRAINING_FROM_AI gets its new ids from the full state before the slices see it.
+const rootReducer: Reducer<GlobalState, AnyAction> = (state, action) => {
+  const resolved = resolvePlanTrainingFromAi(state, action);
+  return fullStateReducer(combinedReducer(state, resolved), resolved);
+};
 
 export default rootReducer;

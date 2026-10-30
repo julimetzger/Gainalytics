@@ -80,7 +80,7 @@ jest.mock('../../../app/components/Training/execute/EditTraining', () => {
   const {Text} = require('react-native');
   return () => <Text testID="edit-training">EditTraining</Text>;
 });
-jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () => 'TrainingElementPicker');
+jest.mock('../../../app/components/picker/filter/ExerciseSearchSheet', () => 'ExerciseSearchSheet');
 jest.mock('../../../app/components/Training/DraggableExercise', () => 'DraggableExercise');
 jest.mock('../../../app/components/Training/analyse/TrainingsOverview', () => {
   const {Text, View} = require('react-native');

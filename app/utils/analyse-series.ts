@@ -1,6 +1,6 @@
 import {LineValue} from 'react-native-charts-wrapper';
 import {groupBy, max} from 'lodash';
-import {Accumulation} from '../components/picker/elements/TrainingElementPicker';
+import {Accumulation} from '../models/Accumulation';
 import {Metric} from '../models/Metric';
 import {Muscles} from '../models/Muscles';
 import {Exercise} from '../models/entities/Exercise';

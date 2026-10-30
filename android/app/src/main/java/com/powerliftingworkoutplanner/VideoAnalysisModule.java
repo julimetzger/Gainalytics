@@ -1412,7 +1412,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         performanceMetrics.inputTensorMs += elapsedMs(inputTensorStartedAtNs);
 
         long inferenceStartedAtNs = SystemClock.elapsedRealtimeNanos();
-        detectionContext.interpreter.run(inputBuffer, detectionContext.rawOutput);
+        runInterpreter(detectionContext, inputBuffer);
         performanceMetrics.inferenceMs += elapsedMs(inferenceStartedAtNs);
         performanceMetrics.gpuDelegateUsed = (gpuDelegate != null);
 
@@ -1509,6 +1509,17 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
     }
 
     /**
+     * GH-636: all analyses and seed preflights share one TFLite Interpreter, which is not
+     * thread-safe. A second import's preflight running during another analysis corrupted the
+     * detection ("failed_no_candidate" → status FAILED), so inference is serialised here.
+     */
+    private void runInterpreter(DetectionContext detectionContext, ByteBuffer inputBuffer) {
+        synchronized (interpreterLock) {
+            detectionContext.interpreter.run(inputBuffer, detectionContext.rawOutput);
+        }
+    }
+
+    /**
      * Runs inference on {@code detectionContext.inputBuffer} (already filled) using the
      * letterbox parameters in {@code detectionContext.letterboxParams}.
      * Skips letterboxing and bitmap conversion — the caller has done that.
@@ -1522,7 +1533,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         detectionContext.inputBuffer.rewind();
 
         long inferenceStartedAtNs = SystemClock.elapsedRealtimeNanos();
-        detectionContext.interpreter.run(detectionContext.inputBuffer, detectionContext.rawOutput);
+        runInterpreter(detectionContext, detectionContext.inputBuffer);
         performanceMetrics.inferenceMs += elapsedMs(inferenceStartedAtNs);
         performanceMetrics.gpuDelegateUsed = (gpuDelegate != null);
 
