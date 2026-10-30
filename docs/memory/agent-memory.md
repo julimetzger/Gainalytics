@@ -900,6 +900,37 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-636):** background Bash, `setsid`/`nohup` and `> file` redirects need approval here. A long flow can be split into chunks in `.agent-run/flows/` (use an absolute path in `runFlow: file:`) and run with one `tool.sh flow` call per chunk; the store and app state carry over between chunks. A fresh CI emulator is still in onboarding, so run `tool.sh import-baseline` once before running a flow that starts with `import_fixture.yaml` on its own.
 **Apply when:** a flow (with analyses) may take longer than 10 min.
 
+### CI emulator: setup can end `failed:sdk` AFTER a green APK build — check `setup-status` early, not only at `wait-ready`
+**Problem (GH-544):** the Gradle build succeeded (9m16s), then the system-image download failed (`Error on ZipFile unknown archive`). `tool.sh setup-status` showed it ~25 min into the job, and `wait-ready` exits 1 immediately. No emulator for the whole job.
+**Fix / Rule:** don't repair it (agent prompt). Finish the JS work and the Jest/tsc/lint checks while no emulator is running (the full `npm test` is then allowed), write the flow section unrun, commit, and report the log lines under `## Open question`.
+**Apply when:** `setup-status` prints `failed:<step>`.
+
+### New `use…` hooks under `redux/*/dispatch/` must be named `useX` — the `dispatchX` naming is baseline lint debt
+**Problem (GH-544):** a new `dispatchPlanFromAi` written like `dispatchSuggestBasedOnTrained` raised 7 `react-hooks/rules-of-hooks` errors. The old `dispatchX` files only pass because they are in `scripts/ci/eslint-baseline.json`, so a new file would fail the ratchet. Check with `npm run lint 2>&1 | grep -A8 <file>` (plain `npx eslint` is v10 and needs approval).
+**Apply when:** adding a hook that dispatches.
+
+### Baseline workouts can lack a `sets` array — guard `workout?.sets?.length`
+**Problem (GH-544):** walking the done/planned workouts of the baseline's M5 D1 crashed on `workout.sets.length` in a real-store Jest test. `useWorkoutsByIds` returns such workouts, too.
+**Apply when:** iterating the sets of stored workouts (especially planned ones).
+
+### Real models answer "RIR −1" with `rir: -1` on sets already at RIR 0 — clamp, don't drop
+**Problem (GH-544 r2):** the first live "Plan with AI" request (Claude, tool output) returned `rir: -1` for every base set at RIR 0. The structural validator dropped those sets, which removed whole exercises (Adductor, Leg extension) and filled the toast with "Ignored: …". Unit tests with hand-written answers never produced this.
+**Fix / Rule:** keep numeric out-of-range values at the nearest app bound and name them (`rirClamped` in `aiPlanResult.ts`); also state the floor in the prompt ("RIR never goes below 0"), which the second live answer obeyed. Do one live request BEFORE finalising a validator for model output.
+**Apply when:** validating numbers a model derives by arithmetic on stored values.
+
+### `set_dummy_api_key.yaml` typed INTO a key saved by an earlier run — erase first, centred
+**Problem (GH-544 r2):** re-running a flow that saves a key: the tap puts the cursor mid-text, so the echo key became `sk-ant-e2e-sk-ant-e2e-echo-answerecho-answer`, and the app sent a real request ("Invalid API key"). Re-tapping after the keyboard opened failed ("not found"), because the keyboard scrolled the field away.
+**Fix / Rule:** `scrollUntilVisible … centerElement: true` before the first tap, then tap + `eraseText` three times (re-taps `optional: true`) before `inputText` (now in the helper).
+**Apply when:** any flow that types into the Settings key field more than once per store.
+
+### Plan read view RIR cell: label is `RIR, <value>` — `text: 'RIR\s*0'` never matches
+**Observation (GH-544 r2):** `plan-set-N-rir-cell` exposes `accessibilityText: "RIR, 0"` (reps cell `"5, reps"`, weight `"170, kg"`). Assert `{id: 'plan-set-1-rir-cell', text: 'RIR, 0'}`; the first match is the first section's.
+**Apply when:** asserting planned set values in the Plan tab's read view.
+
+### CI emulator: feed the live AI test key with `adb push` + `input text "$(cat …)"`
+**Observation (GH-544 r2):** `ls $RUNNER_TEMP/ai-test-key` is blocked (outside the workdir), but `adb -s <serial> push /home/runner/work/_temp/ai-test-key/key /data/local/tmp/aikey` works without showing the content. Focus the empty key field with a flow, then `adb -s <serial> shell 'input text "$(cat /data/local/tmp/aikey)"'`, `adb shell rm /data/local/tmp/aikey`, and save via a second flow that waits for "API key saved". Remove it again the same way ("API key removed"). Maestro `takeScreenshot` only accepts paths inside its output folder (absolute paths fail the flow).
+**Apply when:** a ticket needs the live-key check in the agent-emulator workflow.
+
 ### Live AI check: `adb shell input text <key>` drops characters in the secure API-key field — type in chunks, verify by counting bullets
 **Problem (GH-645):** one `input text` with the 106-char test key saved only 91 characters ("API key saved", then "Invalid API key" = one wasted live request).
 **Fix / Rule:** push the key file to `/data/local/tmp/k`, clear the field (tap, `keyevent 123`, ~130× `67`), then type on the device: `adb shell 'k=$(tr -d "\n\r " < /data/local/tmp/k); while [ -n "$k" ]; do input text "${k:0:8}"; k=${k:8}; sleep 0.6; done; rm /data/local/tmp/k'`. Before saving, `uiautomator dump` + `grep -o '•' dump.xml | wc -l`: the password field holds one `•` per character (no plaintext), which must match the key length (`adb push` prints the byte count).
@@ -925,6 +956,18 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Observation (GH-642):** the last chip of a horizontal `ScrollView` (metric "Frequency") was "Element not found". `repeat: {while: {notVisible: {id: X}}, commands: [swipe: {from: {id: <a visible chip of the row>}, direction: LEFT}]}` reveals it; afterwards the first chips are off screen, so assert them before swiping.
 **Apply when:** tapping or asserting chips in a horizontal row.
 
+### Async work that must use fresh entity ids: let the root reducer allocate them, not `store.getState()`
+**Problem (GH-544 r4):** Codex flagged `useStore().getState()` in a hook (AGENTS.md: no direct store access), but ids taken from the render go stale while an AI request is pending and overwrite data created meanwhile.
+**Fix / Rule:** dispatch an intent action without ids (`PLAN_TRAINING_FROM_AI`); `rootReducer` turns it into the existing `SUGGEST_TRAINING` with ids from the state it reduces (`resolvePlanTrainingFromAi`) before the slices run. Slice reducers alone can't do it: the training and workout ids live in different slices.
+**Apply when:** a dispatch happens after an await and needs `determineNewId`/`determineNewWorkoutId`.
+
+### Per-slot UI state in a `RangeSwiper` pane: key the child by slot
+**Observation (GH-544 r4):** the swiper reuses `TrainingsBase` across slots, so local state (text, loading, a pending request) leaked to the next slot. `key={`${planId}:${micro}:${trainingInMicro}`}` on the child remounts it; its unmount cleanup aborts the request. Test with a mocked child whose `useEffect` cleanup records unmounts (clear that mock after the first render: the previous test's cleanup unmounts after `afterEach`).
+**Apply when:** a component under `TrainingsBase` or another swiper pane holds state that belongs to one slot.
+
+### CI emulator: a full flow over 10 min — run a trimmed copy from `.agent-run/flows/`
+**Observation (GH-544 r4):** foreground commands are capped at 10 min and backgrounding is not allowed. `plan_overflow_actions.yaml` A+B+E alone took 8m47s. Shell redirection/sed into new files needs approval here, so write the copy with the Write tool and make its `runFlow` paths absolute (they resolve relative to the flow file).
+**Apply when:** the flow to re-run has sections you don't need.
 ### The second "move the cursor" tap of a tap+erase pair hits the KEYBOARD when the field sits low
 **Problem (GH-636):** ai_settings_provider (Claude model field) ended as `claude-sonnet-4-5251001`. The log showed the field at y 1515–1641 of 2400, `focused=true`: Settings does not resize under the IME (edge-to-edge), so after the first tap the keyboard covered the field and the second `tapOn: {id}` at the field centre landed on a key. The nightly variant of the same race: "Element not found: settings-anthropic-model-input". It depends on where `scrollUntilVisible` stopped, so it changes with the screen geometry.
 **Fix / Rule:** `tapOn` → `eraseText` → `hideKeyboard` → `waitForAnimationToEnd` → `tapOn` → `eraseText`, then assert the exact typed value.
