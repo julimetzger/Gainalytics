@@ -1,0 +1,59 @@
+appId: com.powerliftingworkoutplanner
+---
+# Shared helper (GH-642): select exercise ${NAME} in the exercise search sheet
+# and close the sheet with "Done".
+#
+# Precondition: either the sheet is already open (training "+" tile) or the
+# EXPANDED Analyse filter panel is on screen (then "Search all" opens it).
+# Idempotent: an exercise that is already checked stays checked.
+#
+# Rows carry `exercise-search-row-<id>` + the exercise name as accessibility
+# label and `checked`, so the pick is asserted on the row itself.
+- runFlow:
+    when:
+      notVisible:
+        id: 'exercise-search-sheet'
+    commands:
+      - tapOn:
+          id: 'filter-exercise-search-all'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-search-bar'
+    timeout: 15000
+- tapOn:
+    id: 'exercise-search-bar'
+- eraseText: 30
+- inputText: ${NAME}
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-search-row-.*'
+      text: ${NAME}
+    timeout: 10000
+# The first tap after typing can be swallowed by the keyboard: tap again only
+# while the row is still unchecked (a blind second tap would toggle it back).
+- repeat:
+    while:
+      notVisible:
+        id: 'exercise-search-row-.*'
+        text: ${NAME}
+        checked: true
+    times: 2
+    commands:
+      - tapOn:
+          id: 'exercise-search-row-.*'
+          text: ${NAME}
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'exercise-search-row-.*'
+    text: ${NAME}
+    checked: true
+# (The pick also gets a removable chip at the end of the selection row; callers
+# assert the resulting count - "Exercises (N)" or "Done · N selected".)
+- hideKeyboard
+- tapOn:
+    id: 'exercise-search-done'
+- extendedWaitUntil:
+    notVisible:
+      id: 'exercise-search-sheet'
+    timeout: 10000

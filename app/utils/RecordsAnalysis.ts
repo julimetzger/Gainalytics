@@ -2,7 +2,7 @@ import {Exercise, Record} from '../models/entities/Exercise';
 import {Muscles} from '../models/Muscles';
 import {Workout} from '../models/entities/Workout';
 import {WorkoutSet} from '../models/entities/WorkoutSet';
-import {Accumulation} from '../components/picker/elements/TrainingElementPicker';
+import {Accumulation} from '../models/Accumulation';
 import {AccumulationMode} from '../models/AccumulationMode';
 import {TrainingsPlan} from '../models/entities/TrainingsPlan';
 import {firstDayOfWeek, getFirstDayOfMonth, getYYYYMMDDFormat, lastDayOfWeek} from './DateHelper';

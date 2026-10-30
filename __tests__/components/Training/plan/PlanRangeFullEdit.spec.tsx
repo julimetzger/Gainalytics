@@ -46,7 +46,7 @@ jest.mock('../../../../app/redux/Workout/dispatch/dispatchReplaceWorkoutSets', (
 jest.mock('../../../../app/redux/Workout/use/useAllTimeOneRepMax', () => ({
   useAllTimeOneRepMax: () => 0,
 }));
-jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => () => null);
+jest.mock('../../../../app/components/picker/filter/ExerciseSearchSheet', () => () => null);
 jest.mock('../../../../app/components/Training/DraggableExercise', () => () => null);
 
 jest.mock('react-native-paper', () => {

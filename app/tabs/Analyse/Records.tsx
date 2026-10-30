@@ -1,11 +1,12 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
 import React, {useCallback, useEffect, useState} from 'react';
-import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
+import AnalyseFilterPanel from '../../components/picker/filter/AnalyseFilterPanel';
+import {Accumulation} from '../../models/Accumulation';
 import {ScrollView, View} from 'react-native';
 import {Exercise, Record} from '../../models/entities/Exercise';
 import {Muscles} from '../../models/Muscles';
-import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
+import {Range} from '../../components/picker/date/DateRangePicker';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
 import {Workout} from '../../models/entities/Workout';
@@ -77,18 +78,17 @@ const RecordsTab = () => {
         flex: 1,
       }}
     >
-      {/* GH-617: starts collapsed to the "N selected" summary; the chevron shows the chips. */}
-      <TrainingElementPicker
+      {/* GH-617 / GH-642: the filter panel starts collapsed to its summary card; a tap expands it. */}
+      <AnalyseFilterPanel
+        range={range}
+        setRange={changeRange}
         exercise={exercise}
         setExercise={changeExercise}
         accumulation={accumulation}
         setAccumulation={changeAccumulation}
         muscle={muscle}
         setMuscle={changeMuscle}
-        visible={false}
-        collapseToSummary
       />
-      <DateRangePicker range={range} setRange={changeRange} />
       <RecordsOverTimeCard
         recordWorkouts={uniqueWorkouts}
         exercises={exercises}

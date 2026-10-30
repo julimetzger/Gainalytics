@@ -3,7 +3,7 @@ import {Platform, StyleSheet, View} from 'react-native';
 import {Icon, SegmentedButtons, Text, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
-import {Accumulation} from '../../picker/elements/TrainingElementPicker';
+import {Accumulation} from '../../../models/Accumulation';
 import {buildHeatmapModel, buildMuscleLaneModel, countRecordsThisWeek, RecordsSelection, statusLine, unitForAccumulation} from '../../../utils/RecordsAnalysis';
 import RecordsHeatmap from './RecordsHeatmap';
 import RecordsMuscleLanes from './RecordsMuscleLanes';
