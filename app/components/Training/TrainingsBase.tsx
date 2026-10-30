@@ -78,7 +78,14 @@ const TrainingsBase = ({trainingsPlan, trainingInMicro, micro, onEnterPlanMode}:
 
   return (
     <View style={styles.container}>
-      <PlanWithAi trainingsPlanId={trainingsPlanId} trainingInMicro={trainingInMicro} micro={micro} />
+      {/* Keyed by slot: the swiper reuses this pane across slots, and a pending AI request,
+          its text and its error belong to the slot it was started for (remount aborts it). */}
+      <PlanWithAi
+        key={`${trainingsPlanId}:${micro}:${trainingInMicro}`}
+        trainingsPlanId={trainingsPlanId}
+        trainingInMicro={trainingInMicro}
+        micro={micro}
+      />
       <Text variant="titleSmall">Linear progression</Text>
       <View style={styles.inputsContainer}>
         <TextInput

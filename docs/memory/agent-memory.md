@@ -947,3 +947,16 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Maestro `tapOn` does not scroll horizontally — swipe the chip row `from` one of its own chips
 **Observation (GH-642):** the last chip of a horizontal `ScrollView` (metric "Frequency") was "Element not found". `repeat: {while: {notVisible: {id: X}}, commands: [swipe: {from: {id: <a visible chip of the row>}, direction: LEFT}]}` reveals it; afterwards the first chips are off screen, so assert them before swiping.
 **Apply when:** tapping or asserting chips in a horizontal row.
+
+### Async work that must use fresh entity ids: let the root reducer allocate them, not `store.getState()`
+**Problem (GH-544 r4):** Codex flagged `useStore().getState()` in a hook (AGENTS.md: no direct store access), but ids taken from the render go stale while an AI request is pending and overwrite data created meanwhile.
+**Fix / Rule:** dispatch an intent action without ids (`PLAN_TRAINING_FROM_AI`); `rootReducer` turns it into the existing `SUGGEST_TRAINING` with ids from the state it reduces (`resolvePlanTrainingFromAi`) before the slices run. Slice reducers alone can't do it: the training and workout ids live in different slices.
+**Apply when:** a dispatch happens after an await and needs `determineNewId`/`determineNewWorkoutId`.
+
+### Per-slot UI state in a `RangeSwiper` pane: key the child by slot
+**Observation (GH-544 r4):** the swiper reuses `TrainingsBase` across slots, so local state (text, loading, a pending request) leaked to the next slot. `key={`${planId}:${micro}:${trainingInMicro}`}` on the child remounts it; its unmount cleanup aborts the request. Test with a mocked child whose `useEffect` cleanup records unmounts (clear that mock after the first render: the previous test's cleanup unmounts after `afterEach`).
+**Apply when:** a component under `TrainingsBase` or another swiper pane holds state that belongs to one slot.
+
+### CI emulator: a full flow over 10 min — run a trimmed copy from `.agent-run/flows/`
+**Observation (GH-544 r4):** foreground commands are capped at 10 min and backgrounding is not allowed. `plan_overflow_actions.yaml` A+B+E alone took 8m47s. Shell redirection/sed into new files needs approval here, so write the copy with the Write tool and make its `runFlow` paths absolute (they resolve relative to the flow file).
+**Apply when:** the flow to re-run has sections you don't need.

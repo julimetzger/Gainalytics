@@ -2,7 +2,7 @@ import React from 'react';
 import fs from 'fs';
 import path from 'path';
 import rootReducer, {GlobalState} from '../../../app/redux/rootReducer';
-import {buildAiPlanAction} from '../../../app/redux/Training/dispatch/plan/usePlanFromAi';
+import {buildAiPlanAction} from '../../../app/redux/fullstateactions/planTrainingFromAi';
 import {getPreviousTrainingsForTrainingInMeso} from '../../../app/redux/Training/trainingsPlanReducer';
 import {determineNewId} from '../../../app/redux/normalizedState';
 import {determineNewWorkoutId} from '../../../app/redux/normalizedWorkoutState';
