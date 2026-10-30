@@ -497,12 +497,23 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             );
             result.put("repSegments", detectedRepSegments);
             result.put("repMetrics", detectedRepMetrics);
+            // GH-75: pose is optional. If it failed, the bar result is written without it.
+            boolean poseStored = false;
+            if (poseDetector != null && !poseDetector.isDisabled() && trackingSeries.poseSeries != null) {
+                try {
+                    JSONObject poseMeta = new JSONObject();
+                    poseMeta.put("model", VideoAnalysisPoseDetector.MODEL_NAME);
+                    poseMeta.put("poseVersion", VideoAnalysisPoseDetector.POSE_VERSION);
+                    result.put("poseSeries", trackingSeries.poseSeries);
+                    result.put("poseMeta", poseMeta);
+                    poseStored = true;
+                } catch (Throwable poseError) {
+                    result.remove("poseSeries");
+                    result.remove("poseMeta");
+                    Log.w(LOG_TAG, "Pose result dropped, keeping the bar analysis", poseError);
+                }
+            }
             if (poseDetector != null) {
-                result.put("poseSeries", trackingSeries.poseSeries);
-                JSONObject poseMeta = new JSONObject();
-                poseMeta.put("model", VideoAnalysisPoseDetector.MODEL_NAME);
-                poseMeta.put("poseVersion", VideoAnalysisPoseDetector.POSE_VERSION);
-                result.put("poseMeta", poseMeta);
                 performanceMetrics.recordPose(poseDetector);
             }
 
@@ -538,9 +549,11 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             if (trackingSeries.skippedImplausibleFrames > 0) {
                 qualityFlags.put("PLAUSIBILITY_SKIPPED_FRAMES:" + trackingSeries.skippedImplausibleFrames);
             }
-            qualityFlags.put(
-                poseDetector != null ? "POSE_MODEL_ASSET:" + VideoAnalysisPoseDetector.MODEL_ASSET_PATH : "POSE_UNAVAILABLE"
-            );
+            if (poseStored) {
+                qualityFlags.put("POSE_MODEL_ASSET:" + VideoAnalysisPoseDetector.MODEL_ASSET_PATH);
+            } else {
+                qualityFlags.put(poseDetector != null ? "POSE_FAILED" : "POSE_UNAVAILABLE");
+            }
             result.put("qualityFlags", qualityFlags);
 
             File resultFile = new File(resultsDir, "analysis-" + analysisId + ".json");
@@ -2134,6 +2147,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
         double poseInferenceMs;
         int poseCallCount;
         int poseDetectedFrameCount;
+        int poseFailureCount;
         String poseDelegate;
 
         void recordPose(VideoAnalysisPoseDetector poseDetector) {
@@ -2143,6 +2157,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
             poseInferenceMs = poseDetector.inferenceMs;
             poseCallCount = poseDetector.callCount;
             poseDetectedFrameCount = poseDetector.detectedFrameCount;
+            poseFailureCount = poseDetector.failureCount;
             poseDelegate = poseDetector.delegate;
         }
 
@@ -2186,6 +2201,7 @@ public class VideoAnalysisModule extends ReactContextBaseJavaModule implements A
                 object.put("poseInferenceMs", roundTo3(poseInferenceMs));
                 object.put("poseCallCount", poseCallCount);
                 object.put("poseDetectedFrameCount", poseDetectedFrameCount);
+                object.put("poseFailureCount", poseFailureCount);
                 object.put("poseDelegate", poseDelegate);
             }
             object.put(

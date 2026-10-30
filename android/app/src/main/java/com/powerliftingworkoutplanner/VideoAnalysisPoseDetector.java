@@ -40,6 +40,8 @@ final class VideoAnalysisPoseDetector implements AutoCloseable {
     private static final int RIGHT_HIP = 24;
     private static final int LEFT_KNEE = 25;
     private static final int RIGHT_KNEE = 26;
+    /** After this many failed frames pose is switched off for the rest of the analysis. */
+    private static final int MAX_FAILURES = 3;
 
     private final PoseLandmarker landmarker;
     private Bitmap inputBitmap;
@@ -48,12 +50,14 @@ final class VideoAnalysisPoseDetector implements AutoCloseable {
     private byte[] uPlane;
     private byte[] vPlane;
     private long lastTimestampMs = -1;
+    private boolean disabled;
 
     double setupMs;
     double frameConversionMs;
     double inferenceMs;
     int callCount;
     int detectedFrameCount;
+    int failureCount;
     String delegate;
 
     private VideoAnalysisPoseDetector(PoseLandmarker landmarker, double setupMs) {
@@ -97,32 +101,48 @@ final class VideoAnalysisPoseDetector implements AutoCloseable {
             .build();
     }
 
-    /** Decoder path: the YUV frame that the bar tracking just used. */
+    /** True when pose was switched off mid-analysis after repeated failures. */
+    boolean isDisabled() {
+        return disabled;
+    }
+
+    /**
+     * Decoder path: the YUV frame that the bar tracking just used. Never throws — pose is
+     * optional and must not abort or alter the bar analysis (GH-75 review).
+     */
     JSONObject detect(Image image, int rotationDegrees, int timeMs) {
-        long conversionStartedAtNs = SystemClock.elapsedRealtimeNanos();
-        Bitmap frame = yuvImageToScaledBitmap(image, rotationDegrees);
-        frameConversionMs += elapsedMs(conversionStartedAtNs);
+        if (disabled) {
+            return null;
+        }
+        Bitmap frame;
+        try {
+            long conversionStartedAtNs = SystemClock.elapsedRealtimeNanos();
+            frame = yuvImageToScaledBitmap(image, rotationDegrees);
+            frameConversionMs += elapsedMs(conversionStartedAtNs);
+        } catch (Throwable error) {
+            recordFailure(timeMs, error);
+            return null;
+        }
         return detect(frame, timeMs);
     }
 
-    /** Retriever fallback path: an already rotation-corrected frame. */
+    /** Retriever fallback path: an already rotation-corrected frame. Never throws. */
     JSONObject detect(Bitmap frame, int timeMs) {
-        if (frame == null || frame.getWidth() <= 0 || frame.getHeight() <= 0) {
+        if (disabled || frame == null || frame.isRecycled() || frame.getWidth() <= 0 || frame.getHeight() <= 0) {
             return null;
         }
         Bitmap input = frame;
         boolean scaled = false;
-        if (frame != inputBitmap) {
-            long conversionStartedAtNs = SystemClock.elapsedRealtimeNanos();
-            int[] size = scaledSize(frame.getWidth(), frame.getHeight());
-            if (size[0] != frame.getWidth() || size[1] != frame.getHeight()) {
-                input = Bitmap.createScaledBitmap(frame, size[0], size[1], true);
-                scaled = true;
-            }
-            frameConversionMs += elapsedMs(conversionStartedAtNs);
-        }
-
         try {
+            if (frame != inputBitmap) {
+                long conversionStartedAtNs = SystemClock.elapsedRealtimeNanos();
+                int[] size = scaledSize(frame.getWidth(), frame.getHeight());
+                if (size[0] != frame.getWidth() || size[1] != frame.getHeight()) {
+                    input = Bitmap.createScaledBitmap(frame, size[0], size[1], true);
+                    scaled = true;
+                }
+                frameConversionMs += elapsedMs(conversionStartedAtNs);
+            }
             // VIDEO mode needs strictly increasing timestamps; the retriever fallback can
             // restart at 0 after a failed decoder pass.
             long timestampMs = Math.max(timeMs, lastTimestampMs + 1);
@@ -133,13 +153,24 @@ final class VideoAnalysisPoseDetector implements AutoCloseable {
             inferenceMs += elapsedMs(inferenceStartedAtNs);
             callCount += 1;
             return toPoseSample(result, timeMs);
-        } catch (Exception error) {
-            Log.w(LOG_TAG, "Pose detection failed at tMs=" + timeMs, error);
+        } catch (Throwable error) {
+            recordFailure(timeMs, error);
             return null;
         } finally {
-            if (scaled) {
+            if (scaled && input != frame) {
                 input.recycle();
             }
+        }
+    }
+
+    private void recordFailure(int timeMs, Throwable error) {
+        failureCount += 1;
+        Log.w(LOG_TAG, "Pose detection failed at tMs=" + timeMs + " (failure " + failureCount + ")", error);
+        // An Error (OOM, native crash surfaced as Error) or repeated failures: stop trying, so a
+        // broken pose model costs neither time nor memory for the rest of the analysis.
+        if (error instanceof Error || failureCount >= MAX_FAILURES) {
+            disabled = true;
+            Log.w(LOG_TAG, "Pose detection disabled for the rest of this analysis");
         }
     }
 
@@ -253,11 +284,16 @@ final class VideoAnalysisPoseDetector implements AutoCloseable {
         return inputBitmap;
     }
 
+    /**
+     * Copies a plane without touching the codec's buffer state: a duplicate has its own
+     * position/limit, and only the readable bytes (up to the limit) are copied.
+     */
     private static byte[] copyPlane(ByteBuffer buffer, byte[] cache) {
-        int capacity = buffer.capacity();
-        byte[] target = cache != null && cache.length >= capacity ? cache : new byte[capacity];
-        buffer.rewind();
-        buffer.get(target, 0, capacity);
+        ByteBuffer view = buffer.duplicate();
+        view.rewind();
+        int length = view.remaining();
+        byte[] target = cache != null && cache.length >= length ? cache : new byte[length];
+        view.get(target, 0, length);
         return target;
     }
 
@@ -288,7 +324,7 @@ final class VideoAnalysisPoseDetector implements AutoCloseable {
     public void close() {
         try {
             landmarker.close();
-        } catch (Exception ignored) {
+        } catch (Throwable ignored) {
             // No-op.
         }
         if (inputBitmap != null && !inputBitmap.isRecycled()) {
