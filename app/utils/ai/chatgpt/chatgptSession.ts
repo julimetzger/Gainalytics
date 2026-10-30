@@ -117,7 +117,7 @@ function migrateLegacySession(): void {
   const legacyHostId = store.getString(LEGACY_HOST_ID_KEY);
   if (legacyHostId) {
     if (!store.getString(HOST_ID_KEY)) store.set(HOST_ID_KEY, legacyHostId);
-    store.delete(LEGACY_HOST_ID_KEY);
+    store.remove(LEGACY_HOST_ID_KEY);
   }
   const legacy = readJson<ChatGptSession>(LEGACY_SESSION_KEY);
   if (legacy) {
@@ -128,7 +128,7 @@ function migrateLegacySession(): void {
         writeJson(TOKENS_KEY, tokens);
       }
     }
-    store.delete(LEGACY_SESSION_KEY);
+    store.remove(LEGACY_SESSION_KEY);
   }
 }
 
@@ -174,7 +174,7 @@ function clearTokens(): void {
   sessionGeneration++;
   // A later caller must not join a refresh of the cleared sign-in.
   refreshInFlight = null;
-  getSecureStore().delete(TOKENS_KEY);
+  getSecureStore().remove(TOKENS_KEY);
   notify();
 }
 

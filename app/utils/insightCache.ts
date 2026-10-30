@@ -2,9 +2,9 @@
  * Cache for coach insights, keyed by training ID.
  * Stored in a plain MMKV instance (insight text is not sensitive).
  */
-import {MMKV} from 'react-native-mmkv';
+import {createMMKV} from 'react-native-mmkv';
 
-const cache = new MMKV({id: 'insight-cache'});
+const cache = createMMKV({id: 'insight-cache'});
 
 const key = (cacheKey: string | number) => `insight_${cacheKey}`;
 
@@ -60,7 +60,7 @@ export const insightCache = {
   },
 
   delete(cacheKey: string | number): void {
-    cache.delete(key(cacheKey));
+    cache.remove(key(cacheKey));
   },
 
   has(cacheKey: string | number): boolean {

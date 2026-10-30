@@ -43,6 +43,7 @@
     "react-native-keychain": "^10.0.0",
     "react-native-markdown-display": "^7.0.2",
     "react-native-mmkv": "^4.3.2",
+    "react-native-nitro-modules": "^0.35.9",
     "react-native-outside-press": "^1.2.2",
     "react-native-paper": "^5.15.3",
     "react-native-paper-dates": "^0.24.1",
