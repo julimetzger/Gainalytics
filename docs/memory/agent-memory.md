@@ -916,3 +916,13 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Maestro `tapOn` does not scroll horizontally — swipe the chip row `from` one of its own chips
 **Observation (GH-642):** the last chip of a horizontal `ScrollView` (metric "Frequency") was "Element not found". `repeat: {while: {notVisible: {id: X}}, commands: [swipe: {from: {id: <a visible chip of the row>}, direction: LEFT}]}` reveals it; afterwards the first chips are off screen, so assert them before swiping.
 **Apply when:** tapping or asserting chips in a horizontal row.
+
+### The second "move the cursor" tap of a tap+erase pair hits the KEYBOARD when the field sits low
+**Problem (GH-636):** ai_settings_provider (Claude model field) ended as `claude-sonnet-4-5251001`. The log showed the field at y 1515–1641 of 2400, `focused=true`: Settings does not resize under the IME (edge-to-edge), so after the first tap the keyboard covered the field and the second `tapOn: {id}` at the field centre landed on a key. The nightly variant of the same race: "Element not found: settings-anthropic-model-input". It depends on where `scrollUntilVisible` stopped, so it changes with the screen geometry.
+**Fix / Rule:** `tapOn` → `eraseText` → `hideKeyboard` → `waitForAnimationToEnd` → `tapOn` → `eraseText`, then assert the exact typed value.
+**Apply when:** a flow clears a prefilled TextInput in the lower half of a non-resizing screen.
+
+### Timer assertions: compare the ring with the wall time since the tap, not a fixed clock window
+**Problem (GH-636):** train_rest_timer_1rm waited for `01:(2[0-9]|30)` after Reset (a 10 s window). On the ticking rest screen a `tapOn` spends ~11 s waiting for a settled hierarchy before tapping, so a loaded nightly emulator missed the window.
+**Fix / Rule:** `evalScript: "${output.t0 = Date.now()}"` right before the tap (Maestro's JS has `Date.now()`), then `copyTextFrom` the ring, parse it into elapsed seconds and require `!over && elapsed <= ceil((Date.now()-t0)/1000)+1`. Re-read in a `repeat: {times: 8, while: {true: "${output.v != 'PASS'}"}}` loop for late taps. Negative control (Reset tap removed) failed as expected.
+**Apply when:** asserting any countdown/elapsed display after a tap.
