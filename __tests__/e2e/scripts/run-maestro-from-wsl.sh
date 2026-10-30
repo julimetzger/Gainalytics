@@ -18,6 +18,7 @@ EXTRA_DOWNLOAD_FILES=(
   "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh496/gh496_invalid_weight.csv"
   "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh496/gh496_new_record.csv"
   "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh496/strong_sample_export.csv"
+  "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/squat-person-2reps.mp4"
   "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh393-compare-labels.gains"
   "${REPO_ROOT}/__tests__/e2e/maestro/fixtures/gh415-workout-linked-analysis.gains"
   "${REPO_ROOT}/__tests__/testdata/gh391_planned_fixture.gains"

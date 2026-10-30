@@ -2,7 +2,7 @@ import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 're
 import {GestureResponderEvent, LayoutChangeEvent, PixelRatio, StyleSheet, TouchableOpacity, View, processColor} from 'react-native';
 import Animated, {useAnimatedStyle, useDerivedValue, useFrameCallback, useSharedValue} from 'react-native-reanimated';
 import {Gesture, GestureDetector, GestureHandlerRootView} from 'react-native-gesture-handler';
-import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
+import {IconButton, MD3Theme, Switch, Text, useTheme} from 'react-native-paper';
 import {LineChart, LineValue} from 'react-native-charts-wrapper';
 import {BarPathPoint, BarTrackingResult, RepSegment, VideoAnalysisRepResult, VideoAnalysisSetResult} from '../../models/entities/VideoAnalysis';
 import {dispatchSaveVideoAnalysisSetResult} from '../../redux/VideoAnalysis/dispatch/dispatchSaveVideoAnalysisSetResult';
@@ -11,6 +11,7 @@ import {formatVlReferenceLabel, vlToRirEstimate} from '../../utils/velocityLossR
 import {VelocityLossReference} from '../../models/entities/Exercise';
 import {isSourceUnavailableError} from '../../utils/videoAnalysisSource';
 import {isVideoSourceAvailable} from '../../utils/videoAnalysisNative';
+import {buildPoseOverlayTracks, describePoseSides, getPoseMaxGapMs, selectPoseSides} from '../../utils/videoAnalysisPose';
 
 interface Props {
   analysisId: number;
@@ -533,6 +534,13 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
   const lastRepTurnaroundMs = (lastRepSegment ? repOverrides[lastRepSegment.repIndex]?.turnaroundMs : null) ?? lastRepSegment?.turnaroundMs ?? 0;
   const lastRepEndMs = (lastRepSegment ? repOverrides[lastRepSegment.repIndex]?.endMs : null) ?? lastRepSegment?.endMs ?? 0;
   const smoothedBarPathSeries = useMemo(() => smoothBarPathSeries(result.barPathSeries), [result.barPathSeries]);
+  // GH-75: hip/knee overlay. Results analysed before pose detection have no poseSeries
+  // and show neither the overlay nor the toggle.
+  const poseSides = useMemo(() => selectPoseSides(result.poseSeries), [result.poseSeries]);
+  const poseTracks = useMemo(() => buildPoseOverlayTracks(result.poseSeries, poseSides), [result.poseSeries, poseSides]);
+  const poseMaxGapMs = useMemo(() => (result.poseSeries ? getPoseMaxGapMs(result.poseSeries) : 0), [result.poseSeries]);
+  const [showPose, setShowPose] = useState(true);
+  const hasPoseOverlay = poseTracks.length > 0;
   // Direction detection uses the raw series: smoothing across a short window can
   // pull the start/turnaround samples toward the rep's mean and obscure the
   // physical up/down direction, while phase-time math is naturally robust to it.
@@ -1222,6 +1230,9 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
             pathColor={nativeOverlayColors.path}
             trackingFrameWidthPx={result.analysisMeta.trackingFrameWidthPx}
             trackingFrameHeightPx={result.analysisMeta.trackingFrameHeightPx}
+            poseTracks={poseTracks}
+            poseMaxGapMs={poseMaxGapMs}
+            showPose={showPose && hasPoseOverlay}
             onLoad={onPlayerLoad}
             onProgress={onPlayerProgress}
             onEnd={onPlayerEnd}
@@ -1247,6 +1258,33 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
           </Text>
         </View>
       </View>
+      )}
+
+      {!sourceUnavailable && result.poseSeries && (
+        <View testID="video-analysis-pose-row" style={styles.poseToggleRow}>
+          {hasPoseOverlay ? (
+            <>
+              <View style={styles.poseToggleLabels}>
+                <Text variant="labelLarge">Show joints</Text>
+                {showPose && (
+                  <Text testID="video-analysis-pose-overlay" variant="labelSmall" style={themedStyles.statsText}>
+                    {`Hip & knee: ${describePoseSides(poseSides)}`}
+                  </Text>
+                )}
+              </View>
+              <Switch
+                testID="video-analysis-pose-toggle"
+                accessibilityLabel="Show joints"
+                value={showPose}
+                onValueChange={setShowPose}
+              />
+            </>
+          ) : (
+            <Text testID="video-analysis-pose-not-detected" variant="labelSmall" style={themedStyles.statsText}>
+              Hip & knee not detected in this video
+            </Text>
+          )}
+        </View>
       )}
 
       <View style={styles.speedPlotSection}>
@@ -1652,6 +1690,15 @@ const styles = StyleSheet.create({
   sourceUnavailableHint: {
     marginTop: 4,
     textAlign: 'center',
+  },
+  poseToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  poseToggleLabels: {
+    flex: 1,
   },
   videoStatsPanel: {
     width: 64,

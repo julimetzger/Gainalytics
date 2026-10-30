@@ -977,3 +977,29 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-636):** train_rest_timer_1rm waited for `01:(2[0-9]|30)` after Reset (a 10 s window). On the ticking rest screen a `tapOn` spends ~11 s waiting for a settled hierarchy before tapping, so a loaded nightly emulator missed the window.
 **Fix / Rule:** `evalScript: "${output.t0 = Date.now()}"` right before the tap (Maestro's JS has `Date.now()`), then `copyTextFrom` the ring, parse it into elapsed seconds and require `!over && elapsed <= ceil((Date.now()-t0)/1000)+1`. Re-read in a `repeat: {times: 8, while: {true: "${output.v != 'PASS'}"}}` loop for late taps. Negative control (Reset tap removed) failed as expected.
 **Apply when:** asserting any countdown/elapsed display after a tap.
+
+### The shared repo `node_modules` can lag `package-lock.json` — every bundle built from it crashes in `configureStore`
+**Problem (GH-75):** the worktree's `node_modules` symlinks to the repo root, which still had RTK 1.9.7 / RNGH 2 / react-redux 7 (49 packages behind the lock). Both the Metro dev bundle and the APK's embedded bundle red-screened with `TypeError: undefined cannot be used as a constructor` in `configureStore` (`new Tuple`).
+**Fix / Rule:** at run start, compare the lock with the installed versions (`node_modules/<pkg>/package.json` vs `package-lock.json` `packages`). If they drift, `rm node_modules && npm ci` IN THE WORKTREE (36 s), don't touch the shared copy. Then `rm -rf android/build android/app/build android/.gradle app/.cxx` (stale autolinking: "Could not resolve project :shopify_flash-list") and start your own Metro from the worktree (`node node_modules/react-native/cli.js start --port <free>`).
+**Apply when:** any red screen at startup, or before the first device build of a run.
+
+### `squat-3reps.mp4` / `squat-1rep.mp4` are synthetic (a plate on black) — no person for pose/person models
+**Observation (GH-75):** MediaPipe Pose found 0/149 persons in `squat-3reps.mp4`. A real-person clip is now a fixture: `fixtures/squat-person-2reps.mp4` (CC BY 3.0, Wikimedia Commons, 7 s), with hip/knee visible on 106/106 frames at 15 FPS. Real clips on the test phone: `/sdcard/Download/PXL_*.mp4`. CC-licensed clips: Commons API `list=search&srsearch=squat filetype:video&srnamespace=6`.
+**Apply when:** a ticket needs a human in the video.
+
+### Landscape clip in the video detail: the player reaches the right edge and eats `97%` swipes
+**Problem (GH-75):** with the 1280x720 clip the player overflows its card to the screen edge, so the flow's usual `97%` edge swipes were swallowed and the page never scrolled. Use `2%` (far-left edge) for scrolls on that screen.
+**Apply when:** scrolling the video detail of a landscape clip.
+
+### "Broke import on my videos" review: reproduce on the master APK with the SAME gallery URIs before changing code
+**Observation (GH-75):** the user's failed imports ("No outer plate candidate found at t=0") and the "no bar path" analysis reproduced identically with the master APK. Shaky-start videos show no plate at t=0, and the result JSONs were identical within 0.0014. Find the user's videos via the failed rows' `Source: content://…/video%3A<id>`, then `content query --uri content://media/external/video/media --where '_id=<id>'`. Install the master APK with `install -r -d` (keeps the store) and compare `results/analysis-N.json` via `run-as … cat`.
+**Apply when:** review feedback says "worked on master" for real gallery media.
+
+### SAF picker on the German test phone: "Show roots" is "Root-Verzeichnis anzeigen", and search is scoped to the current root
+**Problem (GH-75):** the `tapOn: 'Show roots'` fallback in flows never matches on R5CN30HWZFN (German), so a flow fails whenever the clip isn't in the picker's first screen. Picker search only searches the open root (e.g. Downloads), and the last root is remembered across imports.
+**Fix / Rule:** use `tapOn: 'Show roots|Root-Verzeichnis anzeigen'`. For manual imports: roots → `Videos` → search icon → `input text <name>` → tap the result by uiautomator bounds. Leave the picker in Downloads before running fixture flows.
+**Apply when:** importing via the picker on the phone or writing picker fallbacks.
+
+### `git checkout -- <file>` to undo a temporary fault-injection also drops your uncommitted fix in that file
+**Rule (GH-75):** commit the real change first, then add the injection, build, and `git checkout` it away (or apply the injection as a separate patch).
+**Apply when:** building a temporary instrumented APK.

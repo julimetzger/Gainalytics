@@ -66,6 +66,21 @@ public class VideoAnalysisPlayerViewManager extends SimpleViewManager<VideoAnaly
         view.setCurrentRepIndex(currentRepIndex);
     }
 
+    @ReactProp(name = "poseTracks")
+    public void setPoseTracks(VideoAnalysisPlayerView view, ReadableArray poseTracks) {
+        view.setPoseTracks(poseTracks);
+    }
+
+    @ReactProp(name = "poseMaxGapMs", defaultInt = 0)
+    public void setPoseMaxGapMs(VideoAnalysisPlayerView view, int poseMaxGapMs) {
+        view.setPoseMaxGapMs(poseMaxGapMs);
+    }
+
+    @ReactProp(name = "showPose", defaultBoolean = true)
+    public void setShowPose(VideoAnalysisPlayerView view, boolean showPose) {
+        view.setShowPose(showPose);
+    }
+
     @ReactProp(name = "playbackSpeed", defaultFloat = 1.0f)
     public void setPlaybackSpeed(VideoAnalysisPlayerView view, float playbackSpeed) {
         view.setPlaybackSpeed(playbackSpeed);
