@@ -990,3 +990,16 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Landscape clip in the video detail: the player reaches the right edge and eats `97%` swipes
 **Problem (GH-75):** with the 1280x720 clip the player overflows its card to the screen edge, so the flow's usual `97%` edge swipes were swallowed and the page never scrolled. Use `2%` (far-left edge) for scrolls on that screen.
 **Apply when:** scrolling the video detail of a landscape clip.
+
+### "Broke import on my videos" review: reproduce on the master APK with the SAME gallery URIs before changing code
+**Observation (GH-75):** the user's failed imports ("No outer plate candidate found at t=0") and the "no bar path" analysis reproduced identically with the master APK. Shaky-start videos show no plate at t=0, and the result JSONs were identical within 0.0014. Find the user's videos via the failed rows' `Source: content://…/video%3A<id>`, then `content query --uri content://media/external/video/media --where '_id=<id>'`. Install the master APK with `install -r -d` (keeps the store) and compare `results/analysis-N.json` via `run-as … cat`.
+**Apply when:** review feedback says "worked on master" for real gallery media.
+
+### SAF picker on the German test phone: "Show roots" is "Root-Verzeichnis anzeigen", and search is scoped to the current root
+**Problem (GH-75):** the `tapOn: 'Show roots'` fallback in flows never matches on R5CN30HWZFN (German), so a flow fails whenever the clip isn't in the picker's first screen. Picker search only searches the open root (e.g. Downloads), and the last root is remembered across imports.
+**Fix / Rule:** use `tapOn: 'Show roots|Root-Verzeichnis anzeigen'`. For manual imports: roots → `Videos` → search icon → `input text <name>` → tap the result by uiautomator bounds. Leave the picker in Downloads before running fixture flows.
+**Apply when:** importing via the picker on the phone or writing picker fallbacks.
+
+### `git checkout -- <file>` to undo a temporary fault-injection also drops your uncommitted fix in that file
+**Rule (GH-75):** commit the real change first, then add the injection, build, and `git checkout` it away (or apply the injection as a separate patch).
+**Apply when:** building a temporary instrumented APK.
