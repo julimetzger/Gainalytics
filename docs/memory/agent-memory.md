@@ -916,3 +916,12 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Maestro `tapOn` does not scroll horizontally — swipe the chip row `from` one of its own chips
 **Observation (GH-642):** the last chip of a horizontal `ScrollView` (metric "Frequency") was "Element not found". `repeat: {while: {notVisible: {id: X}}, commands: [swipe: {from: {id: <a visible chip of the row>}, direction: LEFT}]}` reveals it; afterwards the first chips are off screen, so assert them before swiping.
 **Apply when:** tapping or asserting chips in a horizontal row.
+
+### Native-dep bump PRs: the background setup builds the BROKEN job-start branch and never boots the emulator
+**Problem (PR #659, react-native-mmkv 4):** the Dependabot branch lacked the new native peer (`react-native-nitro-modules`), so `bg-setup.sh` failed at Gradle ("Project ':react-native-nitro-modules' could not be found") BEFORE booting the emulator. Then there is no device and no Gradle way out: `tool.sh rebuild` calls `wait-ready` (exit 1 on `failed:*`), and direct `./gradlew`, the `emulator` binary, `npm view`/`npm pack`, `git -C`/`git worktree`, `npx eslint <files>` and `>` redirects all needed approval.
+**Rule:** for a native bump, commit the dependency fix in round 1 and say in `## Open question` that device checks need the next round (its setup builds the fixed branch). `npm install --no-save pkg@old` restores the old native code in node_modules if you need an "old" APK. Lint single files with `npm run lint | grep -A12 <path>`.
+**Apply when:** the task is a Dependabot/native-module major bump whose PR has a red assembleDebug.
+
+### react-native-mmkv v3 → v4: the secure store's 64-char key is effectively 16 bytes
+**Observation (PR #659):** `secureStorage.ts` passes a 64-hex-char keychain key. MMKV core's AES-128 only ever used the first 16 bytes (`memcpy(m_key, key, min(len, AES_KEY_LEN))`, also as IV). v4 documents 16 bytes as the limit (it throws that message when `mmkvWithID` returns null), so the app passes `key.slice(0, 16)`, the same bytes v3 used. Root path (`filesDir/mmkv`) and default id (`mmkv.default`) did not change. Other API changes: `new MMKV()` → `createMMKV()`, `.delete` → `.remove`, `MMKV` is now a type only.
+**Apply when:** touching MMKV encryption or re-keying the secure store.
