@@ -101,6 +101,13 @@ jest.mock('../../../app/components/settings/ChatGptAccountSection', () => {
   return {__esModule: true, default: () => <View testID="settings-chatgpt-section" />};
 });
 
+// GH-645: a plain prompt editor bound to the store.
+jest.mock('../../../app/components/settings/AiSessionPromptEditor', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-ai-session-prompt-mock" />};
+});
+
 // GH-528: covered by HealthConnectSection.spec; it needs a real store.
 jest.mock('../../../app/components/settings/HealthConnectSection', () => {
   const React = require('react');
@@ -582,6 +589,19 @@ describe('SettingsTab', () => {
 
     expect(getByText('Import full data from backup file?')).toBeTruthy();
     expect(navigation.setParams).toHaveBeenCalledWith({openImport: undefined});
+  });
+
+  it('opens the AI Configuration when the Coach Insight notice links here (GH-645)', () => {
+    const navigation = createNavigation();
+    const closed = render(<SettingsTab navigation={navigation} route={settingsRoute({})} />);
+    expect(closed.queryByTestId('settings-anthropic-api-key-input')).toBeNull();
+    closed.unmount();
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={settingsRoute({openAiConfig: true})} />);
+
+    expect(getByTestId('settings-anthropic-api-key-input')).toBeTruthy();
+    expect(getByTestId('settings-ai-session-prompt-mock')).toBeTruthy();
+    expect(navigation.setParams).toHaveBeenCalledWith({openAiConfig: undefined});
   });
 
   it('renders the app version supplied by the native build', () => {

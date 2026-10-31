@@ -683,6 +683,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                       currentMicro={micro}
                       trainingInMicro={trainingInMicro}
                       toggle={<AnalysisDataToggle value={effectiveAnalysisDataMode} onChange={effectiveSetAnalysisDataMode} />}
+                      isActive={isActive}
                     />
                   ) : (
                     <View>

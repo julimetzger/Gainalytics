@@ -20,6 +20,8 @@ appId: com.powerliftingworkoutplanner
 #   6. GH-644 Micro 6 · Total vs Plan: the Trainings counter equals the Home counter
 #      of the same micro (1/4 — it read "1 / 1" while only "Pull" was planned); the
 #      open trainings read "3 open · 3 not planned", Sets/Volume stay against the plan.
+#   7. GH-645 (V18): no API key → Micro 2 Overview shows the one-line Coach Insight
+#      notice instead of nothing.
 #
 # Data basis: baseline import (fixtures/baseline.gains), READ-ONLY — assumes the
 # baseline is already imported. Only sub-tab / chip / toggle taps.
@@ -160,6 +162,18 @@ appId: com.powerliftingworkoutplanner
 - copyTextFrom:
     id: 'micro-muscle-map-row-Biceps-readout'
 - assertTrue: "${maestro.copiedText === '+2'}"
+
+# --- GH-645 (V18): without an API key the Coach Insight shows a notice -----------
+# (it used to render nothing). The link target is checked in training_analysis_compare.
+- scrollUntilVisible:
+    element:
+      id: 'coach-insight-notice-text'
+    direction: DOWN
+- assertVisible:
+    id: 'coach-insight-notice-text'
+    text: 'Coach Insight – available with an API key in Settings'
+- assertNotVisible:
+    id: 'coach-insight-card'
 
 # --- Plan tab: one fixed comparison, Plan M2 vs Plan M1 --------------------------
 - scrollUntilVisible:

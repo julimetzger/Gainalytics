@@ -43,6 +43,8 @@ export interface TrainingComparison {
   details: MuscleMapDetails;
   /** The last done training at this position, when it is the reference — its duration is the Duration KPI's reference. */
   durationReference?: Training;
+  /** GH-645: the last trained training at this position ("vs last"), whatever is selected. */
+  lastDone?: LastMatchingTraining;
 }
 
 export const trainingNameFor = (trainingsPlan: TrainingsPlan, trainingInMicro: number): string => {
@@ -173,5 +175,6 @@ export const useTrainingComparison = (trainingsPlan: TrainingsPlan, micro: numbe
     referenceShort,
     details,
     durationReference: selected === 'last_training_done' ? lastDone?.training : undefined,
+    lastDone,
   };
 };

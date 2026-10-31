@@ -1,4 +1,7 @@
 appId: com.powerliftingworkoutplanner
+# GH-645: never leave the device offline, even when an assertion in between fails.
+onFlowComplete:
+  - setAirplaneMode: disabled
 ---
 # Feature F5 — Training analysis & edit · T5.1 training_analysis_compare
 #
@@ -14,10 +17,15 @@ appId: com.powerliftingworkoutplanner
 #   - Plan position: no "vs Plan"/train chips, 27% of Micro 2 plan, vs last: 14 / 1
 #   - Micro 3 · Push squat "vs Plan": Core 0.9/2.9 is tinted as under the reference
 #     (`-value-bar-under`), Chest 4/4 is not, Sets bars are split into segments
+#   - GH-645 (V18): without a key Train shows the Coach Insight notice (none on the
+#     Plan position); its link opens Settings with the AI Configuration expanded;
+#     with a dummy key in airplane mode the card replaces the notice and its
+#     request ends in "Network error"; after removing the key the notice is back
 #
 # Data basis: baseline import (fixtures/baseline.gains), READ-ONLY — assumes the
-# baseline is already imported. Only taps compare chips / toggles (persisted view
-# preferences), every chip is tapped explicitly before its values are asserted.
+# baseline is already imported and NO API key is stored. Only taps compare chips /
+# toggles (persisted view preferences), every chip is tapped explicitly before its
+# values are asserted. The dummy key it saves is removed again at the end.
 #
 # Merged from: gh526_train_vs_plan, gh526_train_vs_last_diff, gh526_train_vs_micro_share,
 # gh526_plan_position, gh526_under_threshold (train part), gh526_suite,
@@ -44,6 +52,22 @@ appId: com.powerliftingworkoutplanner
     id: 'analysis-tab'
 - assertVisible:
     id: 'trainings-overview-sets'
+
+# --- GH-645 (V18): no key → the training's Coach Insight shows its notice ---------
+# (below the comparison values; it used to render nothing)
+- scrollUntilVisible:
+    element:
+      id: 'training-coach-insight-notice-text'
+    direction: DOWN
+- assertVisible:
+    id: 'training-coach-insight-notice-text'
+    text: 'Coach Insight – available with an API key in Settings'
+- assertNotVisible:
+    id: 'training-coach-insight-card'
+- scrollUntilVisible:
+    element:
+      id: 'analysis-compare-this_training_plan'
+    direction: UP
 
 # --- Train · vs Plan -------------------------------------------------------------
 - tapOn:
@@ -183,6 +207,9 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'training-plan-overview'
     timeout: 30000
+# GH-645: the Coach Insight belongs to the Train position only
+- assertNotVisible:
+    id: 'training-coach-insight-notice'
 - assertNotVisible:
     id: 'analysis-compare-this_training_plan'
 - assertNotVisible:
@@ -264,3 +291,81 @@ appId: com.powerliftingworkoutplanner
     id: '^analysis-muscle-map-row-Chest-value-bar-under$'
 - assertVisible:
     id: '^analysis-muscle-map-row-Chest-set-segments$'
+
+# --- GH-645 (V18): the notice links to Settings → AI Configuration ----------------
+- scrollUntilVisible:
+    element:
+      id: 'training-coach-insight-notice-link'
+    direction: UP
+- tapOn:
+    id: 'training-coach-insight-notice-link'
+# The key input only exists while the AI Configuration accordion is expanded.
+- extendedWaitUntil:
+    visible:
+      id: 'settings-anthropic-api-key-input'
+    timeout: 20000
+- assertVisible:
+    id: 'settings-ai-config-accordion'
+
+# --- GH-645: with a (dummy) key the card itself asks — offline, no request leaves --
+# Saving the key wakes the mounted card of Micro 3 · Push squat; in airplane mode
+# the request ends in the network error, which proves the card replaced the notice
+# and sent its request. The fixed-answer path is covered by Jest (no test hook yet).
+- setAirplaneMode: enabled
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- inputText: 'sk-ant-dummy-not-a-real-key'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-coach-insight-error'
+    timeout: 30000
+- assertVisible:
+    id: 'training-coach-insight-error'
+    text: 'Network error.*'
+- assertNotVisible:
+    id: 'training-coach-insight-notice'
+- setAirplaneMode: disabled
+
+# --- remove the dummy key again (see ai_chat_errors_history.yaml) -----------------
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: 'settings-anthropic-api-key-input'
+- eraseText: 200
+- repeat:
+    times: 2
+    commands:
+      - tapOn:
+          id: 'settings-anthropic-api-key-input'
+          optional: true
+      - eraseText: 200
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'settings-save-api-key-button'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-save-api-key-button'
+# Without the key the training shows the notice again.
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-coach-insight-notice-text'
+    timeout: 30000
+- assertNotVisible:
+    id: 'training-coach-insight-card'

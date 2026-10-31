@@ -27,6 +27,8 @@ jest.mock('../../../../app/components/Training/VelocityLossInsightCard', () => {
   return ({exerciseName}: {exerciseName: string}) => <Text testID="vl-insight-card">{exerciseName}</Text>;
 });
 jest.mock('../../../../app/components/Training/CoachInsightCard', () => () => null);
+// GH-645: covered by TrainingCoachInsightCard.spec.tsx
+jest.mock('../../../../app/components/Training/analyse/TrainingCoachInsightCard', () => () => null);
 
 const set = (reps: number, weight: number) => ({reps, weight, rir: 2});
 const sets = (n: number, reps: number, weight: number) => Array.from({length: n}, () => set(reps, weight));
