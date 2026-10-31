@@ -42,6 +42,13 @@ export const BODY_WEIGHT_LOOKBACK_MS = 5 * 365 * 24 * 60 * 60 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Start of the local day after the day of [ms] — the range's last day counts as a whole day. */
+const startOfNextLocalDay = (ms: number) => {
+  const date = new Date(ms);
+  date.setHours(24, 0, 0, 0);
+  return date.getTime();
+};
+
 const defaultDeps: HealthConnectMiddlewareDeps = {
   getModule: getHealthConnect,
   notify: (text1, text2) => Toast.show({type: 'info', text1, text2, position: 'bottom', visibilityTime: 5000}),
@@ -122,7 +129,8 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
   /**
    * GH-619: sleep and steps of [startMs, endMs] for the AI chat. Each part is read only with its
    * own permission; a failing part leaves the other one intact. Sleep is read from one day earlier
-   * so the night that ends on the first day of the range is complete.
+   * so the night that ends on the first day of the range is complete, and through the end of the
+   * last local day (a custom range ends at its midnight), like the native steps reader.
    */
   const loadRecovery = async (dispatch: Dispatch, startMs: number, endMs: number) => {
     const loadedAt = deps.now();
@@ -135,7 +143,7 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
       if ((await hc.getSdkStatus()) !== 'AVAILABLE') throw new HealthConnectUnusable('Health Connect is not available.');
       const granted = await hc.getGrantedPermissions();
       if (granted.includes(HC_PERMISSION.READ_SLEEP)) {
-        sleep = await hc.readSleepSessions(startMs - DAY_MS, endMs).catch((error: unknown) => {
+        sleep = await hc.readSleepSessions(startMs - DAY_MS, startOfNextLocalDay(endMs)).catch((error: unknown) => {
           errors.push(`Sleep: ${errorMessage(error)}`);
           return undefined;
         });

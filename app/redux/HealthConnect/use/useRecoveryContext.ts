@@ -1,4 +1,5 @@
 import {useEffect, useMemo} from 'react';
+import {AppState} from 'react-native';
 import {useHealthConnectActions, useHealthConnectConnection, useRecoveryData} from './useHealthConnect';
 import {canReadSleep, canReadSteps} from '../../../utils/healthConnect/healthConnectStatus';
 import {buildRecoveryDays, recoveryUnavailableHint, serializeRecoveryDays} from '../../../utils/healthConnect/recovery';
@@ -31,7 +32,12 @@ export const useRecoveryContext = (startDate: Date, endDate: Date, enabled: bool
   const endMs = endDate.getTime();
 
   useEffect(() => {
-    if (active) loadRecovery(startMs, endMs);
+    if (!active) return;
+    loadRecovery(startMs, endMs);
+    // The chat stays mounted in the drawer: sleep and steps synced while the app was in the
+    // background must reach the next request, so read them again on every return to the foreground.
+    const subscription = AppState.addEventListener('change', (appState) => appState === 'active' && loadRecovery(startMs, endMs));
+    return () => subscription.remove();
   }, [active, sleepAllowed, stepsAllowed, startMs, endMs, loadRecovery]);
 
   const days = useMemo(

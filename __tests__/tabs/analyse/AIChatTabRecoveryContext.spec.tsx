@@ -8,6 +8,7 @@
 
 import React from 'react';
 import {act, fireEvent, render, screen} from '@testing-library/react-native';
+import {AppState} from 'react-native';
 import {Provider as PaperProvider} from 'react-native-paper';
 import {Provider as ReduxProvider} from 'react-redux';
 import {configureStore} from '@reduxjs/toolkit';
@@ -167,10 +168,36 @@ describe('GH-619 recovery context in the AI chat', () => {
     expect(keys).toEqual(['recovery']);
     expect(screen.getByTestId('chat-context-preview-recovery').props.children).toBe(EXPECTED_JSON);
     expect(await sendAndCapturePrompt()).toBe(`You are a powerlifting coach.\n\nAnalysis context:\n\n${texts.join('\n\n')}`);
-    // The 28-day window, sleep from one day earlier.
+    // The 28-day window, sleep from one day earlier and through the end of the last day.
     const [[sleepStart, sleepEnd]] = module.readSleepSessions.mock.calls as unknown as number[][];
     const [[stepsStart]] = module.readDailySteps.mock.calls as unknown as number[][];
-    expect([Math.round((sleepEnd - sleepStart) / DAY_MS), stepsStart - sleepStart]).toEqual([29, DAY_MS]);
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime();
+    expect([stepsStart - sleepStart, sleepEnd]).toEqual([DAY_MS, tomorrow]);
+  });
+
+  it('switched on: reads sleep and steps again when the app returns to the foreground', async () => {
+    const addListener = AppState.addEventListener as jest.Mock;
+    addListener.mockClear();
+    const module = fakeModule([HC_PERMISSION.READ_SLEEP, HC_PERMISSION.READ_STEPS]);
+    renderTab(connectedWith([HC_PERMISSION.READ_SLEEP, HC_PERMISSION.READ_STEPS]), module);
+    fireEvent.press(screen.getByTestId('chat-context-badge'));
+    fireEvent(screen.getByTestId('chat-recovery-switch'), 'valueChange', true);
+    await flush();
+    expect(module.readDailySteps).toHaveBeenCalledTimes(1);
+
+    // Synced while the app was in the background.
+    module.readDailySteps.mockResolvedValue([{date: getYYYYMMDDFormat(twoDaysAgo), steps: 25000}]);
+    // The newest subscription is the recovery hook's (the mock never unsubscribes older ones).
+    const [event, onChange] = addListener.mock.calls[addListener.mock.calls.length - 1];
+    expect(event).toBe('change');
+    await act(async () => {
+      onChange('active');
+    });
+    await flush();
+
+    expect(module.readDailySteps).toHaveBeenCalledTimes(2);
+    fireEvent.press(screen.getByTestId('chat-context-inspect'));
+    expect(screen.getByTestId('chat-context-preview-recovery').props.children).toContain('"steps":25000');
   });
 
   it('revoking READ_SLEEP removes only the sleep values; revoking both hides the switch and the section', async () => {

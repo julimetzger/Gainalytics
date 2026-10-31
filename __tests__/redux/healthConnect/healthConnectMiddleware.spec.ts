@@ -175,13 +175,26 @@ describe('GH-528 healthConnectMiddleware', () => {
     const RANGE = {startMs: NOW - 7 * DAY_MS, endMs: NOW};
     const loadRecovery = {type: HEALTH_CONNECT_ACTIONS.LOAD_RECOVERY, ...RANGE};
 
-    it('reads sleep (from one day earlier) and steps of the range and keeps them in memory only', async () => {
+    it('reads sleep (from one day earlier through the last day) and steps of the range and keeps them in memory only', async () => {
       const {store, hc} = setup({});
       store.dispatch(loadRecovery);
       await flush();
 
-      expect([hc!.readSleepSessions.mock.calls, hc!.readDailySteps.mock.calls]).toEqual([[[RANGE.startMs - DAY_MS, RANGE.endMs]], [[RANGE.startMs, RANGE.endMs]]]);
+      const nowDay = new Date(NOW);
+      const endOfLastDay = new Date(nowDay.getFullYear(), nowDay.getMonth(), nowDay.getDate() + 1).getTime();
+      expect([hc!.readSleepSessions.mock.calls, hc!.readDailySteps.mock.calls]).toEqual([[[RANGE.startMs - DAY_MS, endOfLastDay]], [[RANGE.startMs, RANGE.endMs]]]);
       expect(store.getState().healthConnect?.recovery).toEqual({sleep: [SLEEP_SESSION], steps: DAILY_STEPS, ...RANGE, error: undefined, loadedAt: NOW});
+    });
+
+    it('reads the whole last day of sleep when a custom range ends at its midnight', async () => {
+      // DatePickerModal: October 14–16 ends at October 16, 00:00 local; a night ending on the 16th must be read.
+      const startMs = new Date(2026, 9, 14).getTime();
+      const endMs = new Date(2026, 9, 16).getTime();
+      const {store, hc} = setup({});
+      store.dispatch({type: HEALTH_CONNECT_ACTIONS.LOAD_RECOVERY, startMs, endMs});
+      await flush();
+
+      expect(hc!.readSleepSessions.mock.calls).toEqual([[startMs - DAY_MS, new Date(2026, 9, 17).getTime()]]);
     });
 
     it('reads only the part whose permission is granted', async () => {
