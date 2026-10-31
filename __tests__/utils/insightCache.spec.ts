@@ -6,12 +6,12 @@ let mockStore: Record<string, string> = {};
 
 // Override the MMKV mock to use a per-test in-memory store so tests are isolated.
 jest.mock('react-native-mmkv', () => ({
-  MMKV: jest.fn().mockImplementation(() => ({
+  createMMKV: jest.fn().mockImplementation(() => ({
     getString: jest.fn((k: string) => mockStore[k]),
     set: jest.fn((k: string, v: string) => {
       mockStore[k] = v;
     }),
-    delete: jest.fn((k: string) => {
+    remove: jest.fn((k: string) => {
       delete mockStore[k];
     }),
     contains: jest.fn((k: string) => k in mockStore),

@@ -20,7 +20,7 @@ jest.mock('../../../app/utils/secureStorage', () => ({
   getSecureStore: () => ({
     getString: (k: string) => mockStore.get(k),
     set: (k: string, v: string) => mockStore.set(k, v),
-    delete: (k: string) => mockStore.delete(k),
+    remove: (k: string) => mockStore.delete(k),
   }),
 }));
 

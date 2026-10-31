@@ -1,0 +1,56 @@
+appId: com.powerliftingworkoutplanner
+name: PR 659 app data survives the react-native-mmkv 3 -> 4 upgrade
+---
+# Needs two APKs: install an MMKV-3 build, import baseline.gains and save the dummy key
+# (set_dummy_api_key.yaml), then `adb install -r` the MMKV-4 build WITHOUT clearing data
+# and run this flow (once after the upgrade, once more after a cold restart).
+# Checks both MMKV files: the unencrypted default store (redux-persist: the "Push pull"
+# plan) and the encrypted 'secure-store' (the API key, read back as its exact value).
+- launchApp:
+    clearState: false
+- runFlow: ../dismiss_system_anr.yaml
+- tapOn:
+    text: 'Dismiss'
+    optional: true
+- extendedWaitUntil:
+    visible: 'tab-training'
+    timeout: 120000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'micro-hero-plan-name'
+      text: 'Push pull'
+    timeout: 120000
+- takeScreenshot: mmkv-01-push-pull
+# A key exists -> the chat renders its input instead of the "add your key" placeholder.
+- runFlow: ../open_ai_chat.yaml
+- assertNotVisible:
+    id: 'chat-no-key-message'
+- takeScreenshot: mmkv-02-ai-chat
+- tapOn: 'tab-settings'
+- scrollUntilVisible:
+    element:
+      id: 'settings-ai-config-accordion'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: 'settings-ai-config-accordion'
+- scrollUntilVisible:
+    element:
+      id: 'settings-anthropic-api-key-input'
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+# Unmask (eye icon) to read the stored value; the key is the dummy from set_dummy_api_key.yaml.
+- tapOn:
+    id: 'right-icon-adornment'
+    rightOf:
+      id: 'settings-anthropic-api-key-input'
+- assertVisible:
+    id: 'settings-anthropic-api-key-input'
+    text: 'sk-ant-dummy-not-a-real-key'
+- takeScreenshot: mmkv-03-api-key
+- tapOn:
+    id: 'right-icon-adornment'
+    rightOf:
+      id: 'settings-anthropic-api-key-input'
