@@ -985,3 +985,8 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Waiting for a backgrounded `tool.sh rebuild` in the foreground: `timeout 540 tail -n 3 -f <task output>`
 **Observation (GH-619):** `until …; do sleep; done` and `bash -c` loops need approval here and ending the turn ends the job. A single `timeout 540 tail -f` on the background task's output file blocks ≤ 9 min and needs no approval (exit 124 is expected); repeat until "BUILD SUCCESSFUL"/"Success". Use the wait for jest runs or flow writing. The first rebuild in the checkout took 7m47s, an incremental one 1m35s.
 **Apply when:** a native change needs `tool.sh rebuild` (> 10 min tool cap).
+
+### Test an "on return to the foreground" reload: the RN AppState mock in Jest, a debug activity on the device
+**Jest:** RN's `jest/mocks/AppState` makes `addEventListener` a `jest.fn` whose `remove()` does nothing, so `mock.calls` also holds listeners of effects that were already cleaned up. Calling all of them double-counts reads. Call only the newest `'change'` listener with `'active'`, inside `act` (see `AIChatTabRecoveryContext.spec.tsx`).
+**Device:** any app-owned activity started over MainActivity (e.g. `am start -W -n <pkg>/.healthconnect.HealthConnectTestDataActivity …`) pauses it, so RN fires `background`, then `active` when the activity `finish()`es. Run a Maestro flow WITHOUT `launchApp` afterwards to prove the mounted screen reloaded (GH-619: chat preview went from 20113 to 25000 steps).
+**Apply when:** data from a provider can change while the app is in the background and a mounted screen caches it.
