@@ -40,7 +40,7 @@ appId: com.powerliftingworkoutplanner
 - runFlow: gh528_open_health_connect_settings.yaml
 - assertVisible:
     id: 'health-connect-permissions'
-    text: 'Allowed: Read trainings, Read body weight'
+    text: 'Allowed: Read trainings, Read body weight, Read sleep, Read steps'
 - assertVisible:
     id: 'health-connect-last-sync'
     text: 'Last attempt failed .*: Gainalytics may no longer write trainings to Health Connect.*'
