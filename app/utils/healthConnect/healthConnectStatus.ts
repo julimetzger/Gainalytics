@@ -19,6 +19,8 @@ export const HEALTH_CONNECT_PERMISSION_LABELS: Record<HealthConnectPermission, s
   [HC_PERMISSION.WRITE_EXERCISE]: 'Write trainings',
   [HC_PERMISSION.READ_WEIGHT]: 'Read body weight',
   [HC_PERMISSION.READ_HISTORY]: 'Read data older than 30 days',
+  [HC_PERMISSION.READ_SLEEP]: 'Read sleep',
+  [HC_PERMISSION.READ_STEPS]: 'Read steps',
 };
 
 const KNOWN_PERMISSIONS: HealthConnectPermission[] = Object.values(HC_PERMISSION);
@@ -46,3 +48,7 @@ export const describeHealthConnectConnection = (state: Pick<HealthConnectState, 
 export const canWriteTrainings = (connection: HealthConnectConnection) => connection.kind === 'connected' && connection.granted.includes(HC_PERMISSION.WRITE_EXERCISE);
 
 export const canReadBodyWeight = (connection: HealthConnectConnection) => connection.kind === 'connected' && connection.granted.includes(HC_PERMISSION.READ_WEIGHT);
+
+export const canReadSleep = (connection: HealthConnectConnection) => connection.kind === 'connected' && connection.granted.includes(HC_PERMISSION.READ_SLEEP);
+
+export const canReadSteps = (connection: HealthConnectConnection) => connection.kind === 'connected' && connection.granted.includes(HC_PERMISSION.READ_STEPS);

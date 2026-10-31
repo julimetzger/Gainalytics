@@ -3,13 +3,16 @@ import rootReducer, {GlobalState} from '../../../app/redux/rootReducer';
 import {createHealthConnectMiddleware, HealthConnectMiddlewareDeps, BODY_WEIGHT_LOOKBACK_MS} from '../../../app/redux/HealthConnect/healthConnectMiddleware';
 import {HEALTH_CONNECT_ACTIONS, HealthConnectState} from '../../../app/redux/HealthConnect/healthConnectReducer';
 import {HealthConnectSessionInput, healthConnectFingerprint, mapTrainingToHealthConnectSession} from '../../../app/utils/healthConnect/healthConnectMapping';
-import {HC_PERMISSION, HealthConnectSdkStatus} from '../../../app/utils/healthConnect/healthConnectNative';
+import {HC_PERMISSION, HealthConnectDailySteps, HealthConnectSdkStatus, HealthConnectSleepSession} from '../../../app/utils/healthConnect/healthConnectNative';
 import {TrainingsState} from '../../../app/models/TrainingsState';
 import {Training} from '../../../app/models/entities/Training';
 
 const NOW = Date.UTC(2026, 9, 24, 12, 0);
 const START = Date.UTC(2026, 9, 24, 10, 0);
-const ALL_PERMISSIONS = [HC_PERMISSION.READ_EXERCISE, HC_PERMISSION.WRITE_EXERCISE, HC_PERMISSION.READ_WEIGHT];
+const ALL_PERMISSIONS = [HC_PERMISSION.READ_EXERCISE, HC_PERMISSION.WRITE_EXERCISE, HC_PERMISSION.READ_WEIGHT, HC_PERMISSION.READ_SLEEP, HC_PERMISSION.READ_STEPS];
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SLEEP_SESSION: HealthConnectSleepSession = {startMs: NOW - 13 * 60 * 60 * 1000, endMs: NOW - 5 * 60 * 60 * 1000, stages: []};
+const DAILY_STEPS: HealthConnectDailySteps[] = [{date: '2026-10-24', steps: 8123}];
 
 const fakeHealthConnect = (sdkStatus: HealthConnectSdkStatus = 'AVAILABLE', granted: string[] = ALL_PERMISSIONS) => ({
   getSdkStatus: jest.fn(async () => sdkStatus),
@@ -18,6 +21,8 @@ const fakeHealthConnect = (sdkStatus: HealthConnectSdkStatus = 'AVAILABLE', gran
   requestPermissions: jest.fn(async (_permissions: string[]) => [HC_PERMISSION.WRITE_EXERCISE]),
   isHistoryReadAvailable: jest.fn(async () => true),
   readWeights: jest.fn(async (_startMs: number, _endMs: number) => [{kg: 82.5, time: NOW - 1000, origin: 'com.withings.wiscale2', originLabel: 'Withings'}]),
+  readSleepSessions: jest.fn(async (_startMs: number, _endMs: number) => [SLEEP_SESSION]),
+  readDailySteps: jest.fn(async (_startMs: number, _endMs: number) => DAILY_STEPS),
   writeStrengthSession: jest.fn(async (_session: HealthConnectSessionInput) => ['record-1']),
   deleteStrengthSession: jest.fn(async (_clientRecordId: string) => true),
   openHealthConnect: jest.fn(async () => true),
@@ -97,7 +102,7 @@ describe('GH-528 healthConnectMiddleware', () => {
     store.dispatch({type: HEALTH_CONNECT_ACTIONS.REFRESH});
     await flush();
 
-    expect(Object.values(hc!).map((fn) => fn.mock.calls.length)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(Object.values(hc!).map((fn) => fn.mock.calls.length)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(store.getState().trainings.byId[1].state).toBe(TrainingsState.FINISHED);
   });
 
@@ -164,6 +169,69 @@ describe('GH-528 healthConnectMiddleware', () => {
     expect(hc!.requestPermissions.mock.calls).toEqual([[ALL_PERMISSIONS]]);
     expect(store.getState().healthConnect?.status).toEqual({sdkStatus: 'AVAILABLE', providedBySystem: true, granted: ALL_PERMISSIONS, historyReadAvailable: true});
     expect(store.getState().healthConnect?.everConnected).toBe(true);
+  });
+
+  describe('GH-619 sleep and steps for the AI chat', () => {
+    const RANGE = {startMs: NOW - 7 * DAY_MS, endMs: NOW};
+    const loadRecovery = {type: HEALTH_CONNECT_ACTIONS.LOAD_RECOVERY, ...RANGE};
+
+    it('reads sleep (from one day earlier) and steps of the range and keeps them in memory only', async () => {
+      const {store, hc} = setup({});
+      store.dispatch(loadRecovery);
+      await flush();
+
+      expect([hc!.readSleepSessions.mock.calls, hc!.readDailySteps.mock.calls]).toEqual([[[RANGE.startMs - DAY_MS, RANGE.endMs]], [[RANGE.startMs, RANGE.endMs]]]);
+      expect(store.getState().healthConnect?.recovery).toEqual({sleep: [SLEEP_SESSION], steps: DAILY_STEPS, ...RANGE, error: undefined, loadedAt: NOW});
+    });
+
+    it('reads only the part whose permission is granted', async () => {
+      const hc = fakeHealthConnect('AVAILABLE', [HC_PERMISSION.READ_STEPS]);
+      const {store} = setup({}, hc);
+      store.dispatch(loadRecovery);
+      await flush();
+
+      expect(hc.readSleepSessions).not.toHaveBeenCalled();
+      expect(store.getState().healthConnect?.recovery).toEqual({sleep: undefined, steps: DAILY_STEPS, ...RANGE, error: undefined, loadedAt: NOW});
+    });
+
+    it('keeps steps when reading sleep fails, and reports the failure', async () => {
+      const hc = fakeHealthConnect();
+      hc.readSleepSessions.mockRejectedValueOnce(new Error('Rate limited'));
+      const {store} = setup({}, hc);
+      store.dispatch(loadRecovery);
+      await flush();
+
+      expect(store.getState().healthConnect?.recovery).toEqual({sleep: undefined, steps: DAILY_STEPS, ...RANGE, error: 'Sleep: Rate limited', loadedAt: NOW});
+    });
+
+    it.each([
+      ['uninstalled Health Connect', fakeHealthConnect('UNAVAILABLE'), 'Health Connect is not available.'],
+      ['no native module', null, 'Health Connect is not supported on this device.'],
+    ])('does not throw with %s', async (_case, hc, error) => {
+      const {store} = setup({}, hc);
+      store.dispatch(loadRecovery);
+      await flush();
+
+      expect(store.getState().healthConnect?.recovery).toEqual({sleep: undefined, steps: undefined, ...RANGE, error, loadedAt: NOW});
+    });
+
+    it('drops sleep once READ_SLEEP is revoked, and steps once READ_STEPS is revoked', async () => {
+      const hc = fakeHealthConnect();
+      const {store} = setup({}, hc);
+      store.dispatch(loadRecovery);
+      await flush();
+      hc.getGrantedPermissions.mockResolvedValue([HC_PERMISSION.READ_STEPS]);
+      store.dispatch({type: HEALTH_CONNECT_ACTIONS.REFRESH});
+      await flush();
+
+      expect(store.getState().healthConnect?.recovery).toEqual({sleep: undefined, steps: DAILY_STEPS, ...RANGE, error: undefined, loadedAt: NOW});
+
+      hc.getGrantedPermissions.mockResolvedValue([HC_PERMISSION.WRITE_EXERCISE]);
+      store.dispatch({type: HEALTH_CONNECT_ACTIONS.REFRESH});
+      await flush();
+
+      expect(store.getState().healthConnect?.recovery).toBeUndefined();
+    });
   });
 
   it('reports a device without Health Connect module as not supported', async () => {

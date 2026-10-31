@@ -1,5 +1,11 @@
 import {AnyAction} from 'redux';
-import {HC_PERMISSION, HealthConnectSdkStatus, HealthConnectWeight} from '../../utils/healthConnect/healthConnectNative';
+import {
+  HC_PERMISSION,
+  HealthConnectDailySteps,
+  HealthConnectSdkStatus,
+  HealthConnectSleepSession,
+  HealthConnectWeight,
+} from '../../utils/healthConnect/healthConnectNative';
 
 /**
  * GH-528: Health Connect state.
@@ -8,7 +14,7 @@ import {HC_PERMISSION, HealthConnectSdkStatus, HealthConnectWeight} from '../../
  * (to tell "not connected" from "permissions revoked"), the fingerprint of every training
  * written to Health Connect (to update/delete it later) and the last sync result.
  * Transient: the provider status / granted permissions (re-read before every use) and the body
- * weights read from Health Connect — health data is never persisted by Gainalytics.
+ * weights, sleep and steps read from Health Connect — health data is never persisted by Gainalytics.
  */
 export interface HealthConnectState {
   writeEnabled: boolean;
@@ -24,6 +30,19 @@ export interface HealthConnectState {
   lastSync?: HealthConnectSyncEvent;
   status?: HealthConnectStatus;
   bodyWeights?: BodyWeightsState;
+  /** GH-619: sleep and steps for the AI chat's recovery context. */
+  recovery?: RecoveryState;
+}
+
+export interface RecoveryState {
+  /** Undefined when READ_SLEEP is not granted (or was revoked). */
+  sleep?: HealthConnectSleepSession[];
+  /** Undefined when READ_STEPS is not granted (or was revoked). */
+  steps?: HealthConnectDailySteps[];
+  startMs: number;
+  endMs: number;
+  error?: string;
+  loadedAt: number;
 }
 
 export type HealthConnectStatus =
@@ -52,13 +71,23 @@ export const HEALTH_CONNECT_ACTIONS = {
   CONNECT: 'HEALTH_CONNECT_CONNECT',
   REQUEST_HISTORY: 'HEALTH_CONNECT_REQUEST_HISTORY',
   LOAD_WEIGHTS: 'HEALTH_CONNECT_LOAD_WEIGHTS',
+  LOAD_RECOVERY: 'HEALTH_CONNECT_LOAD_RECOVERY',
   // State changes.
   STATUS: 'HEALTH_CONNECT_STATUS',
   SET_WRITE_ENABLED: 'HEALTH_CONNECT_SET_WRITE_ENABLED',
   NEW_RECORD_NAMESPACE: 'HEALTH_CONNECT_NEW_RECORD_NAMESPACE',
   SYNC_RESULT: 'HEALTH_CONNECT_SYNC_RESULT',
   WEIGHTS_LOADED: 'HEALTH_CONNECT_WEIGHTS_LOADED',
+  RECOVERY_LOADED: 'HEALTH_CONNECT_RECOVERY_LOADED',
 } as const;
+
+/** GH-619: keeps only the recovery data whose permission is still granted. */
+const recoveryFor = (recovery: RecoveryState | undefined, status: HealthConnectStatus): RecoveryState | undefined => {
+  if (!recovery || status.sdkStatus !== 'AVAILABLE') return undefined;
+  const sleep = status.granted.includes(HC_PERMISSION.READ_SLEEP) ? recovery.sleep : undefined;
+  const steps = status.granted.includes(HC_PERMISSION.READ_STEPS) ? recovery.steps : undefined;
+  return sleep || steps ? {...recovery, sleep, steps} : undefined;
+};
 
 export const initialHealthConnectState: HealthConnectState = {
   writeEnabled: false,
@@ -83,6 +112,8 @@ const healthConnectReducer = (state: HealthConnectState = initialHealthConnectSt
         everConnected: state.everConnected || connected,
         // Without READ_WEIGHT the weights must not stay visible.
         bodyWeights: status.sdkStatus === 'AVAILABLE' && status.granted.includes(HC_PERMISSION.READ_WEIGHT) ? state.bodyWeights : undefined,
+        // Likewise sleep and steps, each on its own permission.
+        recovery: recoveryFor(state.recovery, status),
       };
     }
     case HEALTH_CONNECT_ACTIONS.SET_WRITE_ENABLED:
@@ -98,6 +129,11 @@ const healthConnectReducer = (state: HealthConnectState = initialHealthConnectSt
     }
     case HEALTH_CONNECT_ACTIONS.WEIGHTS_LOADED:
       return {...state, bodyWeights: {weights: action.weights ?? [], error: action.error, loadedAt: action.loadedAt}};
+    case HEALTH_CONNECT_ACTIONS.RECOVERY_LOADED:
+      return {
+        ...state,
+        recovery: {sleep: action.sleep, steps: action.steps, startMs: action.startMs, endMs: action.endMs, error: action.error, loadedAt: action.loadedAt},
+      };
     case 'FULL_IMPORT':
       // The imported trainings are different ones: forget what was written for the old data. Their
       // ids may repeat ids already used in Health Connect, so the middleware starts a new namespace.

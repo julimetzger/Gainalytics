@@ -16,6 +16,7 @@ import {
   setSeedContextJson,
   setContextRange,
   setIncludePlannedTrainings,
+  setIncludeRecoveryContext,
   setSelectedTrainingId,
   setPendingLegacyArchive,
   rollbackPendingUserMessage,
@@ -48,6 +49,8 @@ import {
 } from '../../utils/ai/buildChatContext';
 import ChatContextPreviewDialog from '../../components/ai/ChatContextPreviewDialog';
 import ChatTrainingPickerDialog from '../../components/ai/ChatTrainingPickerDialog';
+import ChatRecoveryOption from '../../components/ai/ChatRecoveryOption';
+import {useRecoveryContext} from '../../redux/HealthConnect/use/useRecoveryContext';
 import {useAIChatPrompt} from '../../redux/settings/use/useAIChatPrompt';
 import {useAnthropicModel} from '../../redux/settings/use/useAnthropicModel';
 import {useAiProvider} from '../../redux/settings/use/useAiProvider';
@@ -146,6 +149,8 @@ const AIChatTab = () => {
   // GH-391 — undefined only until migration 13 has run on a very old store.
   const includePlanned = useSelector((s: GlobalState) => s.aiChat.includePlannedTrainings ?? true);
   const selectedTrainingId = useSelector((s: GlobalState) => s.aiChat.selectedTrainingId ?? null);
+  // GH-619 — health data only travels with an explicit opt-in; off by default.
+  const includeRecovery = useSelector((s: GlobalState) => s.aiChat.includeRecoveryContext ?? false);
 
   const trainingsById = useSelector((s: GlobalState) => s.trainings.byId);
   const workoutsById = useSelector((s: GlobalState) => s.workouts.byId) as Record<number, any>;
@@ -259,14 +264,18 @@ const AIChatTab = () => {
     );
   }, [selectedTrainingId, allPlans, trainingsById, workoutsById, exercisesById, videoAnalysesById]);
 
+  const recovery = useRecoveryContext(effectiveRange.startDate, effectiveRange.endDate, includeRecovery);
+
   const contextParts: ChatContextParts = useMemo(
     () => ({
       finishedJson: seedContextJson,
       // Switched off means switched off — the planning JSON is not built into the prompt at all.
       plannedJson: includePlanned && plannedContext ? JSON.stringify(plannedContext) : null,
       selectedJson: selectedContext ? JSON.stringify(selectedContext) : null,
+      // GH-619: null unless the opt-in is on, a permission is granted and there is data.
+      recoveryJson: recovery.json,
     }),
-    [seedContextJson, includePlanned, plannedContext, selectedContext],
+    [seedContextJson, includePlanned, plannedContext, selectedContext, recovery.json],
   );
 
   const contextSections = useMemo(() => chatContextSections(contextParts), [contextParts]);
@@ -375,6 +384,7 @@ const AIChatTab = () => {
       `[AIChatTab] handleSend: finished=${contextJson ? `${contextJson.length}c` : 'null'} ` +
         `planned=${partsForSend.plannedJson ? `${partsForSend.plannedJson.length}c` : 'off/none'} ` +
         `selected=${partsForSend.selectedJson ? `${partsForSend.selectedJson.length}c` : 'none'} ` +
+        `recovery=${partsForSend.recoveryJson ? `${partsForSend.recoveryJson.length}c` : 'off/none'} ` +
         `finishedTrainings=${allFinishedTrainings.length}`,
     );
 
@@ -685,6 +695,13 @@ const AIChatTab = () => {
                   `Plan attached: ${plannedSessionCount} planned session${plannedSessionCount !== 1 ? 's' : ''} from "${plannedContext.plan_name}" (${plannedContext.scope})`
                 : 'Plan attached: nothing planned'}
           </Text>
+
+          {/* GH-619: sleep and steps from Health Connect, follows the date range above. */}
+          <ChatRecoveryOption
+            recovery={recovery}
+            enabled={includeRecovery}
+            onToggle={enabled => dispatch(setIncludeRecoveryContext(enabled))}
+          />
         </View>
       )}
 
