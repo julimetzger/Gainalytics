@@ -1,0 +1,36 @@
+# PERF-004 data integrity: backup before install (MMKV, debug build, run-as) vs. in-app export after install vs. in-app export after all measurements
+key                                     backup-before       release-before                final  equal
+exercises                                          82                   82                   82  YES
+trainings                                         381                  381                  381  YES
+trainings_byId                                    381                  381                  381  YES
+trainings_by_state                {'F': 364, 'P': 17}  {'F': 364, 'P': 17}  {'F': 364, 'P': 17}  YES
+workouts_allIds                                  2883                 2883                 2883  YES
+workouts_byId                                    5707                 5707                 5707  YES
+sets_total                                      11461                11461                11461  YES
+trainingsPlans                                      4                    4                    4  YES
+videoAnalyses                                      10                   10                   10  YES
+max_training_id                                   381                  381                  381  YES
+fp_trainings_byId                    7fb78eda601d2fda     7fb78eda601d2fda     7fb78eda601d2fda  YES
+fp_workouts_byId                     3d01f9d379385c84     3d01f9d379385c84     3d01f9d379385c84  YES
+fp_trainingsPlan_byId                6c6ee25b97ea5b84     6c6ee25b97ea5b84     6c6ee25b97ea5b84  YES
+fp_exercises_byId                    e12dd60df36c90bb     e12dd60df36c90bb     e12dd60df36c90bb  YES
+fp_workouts_byExerciseId             7e415d73b165fe80     7e415d73b165fe80     7e415d73b165fe80  YES
+fp_workouts_allIds                   d3bd89b00fc78a3e     d3bd89b00fc78a3e     d3bd89b00fc78a3e  YES
+fp_workouts_plannedWorkouts          b21a0d7784f22116     b21a0d7784f22116     b21a0d7784f22116  YES
+fp_trainings_allIds                  0a91c00f43014e8d     0a91c00f43014e8d     0a91c00f43014e8d  YES
+fp_videoAnalyses                     ef92ec2e6feeb1fc     ef92ec2e6feeb1fc     ef92ec2e6feeb1fc  YES
+fp_settings                          52f890d3c1803bdb     52f890d3c1803bdb     fe6fb970901aab44  NO
+
+slice exercises       identical before/final: True
+slice workouts        identical before/final: True
+slice trainingsPlan   identical before/final: True
+slice trainings       identical before/final: True
+slice videoAnalyses   identical before/final: True
+slice bodyWeight      identical before/final: True
+slice settings        identical before/final: False
+slice effects         identical before/final: True
+slice aiChat          identical before/final: True
+slice _persist        identical before/final: True
+
+settings differences (before -> final):
+  restTimer None -> {'active': {'startedAt': 1793545355061, 'targetSeconds': 90, 'exerciseId': 1}}

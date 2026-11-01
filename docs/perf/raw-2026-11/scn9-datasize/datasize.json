@@ -1,0 +1,49 @@
+{
+ "counts": {
+  "trainings": 381,
+  "trainings_by_state": {
+   "F": 364,
+   "P": 17
+  },
+  "workouts_allIds": 2883,
+  "workouts_byId": 5707,
+  "sets_total": 11461,
+  "exercises": 82,
+  "trainingsPlans": 4,
+  "videoAnalyses": 10
+ },
+ "workouts_plannedWorkouts": 2833,
+ "aiChat_messages": 2,
+ "aiChat_history": 1,
+ "redux_persist_root_value_chars": 1766484,
+ "redux_persist_slice_chars": {
+  "exercises": 24695,
+  "workouts": 1349615,
+  "trainingsPlan": 4449,
+  "trainings": 112290,
+  "videoAnalyses": 4901,
+  "settings": 323,
+  "aiChat": 20167,
+  "_persist": 32,
+  "bodyWeight": 23,
+  "healthConnect": 57
+ },
+ "export_file_bytes": 1516639,
+ "export_slice_bytes": {
+  "exercises": 24700,
+  "workouts": 1349615,
+  "trainingsPlan": 4449,
+  "trainings": 112290,
+  "videoAnalyses": 4901,
+  "bodyWeight": 23,
+  "settings": 323,
+  "effects": 2,
+  "aiChat": 20202,
+  "_persist": 32
+ },
+ "mmkv_default_file_bytes": 16777216,
+ "app_data_dir_du_before": "50M (run-as du -sh, debug build, incl. 17 MB BridgelessReactNativeDevBundle.js + video previews)",
+ "diskstats_app_bytes": 133339648,
+ "diskstats_data_bytes": 33824768,
+ "diskstats_cache_bytes": 344064
+}

@@ -1,0 +1,59 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 56492529 Realtime: 441370974
+
+** MEMINFO in pid 27862 [com.powerliftingworkoutplanner] **
+                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap   236081   236056        4       32   237604   257724   226829    26496
+  Dalvik Heap    14248    14124       12       36    19380    19103     9552     9551
+ Dalvik Other     1701     1224        0        0     2676                           
+        Stack      988      988        0        0      996                           
+       Ashmem       12        0        0        0      704                           
+    Other dev       17        0       16        0      308                           
+     .so mmap    18077      196    15816       12    55272                           
+    .jar mmap     1757        0      264        0    43064                           
+    .apk mmap    23288      668    22104        0    27184                           
+    .ttf mmap      759        0      436        0     1376                           
+    .dex mmap    19594        0    19584        0    20360                           
+    .oat mmap      345        0        0        0    13920                           
+    .art mmap     4991     4600       56       34    22832                           
+   Other mmap     2145        8     1916        0     4648                           
+   EGL mtrack     6096     6096        0        0     6096                           
+    GL mtrack     6364     6364        0        0     6364                           
+ Other mtrack        5        5        0        0        5                           
+      Unknown    54252    54120      128        1    54788                           
+        TOTAL   390835   324449    60336      115   517577   276827   236381    36047
+ 
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:    18780                          42212
+         Native Heap:   236056                         237604
+                Code:    59072                         162144
+               Stack:      988                            996
+            Graphics:    12460                          12460
+       Private Other:    57429
+              System:     6050
+             Unknown:                                   62161
+ 
+           TOTAL PSS:   390835            TOTAL RSS:   517577       TOTAL SWAP PSS:      115
+ 
+ Objects
+               Views:      858         ViewRootImpl:        1
+         AppContexts:        5           Activities:        1
+              Assets:       27        AssetManagers:        0
+       Local Binders:       16        Proxy Binders:       49
+       Parcel memory:        7         Parcel count:       30
+    Death Recipients:        0      OpenSSL Sockets:        0
+            WebViews:        0
+ 
+ SQL
+         MEMORY_USED:      282
+  PAGECACHE_OVERFLOW:       88          MALLOC_SIZE:       46
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b)          cache  Dbname
+         4      100            123        8/49/10  /data/user/0/com.powerliftingworkoutplanner/no_backup/androidx.work.workdb
+         4        8                         0/0/0    (attached) temp
+         4      100             25         4/14/2  /data/user/0/com.powerliftingworkoutplanner/no_backup/androidx.work.workdb (2)

@@ -1006,3 +1006,21 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Jest:** RN's `jest/mocks/AppState` makes `addEventListener` a `jest.fn` whose `remove()` does nothing, so `mock.calls` also holds listeners of effects that were already cleaned up. Calling all of them double-counts reads. Call only the newest `'change'` listener with `'active'`, inside `act` (see `AIChatTabRecoveryContext.spec.tsx`).
 **Device:** any app-owned activity started over MainActivity (e.g. `am start -W -n <pkg>/.healthconnect.HealthConnectTestDataActivity …`) pauses it, so RN fires `background`, then `active` when the activity `finish()`es. Run a Maestro flow WITHOUT `launchApp` afterwards to prove the mounted screen reloaded (GH-619: chat preview went from 20113 to 25000 steps).
 **Apply when:** data from a provider can change while the app is in the background and a mounted screen caches it.
+
+### The shared `node_modules` can lag `package.json` — a build from it crashes at JS load
+**Problem (PERF-004):** the worktree's `node_modules` symlink pointed at the main repo's install with `react-native-mmkv` 3.3.3 and no `react-native-nitro-modules`, while master (after the MMKV 4 bump) locks 4.3.2 + nitro 0.35.9. Debug-over-Metro and the release APK both died on start with `[runtime not ready]: TypeError: undefined is not a function` (module factory call), SIGABRT in `mqt_v_js`; Samsung shows its `AppErrorDialogActivity`.
+**Fix / Rule:** before any native build compare `node -p "require('./node_modules/<pkg>/package.json').version"` with `package-lock.json`. If they differ: `rm node_modules` (the symlink only) + `npm ci` inside the worktree (~30 s), then `rm -rf android/build android/app/build android/app/.cxx android/.gradle` — the autolinking cache `android/build/generated/autolinking/autolinking.json` is keyed on the package-lock SHA and keeps the OLD module list (nitro missing) otherwise. Check `grep -c nitro android/build/generated/autolinking/autolinking.json` after configure.
+**Apply when:** a build crashes at JS load right after a dependency bump landed on master, or before any release/perf build.
+
+### Perf runs: make an API-key-gated screen measurable without sending anything
+**Observation (PERF-004):** the AI chat renders no input without credentials. Settings → AI Configuration → save an invalid placeholder key (`sk-ant-…-dummy`) → input appears; type, never tap send; then clear the field and "Save Key" (empty = `deleteAnthropicApiKey`, toast "API key removed"). While a key is set, do NOT open training Analysis / Micro Overview: `useCoachInsight` fetches automatically. The red "Invalid API key" banner in the chat can be persisted `aiChat.error` from an earlier run, not a new request — compare the `aiChat` slice of exports before/after.
+**Apply when:** measuring or screenshotting the AI chat on the test phone.
+
+### Perf comparisons: report control scenarios to prove the device state is comparable
+**Observation (PERF-004):** battery was at 15 % (PERF-001: 89 %). Cold start, calendar, Exercises fling and set-field typing came out within ±2–8 % of the old run, which shows the CPU state is comparable, so the +61 % (set save) / +93 % (Metrics swipe) are app changes. Always list such unchanged series next to the regressions. Single-shot "open" values (n=1 in PERF-001) need 5 cold-start repeats — `measure.sh` series names with `/` need a flat device trace name (`tr / -`), or Perfetto writes nothing.
+**Apply when:** re-measuring performance against an older report.
+
+### Scripts copied from the run dir into `docs/` must keep one output root for writers and readers
+**Problem (PERF-004 round 2, Codex):** `measure.sh`/`scn1.sh`/`scn8.sh` derived their output dir as `$(dirname $(dirname tools))/raw/…`, which only matched the run-dir layout `runs/<T>/raw/tools`. From `docs/perf/raw-2026-11/tools` they wrote to `docs/perf/raw/`, while `aggregate.py` read `docs/perf/raw-2026-11/` and silently aggregated the old data.
+**Fix / Rule:** derive the root from the same anchor in every script (here the parent of `tools/`, with a `PERF004_RAW_DIR` override), and grep for each `dirname` chain before committing tools under a new path.
+**Apply when:** committing measurement or helper scripts out of `.codex-orchestrator/runs/`.

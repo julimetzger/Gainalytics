@@ -20,7 +20,7 @@ Back to the [index](../agent-memory.md).
 (seen in GH-391, GH-396)
 
 ### Release signing is not available to workers
-The release keystore and `ANDROID_RELEASE_PASSWORD` live on the user's Windows machine. To verify a runtime fix in a release-like build, temporarily switch `signingConfig signingConfigs.release` → `signingConfigs.debug`, do NOT commit that, install via `adb install -r`. Final signed-release verification is the user's job after merge.
+The release keystore and `ANDROID_RELEASE_PASSWORD` live on the user's Windows machine. To verify a runtime fix in a release-like build, sign the release with the debug key WITHOUT editing any file: `env -u JAVA_TOOL_OPTIONS ANDROID_RELEASE_STORE_FILE=debug.keystore ANDROID_RELEASE_PASSWORD=android ANDROID_RELEASE_KEY_ALIAS=androiddebugkey ANDROID_RELEASE_KEY_PASSWORD=android ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a` (`android/app/build.gradle` reads these env vars; the path is relative to `android/app`). It installs with `adb install -r` over a debug build of the same key (data kept). Final signed-release verification is the user's job after merge. (env-var route seen in PERF-004; older runs switched `signingConfig` locally and must not commit that)
 
 ### Gradle failures that are build-state corruption
 - **First build of a fresh worktree crashes on launch** with `NoClassDefFoundError … NativeSafeAreaContextSpec` (class IS in the dex): `./gradlew :app:clean :react-native-safe-area-context:clean` then `./gradlew :app:assembleDebug --rerun-tasks`. The FATAL is on a pool thread after `am start` returns, so a 15 s cold-start grep misses it — verify with one `launchApp` flow or `pm clear` + start + 30 s + `logcat -d | grep -E "FATAL EXCEPTION|NoClassDef"`.

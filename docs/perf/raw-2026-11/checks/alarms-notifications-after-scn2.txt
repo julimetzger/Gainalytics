@@ -1,0 +1,5 @@
+# after deleting the scn2 measurement training + force-stop (2026-11-01T16:05:40+01:00)
+app uid: userId=14724 (= u0a4724)
+  Pending alarms per uid: [1000:36, 1001:1, 1002:1, 1073:3, 5012:1, u0a53:1, u0a75:2, u0a106:1, u0a108:2, u0a165:1, u0a195:1, u0a231:3, u0a239:1, u0a243:20, u0a246:5, u0a251:2, u0a252:5, u0a259:1, u0a265:1, u0a486:1]
+pending alarms of u0a4724: 0
+notifications of app: 0
