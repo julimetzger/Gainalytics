@@ -10,6 +10,12 @@ import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
 
 const mockDeleteTraining = jest.fn();
 const mockFinishTraining = jest.fn();
+const mockReopenTraining = jest.fn();
+const mockFinalizeWorkout = jest.fn();
+const mockScheduleFinishNotification = jest.fn();
+const mockSchedulePauseNotification = jest.fn();
+const DEFAULT_SETTINGS = {toggles: {disableTimer: true, disableToasts: true}};
+let mockSettings: any = DEFAULT_SETTINGS;
 const mockStartTraining = jest.fn();
 const mockClearPlannedTraining = jest.fn();
 
@@ -41,7 +47,7 @@ jest.mock('../../../app/redux/Workout/use/useWorkoutById', () => ({
 }));
 
 jest.mock('../../../app/redux/settings/use/useSettings', () => ({
-  useSettings: () => ({toggles: {disableTimer: true, disableToasts: true}}),
+  useSettings: () => mockSettings,
 }));
 
 jest.mock('../../../app/redux/Training/dispatch/plan/dispatchStartTraining', () => ({
@@ -52,6 +58,12 @@ jest.mock('../../../app/redux/Training/dispatch/general/dispatchModifyExercisesI
 }));
 jest.mock('../../../app/redux/Training/dispatch/execute/dispatchFinishTraining', () => ({
   dispatchFinishTraining: () => mockFinishTraining,
+}));
+jest.mock('../../../app/redux/Training/dispatch/execute/dispatchReopenTraining', () => ({
+  useReopenTraining: () => mockReopenTraining,
+}));
+jest.mock('../../../app/redux/Workout/dispatch/dispatchFinalizeWorkout', () => ({
+  dispatchFinalizeWorkout: () => mockFinalizeWorkout,
 }));
 jest.mock('../../../app/redux/Training/dispatch/general/dispatchDeleteTraining', () => ({
   dispatchDeleteTraining: () => mockDeleteTraining,
@@ -64,10 +76,10 @@ jest.mock('../../../app/redux/Training/dispatch/general/dispatchReplaceExerciseI
 }));
 
 jest.mock('../../../app/components/Training/execute/PauseDoneNotification', () => ({
-  PauseDoneNotification: () => [jest.fn(), jest.fn()],
+  PauseDoneNotification: () => [mockSchedulePauseNotification, jest.fn()],
 }));
 jest.mock('../../../app/components/Training/execute/FinishTrainingNotification', () => ({
-  FinishTrainingNotification: () => [jest.fn(), jest.fn()],
+  FinishTrainingNotification: () => [mockScheduleFinishNotification, jest.fn()],
 }));
 jest.mock('react-native-toast-message', () => ({show: jest.fn(), default: {show: jest.fn()}}));
 
@@ -141,8 +153,8 @@ jest.mock('../../../app/components/Training/analyse/TrainingPlanOverview', () =>
 // otherwise "reads the colour off the theme" is also satisfied by a literal
 // that happens to match. These are the real Blue palette values.
 const mockSchemes = {
-  light: {background: '#fff', onSurfaceVariant: '#888', primary: '#415F91', secondary: '#565F71', onSecondary: '#FFFFFF'},
-  dark: {background: '#111318', onSurfaceVariant: '#888', primary: '#AAC7FF', secondary: '#BEC6DC', onSecondary: '#283141'},
+  light: {background: '#fff', onSurfaceVariant: '#888', primary: '#415F91', onPrimary: '#FFFFFF', secondary: '#565F71', onSecondary: '#FFFFFF', inversePrimary: '#AAC7FF', outlineVariant: '#C4C6D0'},
+  dark: {background: '#111318', onSurfaceVariant: '#888', primary: '#AAC7FF', onPrimary: '#0A305F', secondary: '#BEC6DC', onSecondary: '#283141', inversePrimary: '#415F91', outlineVariant: '#44474E'},
 };
 let mockSchemeMode: 'light' | 'dark' = 'light';
 
@@ -167,6 +179,24 @@ jest.mock('react-native-paper', () => {
     ),
     Dialog: DialogBase,
     Portal: ({children}: any) => <>{children}</>,
+    // Paper calls the action's onPress, then onDismiss.
+    Snackbar: ({visible, children, action, onDismiss, testID}: any) =>
+      visible ? (
+        <View testID={testID}>
+          <Text>{children}</Text>
+          {action && (
+            <TouchableOpacity
+              testID={action.testID}
+              onPress={() => {
+                action.onPress();
+                onDismiss();
+              }}
+            >
+              <Text>{action.label}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : null,
     Text: ({children, testID}: any) => <Text testID={testID}>{children}</Text>,
     Menu: Object.assign(
       ({visible, children}: any) => (visible ? <View>{children}</View> : null),
@@ -381,9 +411,9 @@ describe('TrainingsPlanNode — GH-401 Train tab is the single start/finish cont
     // (handleFinish pre-selects Analysis), swipe away and back. The stale
     // "train" request used to drag the user off the analysis they just earned.
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
-    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} requestedSubTab="train" />);
 
-    fireEvent.press(getByTestId('train-tab-finish-button'));
+    fireEvent.press(getByTestId('overflow-finish'));
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.FINISHED));
     rerender(<TrainingsPlanNode {...defaultProps} requestedSubTab="train" />);
     expect(getByTestId('trainings-overview')).toBeTruthy();
@@ -426,42 +456,14 @@ describe('TrainingsPlanNode — GH-401 Train tab is the single start/finish cont
     expect(getByTestId('plan-workout')).toBeTruthy();
   });
 
-  it('offers Finish Training on the Train tab of a STARTED training, so ⋮ is never needed', () => {
+  it('offers the action bar\'s "Next" instead of a finish button while exercises are open (GH-623)', () => {
     useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
-    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
     expect(getByTestId('execute-workout')).toBeTruthy();
 
-    fireEvent.press(getByTestId('train-tab-finish-button'));
-    expect(mockFinishTraining).toHaveBeenCalledWith(10, 1);
-  });
-
-  it('fills the Finish Training button with the theme secondary colour, not the primary one (GH-437)', () => {
-    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
-
-    const finishColours = () => {
-      const view = render(<TrainingsPlanNode {...defaultProps} />);
-      const fill = StyleSheet.flatten(view.getByTestId('train-tab-finish-button').props.style).backgroundColor;
-      const label = StyleSheet.flatten(view.getByTestId('train-tab-finish-button-text').props.style).color;
-      view.unmount();
-      return {fill, label};
-    };
-
-    mockSchemeMode = 'light';
-    const light = finishColours();
-    expect(light.fill).toBe(mockSchemes.light.secondary);
-    expect(light.fill).not.toBe(mockSchemes.light.primary);
-    expect(light.label).toBe(mockSchemes.light.onSecondary);
-
-    // Rendering the same button under a second scheme is what rules out a
-    // literal that merely happens to match the light palette.
-    mockSchemeMode = 'dark';
-    const dark = finishColours();
-    expect(dark.fill).toBe(mockSchemes.dark.secondary);
-    expect(dark.fill).not.toBe(mockSchemes.dark.primary);
-    expect(dark.label).toBe(mockSchemes.dark.onSecondary);
-
-    expect(light.fill).not.toBe(dark.fill);
-    expect(light.label).not.toBe(dark.label);
+    expect(queryByTestId('train-tab-finish-button')).toBeNull();
+    expect(getByTestId('train-tab-next-button-text').props.children).toBe('Next: Bench');
+    expect(getByTestId('train-action-bar-progress').props.children).toBe('Exercise 1 of 2');
   });
 
   it('leaves the neighbouring Start Training button on the theme default (GH-437)', () => {
@@ -930,5 +932,140 @@ describe('TrainingsPlanNode — GH-483 removing the selected exercise from the c
 
     expect(getByTestId('plan-workout')).toBeTruthy();
     expect(mockPlanTabMounts).toBe(mountsBefore);
+  });
+});
+
+describe('TrainingsPlanNode — GH-623 action bar and finish undo', () => {
+  const {useSelector} = require('react-redux');
+  const {useWorkoutById} = require('../../../app/redux/Workout/use/useWorkoutById');
+  // Squat (workout 100, 2 sets) and Bench (workout 101, 1 set) both finalized.
+  const completedStore = {
+    workouts: {
+      byId: {
+        100: {id: 100, exerciseId: 1, sets: [{index: 1}, {index: 2}], end: new Date(0)},
+        101: {id: 101, exerciseId: 2, sets: [{index: 1}], end: new Date(0)},
+      },
+    },
+  };
+  const completedTraining = () => ({...mkTraining(TrainingsState.STARTED), doneWorkoutIds: {1: 100, 2: 101}});
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSchemeMode = 'light';
+  });
+  afterEach(() => {
+    useSelector.mockImplementation(() => []);
+    useWorkoutById.mockImplementation(() => undefined);
+    mockSettings = DEFAULT_SETTINGS;
+  });
+
+  it('turns into a primary "Finish Training" with a summary once every exercise is completed, in light and dark', () => {
+    useSelector.mockImplementation((selector: any) => selector(completedStore));
+    useTrainingInTrainingsPlan.mockReturnValue(completedTraining());
+
+    const finishButton = () => {
+      const view = render(<TrainingsPlanNode {...defaultProps} />);
+      const result = {
+        fill: StyleSheet.flatten(view.getByTestId('train-tab-finish-button').props.style).backgroundColor,
+        label: StyleSheet.flatten(view.getByTestId('train-tab-finish-button-text').props.style).color,
+        text: view.getByTestId('train-tab-finish-button-text').props.children,
+        summary: view.getByTestId('train-action-bar-progress').props.children,
+        next: view.queryByTestId('train-tab-next-button'),
+      };
+      view.unmount();
+      return result;
+    };
+
+    const light = finishButton();
+    expect(light).toEqual({fill: mockSchemes.light.primary, label: mockSchemes.light.onPrimary, text: 'Finish Training', summary: '2 of 2 exercises · 3 sets · 1min', next: null});
+    mockSchemeMode = 'dark';
+    const dark = finishButton();
+    expect(dark).toEqual({fill: mockSchemes.dark.primary, label: mockSchemes.dark.onPrimary, text: 'Finish Training', summary: '2 of 2 exercises · 3 sets · 1min', next: null});
+  });
+
+  it('"Next" completes the selected exercise like the former "Add Workout" and moves on', () => {
+    useWorkoutById.mockImplementation((id?: number) => (id === 100 ? {id: 100, exerciseId: 1, sets: [{index: 1}]} : undefined));
+    useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.STARTED), doneWorkoutIds: {1: 100}});
+    jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+
+    fireEvent.press(getByTestId('train-tab-next-button'));
+
+    expect(mockFinalizeWorkout.mock.calls).toEqual([[new Date(1_000_000), 100]]);
+    expect(getByTestId('train-action-bar-progress').props.children).toBe('Exercise 2 of 2');
+    expect(getByTestId('train-tab-next-button-text').props.children).toBe('Next: Squat');
+    expect(mockScheduleFinishNotification).toHaveBeenCalledTimes(1);
+    (Date.now as jest.Mock).mockRestore();
+  });
+
+  it('"Next" on an exercise without logged sets only moves on and finalizes nothing', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
+    fireEvent.press(getByTestId('train-tab-next-button'));
+    expect(mockFinalizeWorkout).not.toHaveBeenCalled();
+    expect(getByTestId('train-action-bar-progress').props.children).toBe('Exercise 2 of 2');
+  });
+
+  it('hides the action bar in edit mode and on the other sub-tabs', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
+    expect(getByTestId('train-action-bar')).toBeTruthy();
+    fireEvent.press(getByTestId('subtab-analysis'));
+    expect(queryByTestId('train-action-bar')).toBeNull();
+    fireEvent.press(getByTestId('overflow-edit'));
+    expect(queryByTestId('train-action-bar')).toBeNull();
+  });
+
+  it('finishing shows the undo snackbar; Undo reopens the training, restores lastTraining and reschedules the notifications', () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    mockSettings = {...DEFAULT_SETTINGS, restTimer: {active: {startedAt: 1_000_000 - 30_000, targetSeconds: 90, exerciseId: 1}}};
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const plan = {...PLAN, lastTraining: 7};
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} trainingsPlan={plan} overflowVisible={true} />);
+
+    fireEvent.press(getByTestId('overflow-finish'));
+    expect(mockFinishTraining).toHaveBeenCalledWith(10, 1);
+    useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.FINISHED), end: 1_000_000});
+    rerender(<TrainingsPlanNode {...defaultProps} trainingsPlan={{...plan, lastTraining: 10}} />);
+    expect(getByTestId('training-finished-snackbar')).toBeTruthy();
+    expect(getByTestId('trainings-overview')).toBeTruthy();
+    expect(mockScheduleFinishNotification).not.toHaveBeenCalled();
+
+    fireEvent.press(getByTestId('training-finished-undo'));
+    expect(mockReopenTraining).toHaveBeenCalledWith(10, 1, 7);
+    expect(mockScheduleFinishNotification).toHaveBeenCalledTimes(1);
+    expect(mockSchedulePauseNotification).toHaveBeenCalledWith(60);
+    expect(queryByTestId('training-finished-snackbar')).toBeNull();
+
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    rerender(<TrainingsPlanNode {...defaultProps} trainingsPlan={plan} setIgnoreSwipe={jest.fn()} />);
+    expect(getByTestId('execute-workout')).toBeTruthy();
+    expect(getByTestId('train-action-bar')).toBeTruthy();
+    (Date.now as jest.Mock).mockRestore();
+  });
+
+  it('does not reschedule the rest notification when the rest is already over', () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    mockSettings = {...DEFAULT_SETTINGS, restTimer: {active: {startedAt: 1_000_000 - 120_000, targetSeconds: 90, exerciseId: 1}}};
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
+    fireEvent.press(getByTestId('overflow-finish'));
+    fireEvent.press(getByTestId('training-finished-undo'));
+    expect(mockReopenTraining).toHaveBeenCalledWith(10, 1, undefined);
+    expect(mockSchedulePauseNotification).not.toHaveBeenCalled();
+    (Date.now as jest.Mock).mockRestore();
+  });
+
+  it('swiping to another micro ends the undo window instead of reopening a training off screen', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
+    fireEvent.press(getByTestId('overflow-finish'));
+    expect(getByTestId('training-finished-snackbar')).toBeTruthy();
+
+    useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.FINISHED), end: 1_000_000});
+    rerender(<TrainingsPlanNode {...defaultProps} isCurrent={false} />);
+
+    expect(queryByTestId('training-finished-snackbar')).toBeNull();
+    expect(mockReopenTraining).not.toHaveBeenCalled();
   });
 });

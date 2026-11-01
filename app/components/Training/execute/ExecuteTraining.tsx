@@ -32,7 +32,7 @@ import {
 
 const DEFAULT_REST_SECONDS = 90;
 
-const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onScheduleNotification, onCancelNotification, editMode}: Props) => {
+const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onScheduleNotification, onCancelNotification, editMode, hideFinalizeButton}: Props) => {
   let doneWorkoutId = training.doneWorkoutIds[chosenExercise.id!!];
   let doneWorkout = useWorkoutById(doneWorkoutId);
   let nextTrainingsId = useNextTrainingsId();
@@ -204,6 +204,7 @@ const ExecuteTraining = ({training, chosenExercise, onSubmit, onSubmitSet, onSch
         nextSetIndex={nextSetIndex}
         workout={doneWorkout?.end ? doneWorkout : undefined}
         allowRefinalizeWhenDone={editMode}
+        hideFinalizeButton={hideFinalizeButton}
         exercise={chosenExercise}
         onSubmit={onSubmit}
         suggest={false}
@@ -301,6 +302,8 @@ interface Props {
   onScheduleNotification?: (seconds: number) => void;
   onCancelNotification?: () => void;
   editMode?: boolean;
+  /** GH-623: the running training's action bar ("Next") finalizes the workout instead. */
+  hideFinalizeButton?: boolean;
 }
 
 export default ExecuteTraining;

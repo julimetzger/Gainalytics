@@ -86,6 +86,7 @@ jest.mock('react-native-paper', () => {
     ),
     Dialog: DialogBase,
     Portal: ({children}: any) => <>{children}</>,
+    Snackbar: ({visible, children}: any) => (visible ? <>{children}</> : null),
     Text: ({children}: any) => <Text>{children}</Text>,
     Menu: Object.assign(
       ({visible, children}: any) => (visible ? <>{children}</> : null),
