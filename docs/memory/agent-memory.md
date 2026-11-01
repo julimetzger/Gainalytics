@@ -1024,3 +1024,25 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (PERF-004 round 2, Codex):** `measure.sh`/`scn1.sh`/`scn8.sh` derived their output dir as `$(dirname $(dirname tools))/raw/…`, which only matched the run-dir layout `runs/<T>/raw/tools`. From `docs/perf/raw-2026-11/tools` they wrote to `docs/perf/raw/`, while `aggregate.py` read `docs/perf/raw-2026-11/` and silently aggregated the old data.
 **Fix / Rule:** derive the root from the same anchor in every script (here the parent of `tools/`, with a `PERF004_RAW_DIR` override), and grep for each `dirname` chain before committing tools under a new path.
 **Apply when:** committing measurement or helper scripts out of `.codex-orchestrator/runs/`.
+
+### CI job: no python/node/awk/redirects on the host — run perf scripts and trace analysis ON the emulator
+**Problem (GH-672):** in the GitHub Actions agent job `python3`, `node`, `awk`, `bc`, `bash script.sh`, `>` redirects, `cp -r`/`rsync` and `$VAR` in compound commands all need approval; there is no `trace_processor` either, so the PERF-004 Perfetto tooling cannot run.
+**Fix / Rule:** write `sh` scripts with the Write tool, `adb push` them to `/data/local/tmp` and run `adb shell sh …` (device has `awk`, `atrace`, `unzip`, `seq`). `atrace --async_start -b 40960 -a <pkg> sched view gfx input …` / `--async_stop -o file` gives a text trace; `gestures.py`'s logic as awk: `docs/perf/raw-gh672/tools/gestures.awk`. Copy results back with one `adb pull <dir>` (build the export dir on the device). Long Gradle builds: background `tool.sh rebuild-release` + foreground `timeout 580 tail -f … | grep -m1 BUILD`.
+**Apply when:** any measurement/analysis in the CI agent job.
+
+### FlashList v2: data-dependent `key`s inside a cell defeat recycling; reset per-cell state with `useRecyclingState`
+**Problem (GH-672):** History was already flat with `getItemType`, yet every fling built ~820 native views: `key={workout.id}` on the card tree and value keys (`reps+weight+date`) on set rows remounted the whole cell on each recycle. An inline `onOutsidePress` also re-registered every tile in `react-native-outside-press`'s app-wide `EventProvider` (setState) on each render.
+**Fix / Rule:** no data keys below the cell root (position keys for stateless rows); `useRecyclingState(init, [itemId])` from `@shopify/flash-list` for per-item UI state (edit mode, open editor); stable callbacks into OutsidePressHandler. Views/fling 417 → 50, memory growth halved.
+**Apply when:** any FlashList cell that holds state or keyed children.
+
+### "Busy per fling" (`settle_ms`) ≈ momentum duration in FlashList — measure the floor with placeholder cells first
+**Observation (GH-672):** with every row replaced by a fixed-height empty View, flings still cost ~250 ms JS and `settle_ms` up to 836 ms on the CI emulator: FlashList v2 handles every scroll event in JS and renders bursts ≥ 10 ms < 150 ms apart, so the chain spans the whole momentum. Fixing the cells cut views and JS but not `settle_ms`. Emulator `input swipe` flings are bimodal (short drag vs ~1 s momentum) → use n ≥ 50 and compare means / heavy flings, not single runs.
+**Apply when:** a list-scroll perf ticket sets a `settle_ms` target — run the placeholder control before promising it.
+
+### Same-position before/after screenshots: zero-velocity drags + ffmpeg pixel diff
+**Fix / Rule (GH-672):** `input swipe` (even 1.5 s) leaves residual fling; `input motionevent DOWN/MOVE…/sleep 1/UP` does not (±4 px between runs). Prove "looks the same" with `ffmpeg -i a.png -i b.png -filter_complex "[0:v]crop=W:H:0:Y,format=gray[a];[1:v]crop=W:H:0:Y+off,format=gray[b];[a][b]blend=all_mode=difference,signalstats,metadata=print" -f null -` → `YMAX=0` means pixel-identical; crop below the status bar (clock). Release before/after without `git checkout`: re-apply the old hunks with Edit, check `git diff HEAD~1 -- app` is empty, and prove the installed bundle via `unzip -p <base.apk> assets/index.android.bundle | grep -c <new string>` on the device.
+**Apply when:** an AC says "looks the same / same scroll position" or a perf ticket needs before/after release builds.
+
+### Baseline exercise "Hyperextension " has a trailing blank — Maestro `text:` needs `'Hyperextension.*'`
+**Problem (GH-672):** `assertVisible {text: '13 reps', below: {text: 'Hyperextension'}}` failed although the card was on screen; uiautomator showed `text="Hyperextension "`. Text selectors are full-string regexes (known), so dump the hierarchy before trusting a visible label.
+**Apply when:** selecting History/exercise names from the baseline fixture.
