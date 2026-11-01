@@ -6,6 +6,7 @@ import createFilter from 'redux-persist-transform-filter';
 import {configureStore, Tuple} from '@reduxjs/toolkit';
 import logger from 'redux-logger';
 import {healthConnectMiddleware} from './app/redux/HealthConnect/healthConnectMiddleware';
+import {createIncrementalStorage} from './app/redux/persist/incremental-storage';
 
 export const migrations = {
   0: (state) => {
@@ -178,20 +179,9 @@ export const migrations = {
 // No id: v4 falls back to the default instance 'mmkv.default', the same file v3's `new MMKV()` used.
 const storage = createMMKV();
 
-export const reduxStorage: Storage = {
-  setItem: (key, value) => {
-    storage.set(key, value);
-    return Promise.resolve(true);
-  },
-  getItem: (key) => {
-    const value = storage.getString(key);
-    return Promise.resolve(value);
-  },
-  removeItem: (key) => {
-    storage.remove(key);
-    return Promise.resolve();
-  },
-};
+// GH-671: only what changed is written (per slice, workouts in chunks) instead of the whole
+// ~1.8 MB state on every change; reads the old single `persist:root` value and migrates it.
+export const reduxStorage: Storage = createIncrementalStorage(storage);
 
 const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseId', 'allIds', 'plannedWorkouts']);
 // GH-528: only the opt-in and the sync bookkeeping are persisted; permissions are re-read and
@@ -206,6 +196,9 @@ const persistConfig = {
   stateReconciler: hardSet,
   transforms: [saveUserLoginSubsetFilter, healthConnectPersistFilter],
   migrate: createMigrate(migrations, {debug: true}),
+  // GH-671: the storage receives and returns objects; it serialises each part itself.
+  serialize: false,
+  deserialize: false,
 };
 
 // @ts-ignore

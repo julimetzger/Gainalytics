@@ -40,9 +40,10 @@ jest.mock('../../../app/redux/Workout/use/useWorkoutById', () => ({
   useWorkoutById: jest.fn(() => undefined),
 }));
 
-jest.mock('../../../app/redux/settings/use/useSettings', () => ({
-  useSettings: () => ({toggles: {disableTimer: true, disableToasts: true}}),
-}));
+jest.mock('../../../app/redux/settings/use/useSettings', () => {
+  const useSettings = () => ({toggles: {disableTimer: true, disableToasts: true}});
+  return {useSettings, useSettingsSelector: (select: (settings: any) => unknown) => select(useSettings())};
+});
 
 jest.mock('../../../app/redux/Training/dispatch/plan/dispatchStartTraining', () => ({
   dispatchStartTraining: () => mockStartTraining,

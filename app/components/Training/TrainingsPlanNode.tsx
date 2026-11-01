@@ -30,7 +30,7 @@ import Toast from 'react-native-toast-message';
 import {useTrainingInTrainingsPlan} from '../../redux/Training/use/useTrainingInTrainingsPlan';
 import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
-import {useSettings} from '../../redux/settings/use/useSettings';
+import {useSettingsSelector} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
 import {getLocalMicro, getMesoForMicro} from '../../redux/Training/trainingsPlanReducer';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
@@ -157,7 +157,8 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   let finishTraining = dispatchFinishTraining();
   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
-  let appSettings = useSettings();
+  // GH-671: only the toggle — every pane of the swiper re-rendered on each rest-timer start.
+  const disableToasts = useSettingsSelector((settings) => settings.toggles?.disableToasts);
   const theme = useTheme();
   const [showPicker, setShowPicker] = useState(false);
   // GH-483: a pulled-down carousel tile has to draw over the execute/edit view below it.
@@ -314,7 +315,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       return;
     }
     startTraining();
-    if (!appSettings.toggles?.disableToasts) {
+    if (!disableToasts) {
       Toast.show({
         type: 'info',
         text1: 'Training started!',
@@ -332,7 +333,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     finishTraining(training.id, trainingsPlan.id!!);
     resetPauseNotification();
     resetFinishTraining();
-    if (!appSettings.toggles?.disableToasts) {
+    if (!disableToasts) {
       Toast.show({
         type: 'info',
         text1: 'Training finished!',

@@ -4,11 +4,11 @@ import AnalyseRouter from './AnalyseRouter';
 import SettingsRouter from './SettingsRouter';
 import {createMaterialBottomTabNavigator} from 'react-native-paper/react-navigation';
 import TrainingRouter from './TrainingRouter';
-import {useTrainings} from '../redux/Training/use/useTrainings';
-import {TrainingsState} from '../models/TrainingsState';
+import {useSelector} from 'react-redux';
+import {selectIsAnyTrainingStarted} from '../redux/Training/use/useTrainings';
 import useExerciseRecord from '../redux/Effects/useExerciseRecord';
 import Toast from 'react-native-toast-message';
-import {useSettings} from '../redux/settings/use/useSettings';
+import {useSettingsSelector} from '../redux/settings/use/useSettings';
 import {useExercise} from '../redux/Exercises/use/useExercise';
 import {useNavigation} from '@react-navigation/native';
 
@@ -16,14 +16,15 @@ const Tab = createMaterialBottomTabNavigator();
 
 export const BottomTabs = () => {
   const navigation = useNavigation();
-  const settings = useSettings();
-  const allTrainings = useTrainings();
+  // GH-671: a boolean and a toggle instead of the training list and the whole settings — both
+  // were new values on every logged set and re-rendered the tab navigator each time.
+  const disableToasts = useSettingsSelector((settings) => settings.toggles?.disableToasts);
+  const isTrainingStarted = useSelector(selectIsAnyTrainingStarted);
   let useExerciseRecord1 = useExerciseRecord();
   let exercise = useExercise(useExerciseRecord1?.exerciseId);
-  let isTrainingStarted = allTrainings.some((A) => A.state === TrainingsState.STARTED);
 
   React.useEffect(() => {
-    if (useExerciseRecord1 && exercise && !settings.toggles?.disableToasts) {
+    if (useExerciseRecord1 && exercise && !disableToasts) {
       Toast.show({
         type: 'success',
         text1: 'New Record!',
@@ -41,7 +42,7 @@ export const BottomTabs = () => {
         },
       });
     }
-  }, [useExerciseRecord1, exercise, navigation, settings.toggles?.disableToasts]);
+  }, [useExerciseRecord1, exercise, navigation, disableToasts]);
 
   return (
     <Tab.Navigator initialRouteName="Training" shifting={true} backBehavior="history">

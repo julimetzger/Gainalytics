@@ -17,9 +17,10 @@ import {buildThemes} from '../../../app/theme/buildThemes';
 
 const mockSetPalette = jest.fn();
 
-jest.mock('../../../app/redux/settings/use/useSettings', () => ({
-  useSettings: jest.fn(),
-}));
+jest.mock('../../../app/redux/settings/use/useSettings', () => {
+  const useSettings = jest.fn();
+  return {useSettings, useSettingsSelector: (select: (settings: any) => unknown) => select(useSettings() ?? {})};
+});
 
 jest.mock('../../../app/redux/settings/dispatch/dispatchSetPalette', () => ({
   dispatchSetPalette: jest.fn(() => mockSetPalette),
