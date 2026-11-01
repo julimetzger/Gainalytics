@@ -20,5 +20,7 @@ Coordinates are in the `wm size` override space 720x1600 of the Samsung SM-G986B
 | `ui.sh`, `shot.sh` | uiautomator dump with centres / resized screenshot |
 | `perf004-readonly-check.yaml` | read-only Maestro check after the measurement (no clearState, no import) |
 
+Output root: `measure.sh`, `scn1.sh` and `scn8.sh` write to the parent of `tools/` (here `docs/perf/raw-2026-11/`), the same directory `aggregate.py` reads by default. Set `PERF004_RAW_DIR` to write a new measurement elsewhere and pass that directory to `aggregate.py` as well.
+
 Trace processor: symlink `tp` next to the scripts -> `~/.local/share/perfetto/prebuilts/trace_processor_shell-*`.
 The Perfetto traces themselves (25–45 MB per series) are only in the run directory `.codex-orchestrator/runs/PERF-004/raw/<series>/trace.pftrace`.

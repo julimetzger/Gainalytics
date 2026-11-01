@@ -1,9 +1,10 @@
 #!/bin/bash
 # usage: measure.sh <series-name> <secs> <interaction fn> [prep fn]   (fns come from scenarios.sh)
 # PERF-001 method: prep (untraced) -> gfxinfo reset -> perfetto (config via stdin, <secs>) -> interaction -> gfxinfo/meminfo -> analysis
-T=$(dirname "$(readlink -f "$0")"); R=$(dirname $(dirname $T))
+# output root = aggregate.py default (the parent of tools/, i.e. docs/perf/raw-2026-11); override with PERF004_RAW_DIR
+T=$(dirname "$(readlink -f "$0")"); RAW=${PERF004_RAW_DIR:-$(dirname $T)}
 A=$T/a.sh; P=com.powerliftingworkoutplanner
-name=$1; secs=$2; fn=$3; prep=$4; D=$R/raw/$name; dev=$(echo $name | tr / -)
+name=$1; secs=$2; fn=$3; prep=$4; D=$RAW/$name; dev=$(echo $name | tr / -)
 source $T/scenarios.sh
 mkdir -p $D
 fg_guard || { echo "ABORT: app not in foreground before $name"; exit 1; }

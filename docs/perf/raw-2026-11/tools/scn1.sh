@@ -1,7 +1,7 @@
 #!/bin/bash
 # Scenario 1: 12 cold starts + 12 warm starts (am start -W), then 5 cold starts with a Perfetto trace (coldstart.py)
-T=$(dirname "$(readlink -f "$0")"); R=$(dirname $(dirname $T)); source $T/scenarios.sh
-O=$R/raw/scenario1-start.txt; : > $O
+T=$(dirname "$(readlink -f "$0")"); RAW=${PERF004_RAW_DIR:-$(dirname $T)}; source $T/scenarios.sh   # output root as in measure.sh
+O=$RAW/scenario1-start.txt; : > $O
 for i in $(seq 1 12); do
   $A shell am force-stop $P; sleep 2
   echo "cold $i: $($A shell am start -W -n $P/.MainActivity | grep -E 'LaunchState|TotalTime' | tr -d '\r' | tr '\n' ' ')" >> $O; sleep 6
@@ -11,7 +11,7 @@ for i in $(seq 1 12); do
   echo "warm $i: $($A shell am start -W -n $P/.MainActivity | grep -E 'LaunchState|TotalTime' | tr -d '\r' | tr '\n' ' ')" >> $O; sleep 3
 done
 cat $O
-D=$R/raw/scn1-coldstart-trace; mkdir -p $D
+D=$RAW/scn1-coldstart-trace; mkdir -p $D
 sed "s/duration_ms: 90000/duration_ms: 12000/" $T/perfetto.cfg > /tmp/perf004-pf1.cfg
 for run in 1 2 3 4 5; do
   n=cold$run; $A shell am force-stop $P; sleep 2

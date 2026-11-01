@@ -1,7 +1,7 @@
 #!/bin/bash
 # Scenario 8 (PERF-001 scenario 7): PSS after cold start and after one round through all tabs, 5 runs.  usage: scn8.sh [runs|steps]
-T=$(dirname "$(readlink -f "$0")"); R=$(dirname $(dirname $T)); source $T/scenarios.sh
-D=$R/raw/scn8-memory; mkdir -p $D
+T=$(dirname "$(readlink -f "$0")"); RAW=${PERF004_RAW_DIR:-$(dirname $T)}; source $T/scenarios.sh   # output root as in measure.sh
+D=$RAW/scn8-memory; mkdir -p $D
 round() {
   tap 363 1276; sleep 3                                   # Training home -> Next Training (plan, Micro 6)
   for i in 1 2; do sw 100 600; sleep 2.5; done            # back to Micro 4 (PERF-001: 3 swipes from Micro 7 -> same Micro 4)
