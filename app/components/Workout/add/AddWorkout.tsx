@@ -54,9 +54,11 @@ interface Props {
    * the original counter is used unchanged.
    */
   nextSetIndex?: number;
+  /** GH-623: hides "Add Workout" when the caller finalizes the workout itself (running training's "Next"). */
+  hideFinalizeButton?: boolean;
 }
 
-const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode, onLiveInputChange, oneRepMaxRef, allowRefinalizeWhenDone, nextSetIndex}: Props) => {
+const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmitSet, date, info, linkVideoMode, onDisableLinkVideoMode, onLiveInputChange, oneRepMaxRef, allowRefinalizeWhenDone, nextSetIndex, hideFinalizeButton}: Props) => {
   let unfinishedWorkout = useUnfinishedWorkout(exercise.id!!);
   // GH-443: the merged workout above also carries the planned-but-unlogged sets
   // (START_TRAINING copies the plan into `suggestedWorkouts`). Logging one of
@@ -245,7 +247,7 @@ const AddWorkout = ({exercise, onSubmit, suggest, trainingsId, workout, onSubmit
           ))}
         </View>
       )}
-      {(!workout || workout.end === undefined || allowRefinalizeWhenDone) && (
+      {!hideFinalizeButton && (!workout || workout.end === undefined || allowRefinalizeWhenDone) && (
         <Button
           style={styles.addWorkoutButton}
           buttonColor={theme.colors.primary}

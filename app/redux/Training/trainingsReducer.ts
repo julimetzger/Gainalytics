@@ -125,6 +125,19 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
           },
         },
       };
+    // GH-623: "Undo" right after finishing — the training runs on as before, its start untouched.
+    case 'REOPEN_TRAINING': {
+      const training = state.byId[action.trainingsId];
+      if (training === undefined || training.state !== TrainingsState.FINISHED) return state;
+      const {end, ...reopened} = training;
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsId]: {...reopened, state: TrainingsState.STARTED},
+        },
+      };
+    }
     case 'EDIT_TRAINING_TIMES':
       if (action.trainingsId === undefined || state.byId[action.trainingsId] === undefined) {
         return state;

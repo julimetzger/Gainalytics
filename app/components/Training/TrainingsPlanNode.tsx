@@ -5,7 +5,7 @@ import {NestableScrollContainerProvider, useNestableScrollContainerContext} from
 import MicroOverviewTraining from '../../tabs/trainings/MicroOverviewTraining';
 import ExerciseSearchSheet from '../picker/filter/ExerciseSearchSheet';
 import {TrainingsState} from '../../models/TrainingsState';
-import {Button, Text, useTheme} from 'react-native-paper';
+import {Button, Portal, Snackbar, Text} from 'react-native-paper';
 import {ConfirmDialog} from '../common/EditDialogScaffold';
 import DraggableExercise from './DraggableExercise';
 import TrainingsBase from './TrainingsBase';
@@ -26,6 +26,9 @@ import {useExerciseByIds} from '../../redux/Exercises/use/useExerciseByIds';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {dispatchModifyExercisesInTraining} from '../../redux/Training/dispatch/general/dispatchModifyExercisesInTraining';
 import {dispatchFinishTraining} from '../../redux/Training/dispatch/execute/dispatchFinishTraining';
+import {dispatchReopenTraining} from '../../redux/Training/dispatch/execute/dispatchReopenTraining';
+import {dispatchFinalizeWorkout} from '../../redux/Workout/dispatch/dispatchFinalizeWorkout';
+import TrainingActionBar from './execute/TrainingActionBar';
 import Toast from 'react-native-toast-message';
 import {useTrainingInTrainingsPlan} from '../../redux/Training/use/useTrainingInTrainingsPlan';
 import {PauseDoneNotification} from './execute/PauseDoneNotification';
@@ -79,6 +82,10 @@ interface TrainingsPlanNodeProps {
 }
 
 const SUB_TABS: SubTab[] = ['train', 'plan', 'analysis'];
+// GH-623: as long as the exercise-removal undo (DraggableExercise), so a scripted tap still reaches it.
+const FINISH_UNDO_DURATION_MS = 8000;
+// The snackbar lives in the root Portal, which also covers the 80 dp MD3 bottom tab bar.
+const BOTTOM_TAB_BAR_HEIGHT = 80;
 
 /** GH-467: the carried-over tab if this training can show it, else the state default. Every tab renders in every state. */
 export const resolveSubTab = (sticky: SubTab | undefined, state?: string): SubTab =>
@@ -153,12 +160,24 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     });
     return counts;
   }, shallowEqual);
+  // GH-623: completed = the exercise's workout is finalized (has an `end`) → its set count.
+  const completedSetCounts = useSelector((state: GlobalState) => {
+    const counts: Record<number, number> = {};
+    Object.entries(training?.doneWorkoutIds ?? {}).forEach(([exerciseId, workoutId]) => {
+      const workout = state.workouts?.byId?.[workoutId];
+      if (workout?.end !== undefined && workout.end !== null) counts[Number(exerciseId)] = workout.sets?.length ?? 0;
+    });
+    return counts;
+  }, shallowEqual);
   let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
   let finishTraining = dispatchFinishTraining();
+  const reopenTraining = dispatchReopenTraining();
+  const finalizeWorkout = dispatchFinalizeWorkout();
+  // GH-623: what "Undo" needs to put the just-finished training back.
+  const [finishUndo, setFinishUndo] = useState<{trainingsId: number; previousLastTraining?: number}>();
   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
   let appSettings = useSettings();
-  const theme = useTheme();
   const [showPicker, setShowPicker] = useState(false);
   // GH-483: a pulled-down carousel tile has to draw over the execute/edit view below it.
   const [exerciseStripRaised, setExerciseStripRaised] = useState(false);
@@ -327,22 +346,51 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     setTimeInWorkout(new Date(Date.now()));
   }
 
+  // GH-623: finishing takes effect at once (FINISH_TRAINING, notifications cancelled, Health Connect
+  // write); the snackbar's Undo reverts it with REOPEN_TRAINING instead of delaying anything. The
+  // snackbar replaces the former "Training finished!" toast.
   function handleFinish() {
     if (!training?.id) return;
+    setFinishUndo({trainingsId: training.id, previousLastTraining: trainingsPlan.lastTraining});
     finishTraining(training.id, trainingsPlan.id!!);
     resetPauseNotification();
     resetFinishTraining();
-    if (!appSettings.toggles?.disableToasts) {
-      Toast.show({
-        type: 'info',
-        text1: 'Training finished!',
-        text2: `Congratulations, you finished ${trainingsPlan.trainingNames?.[trainingInMicro] ?? 'Training ' + trainingInMicro} in ${trainingsPlanDisplayName(trainingsPlan.name)}`,
-        position: 'top',
-        visibilityTime: 5000,
-      });
-    }
     changeSubTab('analysis');
     setTimeInWorkout(new Date(Date.now()));
+  }
+
+  function handleUndoFinish() {
+    const undo = finishUndo;
+    setFinishUndo(undefined);
+    if (undo === undefined || trainingsPlan.id === undefined) return;
+    reopenTraining(undo.trainingsId, trainingsPlan.id, undo.previousLastTraining);
+    changeSubTab('train');
+    setTimeInWorkout(new Date(Date.now()));
+    scheduleFinisTraining();
+    // The rest timer itself kept running in the settings slice — only its notification was cancelled.
+    const activeRest = appSettings.restTimer?.active;
+    if (activeRest?.startedAt !== undefined && activeRest.targetSeconds !== undefined) {
+      const remainingSeconds = Math.round((activeRest.startedAt + activeRest.targetSeconds * 1000 - Date.now()) / 1000);
+      if (remainingSeconds > 0) schedulePauseDoneNotification(remainingSeconds);
+    }
+  }
+
+  // The selected exercise has logged sets in a workout that is not finalized yet.
+  const chosenHasOpenSets = doneWorkout?.id !== undefined && !doneWorkout.end && (doneWorkout.sets?.length ?? 0) > 0;
+
+  /** GH-623: the action bar's "Next" — completes the selected exercise (the former "Add Workout") and moves on. */
+  function handleNext(nextExerciseId: number | undefined) {
+    if (chosenHasOpenSets) {
+      finalizeWorkout(new Date(Date.now()), doneWorkout!.id!);
+    }
+    setTimeInWorkout(new Date(Date.now()));
+    if (nextExerciseId === undefined) return;
+    setRefresHeky(Math.random());
+    setchosenExercise(nextExerciseId);
+    if (training?.state === TrainingsState.STARTED) {
+      scheduleFinisTraining();
+    }
+    resetPauseNotification();
   }
 
   function handleEditTraining() {
@@ -584,6 +632,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                             onExerciseDoublePress={onExerciseDoublePress}
                             doneExerciseIds={doneExerciseIds}
                             loggedSetCounts={loggedSetCounts}
+                            completedSetCounts={completedSetCounts}
                             onRaisedChange={setExerciseStripRaised}
                             setAbsolutePosition={(layout) => setIgnoreSwipe([layout])}
                             onTogglePicker={() => setShowPicker(!showPicker)}
@@ -600,20 +649,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
                         </View>
                       )}
                       {chosenExercise && (
-                        <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} onScheduleNotification={(secs) => schedulePauseDoneNotification(secs)} onCancelNotification={resetPauseNotification} editMode={isEditing} />
-                      )}
-                      {/* GH-401 (AC6): finishing must not require the ⋮ menu — the whole
-                          Card → Train → Start → log sets → Finish path stays on this tab. */}
-                      {!isEditing && (
-                        <View style={{padding: 16, alignItems: 'center'}}>
-                          {/* GH-437: the finish button carries the theme's secondary
-                              colour, not the primary one. Both the fill and the label
-                              come from the active scheme so every palette stays legible
-                              in light and dark. */}
-                          <Button testID="train-tab-finish-button" mode="contained" buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={handleFinish}>
-                            Finish Training
-                          </Button>
-                        </View>
+                        <ExecuteWorkoutInTraining training={training} key={refresHeky} chosenExercise={chosenExercise} onSubmit={() => goToNextExercise()} onSubmitSet={() => onSubmitSet()} onScheduleNotification={(secs) => schedulePauseDoneNotification(secs)} onCancelNotification={resetPauseNotification} editMode={isEditing} hideFinalizeButton={!isEditing} />
                       )}
                     </View>
                   )}
@@ -704,6 +740,31 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
         </PlanNodeScrollContainer>
       </NestableScrollContainerProvider>
       )}
+      {/* GH-623: outside the scroller, so it stays put above the bottom navigation. Replaces the
+          "Add Workout" + "Finish Training" pills; finishing early goes through the ⋮ menu. */}
+      {renderContent && !showDone && activeSubTab === 'train' && training?.state === TrainingsState.STARTED && !isEditing && (
+        <TrainingActionBar
+          exercises={exercises}
+          completedSetCounts={completedSetCounts}
+          chosenExerciseId={chosenExercise?.id}
+          trainingStart={training.start}
+          hasLoggedSets={chosenHasOpenSets}
+          onNext={handleNext}
+          onFinish={handleFinish}
+        />
+      )}
+      <Portal>
+        <Snackbar
+          visible={finishUndo !== undefined}
+          onDismiss={() => setFinishUndo(undefined)}
+          duration={FINISH_UNDO_DURATION_MS}
+          wrapperStyle={{bottom: BOTTOM_TAB_BAR_HEIGHT}}
+          action={{label: 'Undo', onPress: handleUndoFinish, testID: 'training-finished-undo'}}
+          testID="training-finished-snackbar"
+        >
+          Training finished
+        </Snackbar>
+      </Portal>
       <ConfirmDialog
         visible={showDeleteDialog}
         title="Delete Training"

@@ -244,6 +244,19 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
           },
         },
       };
+    // GH-623: undoing a finish hands "last training" back to the one before it — unless another
+    // training has been finished in between, which then stays the last one.
+    case 'REOPEN_TRAINING': {
+      if (!trainingsPlan || trainingsPlan.lastTraining !== action.trainingsId) return state;
+      const {lastTraining, ...reopenedPlan} = trainingsPlan;
+      return {
+        ...state,
+        byId: {
+          ...state.byId,
+          [action.trainingsPlanId]: action.previousLastTraining !== undefined ? {...reopenedPlan, lastTraining: action.previousLastTraining} : reopenedPlan,
+        },
+      };
+    }
     case 'DELETE_TRAINING': {
       if (!trainingsPlan) return state;
       const trainings = {...trainingsPlan.trainings};

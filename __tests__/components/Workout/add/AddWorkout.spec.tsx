@@ -307,6 +307,16 @@ describe('AddWorkout', () => {
     expect(queryByTestId('button-Add-Workout')).toBeNull();
   });
 
+  it('hides "Add Workout" when the caller finalizes the workout itself (GH-623 running training action bar)', () => {
+    mockedUseUnfinishedWorkout.mockReturnValue({id: 77, sets: [{index: 1, reps: 5, rir: 1, weight: 100, date: date}], notes: '', exerciseId: 7, start: date});
+
+    const {queryByTestId, rerender} = render(<AddWorkout exercise={exercise} onSubmit={jest.fn()} trainingsId={3} date={date} />);
+    expect(queryByTestId('button-Add-Workout')).toBeTruthy();
+
+    rerender(<AddWorkout exercise={exercise} onSubmit={jest.fn()} trainingsId={3} date={date} hideFinalizeButton />);
+    expect(queryByTestId('button-Add-Workout')).toBeNull();
+  });
+
   it('shows Done button when workout.end is defined and allowRefinalizeWhenDone=true (GH-323 edit mode regression)', () => {
     const finalizedWorkout: Workout = {
       id: 77,

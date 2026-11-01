@@ -22,6 +22,8 @@ interface Props {
   doneExerciseIds: number[];
   /** GH-483: logged sets per exercise — removing one that has any asks first. */
   loggedSetCounts?: Record<number, number>;
+  /** GH-623: completed (finalized) exercises → their set count, shown as "N sets ✓" under the name. */
+  completedSetCounts?: Record<number, number>;
   setAbsolutePosition: (layout: LayoutRectangle) => void;
   /** GH-483: true while a tile hangs below the carousel — the parent must then draw the strip above what follows. */
   onRaisedChange?: (raised: boolean) => void;
@@ -51,6 +53,7 @@ const DraggableExercise = ({
   onExerciseDoublePress,
   doneExerciseIds,
   loggedSetCounts,
+  completedSetCounts,
   setAbsolutePosition,
   onRaisedChange,
   onTogglePicker,
@@ -143,6 +146,12 @@ const DraggableExercise = ({
       maxWidth: spreadMax(exercises.length),
       color: theme.colors.onSecondaryContainer,
       fontSize: theme.fonts.bodyMedium.fontSize,
+      fontWeight: 'bold',
+      textAlign: 'center',
+    },
+    completedText: {
+      marginTop: -4,
+      fontSize: theme.fonts.labelSmall.fontSize,
       fontWeight: 'bold',
       textAlign: 'center',
     },
@@ -313,7 +322,7 @@ const DraggableExercise = ({
               ]}
             >
               <Text
-                numberOfLines={3}
+                numberOfLines={completedSetCounts?.[item.key] !== undefined ? 2 : 3}
                 style={[
                   styles.text,
                   {
@@ -329,6 +338,11 @@ const DraggableExercise = ({
               >
                 {item.label}
               </Text>
+              {completedSetCounts?.[item.key] !== undefined && (
+                <Text testID={`training-exercise-completed-${item.key}`} style={[styles.completedText, {color: isActive ? theme.colors.onTertiaryContainer : theme.colors.primary}]}>
+                  {`${completedSetCounts[item.key]} ${completedSetCounts[item.key] === 1 ? 'set' : 'sets'} ✓`}
+                </Text>
+              )}
             </TouchableOpacity>
           </SwipeDeleteTile>
         </ScaleDecorator>
