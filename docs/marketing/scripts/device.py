@@ -14,7 +14,8 @@ from dataclasses import dataclass
 
 APP_ID = 'com.powerliftingworkoutplanner'
 NODE_RE = re.compile(r'<node [^>]*>')
-ATTR_RE = {k: re.compile(r' %s="([^"]*)"' % k) for k in ('text', 'resource-id', 'content-desc', 'bounds', 'package')}
+ATTR_RE = {k: re.compile(r' %s="([^"]*)"' % k)
+           for k in ('text', 'resource-id', 'content-desc', 'bounds', 'package', 'selected', 'checked')}
 
 
 class CaptureError(RuntimeError):
@@ -31,6 +32,8 @@ class Node:
     y1: int
     x2: int
     y2: int
+    selected: bool = False
+    checked: bool = False
 
     @property
     def center(self):
@@ -107,7 +110,8 @@ class Device:
             if len(b) != 4:
                 continue
             nodes.append(Node(attrs['resource-id'], _unescape(attrs['text']), _unescape(attrs['content-desc']),
-                              attrs['package'], *map(int, b)))
+                              attrs['package'], *map(int, b), selected=attrs['selected'] == 'true',
+                              checked=attrs['checked'] == 'true'))
         return nodes
 
     def find(self, rid=None, text=None, desc=None, timeout=20, nodes=None, required=True):
@@ -175,8 +179,14 @@ class Device:
                 cy + r * math.sin(math.radians(a0 + (a1 - a0) * i / n))) for i in range(n + 1)]
         self.drag_path(pts, step_s)
 
-    def text_input(self, text, secret=False):
-        self.sh("input text '%s'" % text.replace(' ', '%s').replace("'", ''), secret=secret)
+    def text_input(self, text, secret=False, chunk=None):
+        """chunk: type in pieces of this many characters - one long `input text` drops
+        characters in the masked API-key field."""
+        pieces = [text[i:i + chunk] for i in range(0, len(text), chunk)] if chunk else [text]
+        for index, piece in enumerate(pieces):
+            if index:
+                time.sleep(0.5)
+            self.sh("input text '%s'" % piece.replace(' ', '%s').replace("'", ''), secret=secret)
 
     def forget_dump(self):
         """Remove the last hierarchy dump from the phone (it may hold the typed API key)."""

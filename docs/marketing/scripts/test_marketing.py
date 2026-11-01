@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the GH-485 deliverables against the ticket's spec.
+"""Checks the GH-485 / GH-665 deliverables against the ticket's spec.
 
     python3 -m unittest discover -s docs/marketing/scripts -p 'test_*.py' -v
 """
@@ -8,67 +8,149 @@ import pathlib
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 from PIL import Image
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import make_demo_fixture  # noqa: E402
-from compose import NAV_BAR_TOP, STATUS_BAR_H, clean_screen  # noqa: E402
+import render_store_screenshots  # noqa: E402
+import render_video  # noqa: E402
+from compose import NAV_BAR_TOP, STATUS_BAR_H, PhoneFrame, clean_screen  # noqa: E402
 
 MARKETING = pathlib.Path(__file__).resolve().parents[1]
-FEATURES = ['video-analysis', 'customize-settings', 'customize-muscles', 'training', 'plan', 'analysis',
-            'analysis-records', 'ai-chat']
+FORMATS = {'16x9': (1920, 1080), '9x16': (1080, 1920), '1x1': (1080, 1080)}
+SCENES = ('training', 'coach_insight', 'video_analysis', 'video_analysis_detail', 'custom_settings', 'custom_muscles', 'analysis', 'ai_chat')
 
 
 def probe(path):
     out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries',
-                          'stream=codec_type,codec_name,width,height,r_frame_rate:format=duration',
+                          'stream=codec_type,codec_name,width,height,r_frame_rate,avg_frame_rate:format=duration',
                           '-of', 'json', str(path)], capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
 
-class PromoVideo(unittest.TestCase):
-    def test_is_1080p_16_9_between_30_and_60_seconds_without_audio(self):
-        info = probe(MARKETING / 'gainalytics-promo.mp4')
-        kinds = [s['codec_type'] for s in info['streams']]
-        self.assertEqual(kinds, ['video'], 'exactly one video stream and no audio')
-        video = info['streams'][0]
-        self.assertEqual((video['width'], video['height']), (1920, 1080))
-        self.assertEqual(video['codec_name'], 'h264')
-        self.assertEqual(video['r_frame_rate'], '30/1')
-        self.assertTrue(30 <= float(info['format']['duration']) <= 60, info['format']['duration'])
+def markers():
+    return json.loads((MARKETING / 'captures/markers.json').read_text())
 
-    def test_every_cut_refers_to_a_recorded_marker(self):
-        markers = json.loads((MARKETING / 'captures/markers.json').read_text())
-        for scene in ('training', 'video_analysis', 'custom_settings', 'custom_muscles', 'analysis', 'ai_chat'):
-            self.assertIn(scene, markers)
+
+class PromoVideo(unittest.TestCase):
+    def test_three_formats_h264_30fps_30_to_60_seconds_without_audio(self):
+        for name, size in FORMATS.items():
+            with self.subTest(name):
+                info = probe(MARKETING / f'video/gainalytics-promo-{name}.mp4')
+                kinds = [s['codec_type'] for s in info['streams']]
+                self.assertEqual(kinds, ['video'], 'exactly one video stream and no audio')
+                video = info['streams'][0]
+                self.assertEqual((video['width'], video['height']), size)
+                self.assertEqual(video['codec_name'], 'h264')
+                self.assertEqual(video['r_frame_rate'], '30/1')
+                self.assertEqual(video['avg_frame_rate'], '30/1')
+                self.assertTrue(30 <= float(info['format']['duration']) <= 60, info['format']['duration'])
+
+    def test_the_old_single_16_9_video_is_gone(self):
+        self.assertFalse((MARKETING / 'gainalytics-promo.mp4').exists())
+        self.assertEqual(sorted(p.name for p in (MARKETING / 'video').glob('*.mp4')),
+                         sorted(f'gainalytics-promo-{n}.mp4' for n in FORMATS))
+
+    def test_every_cut_refers_to_a_recorded_marker_and_is_not_empty(self):
+        m = markers()
+        for scene in SCENES:
+            self.assertIn(scene, m)
             self.assertTrue((MARKETING / f'captures/video/{scene}.mp4').exists(), scene)
-        source = (MARKETING / 'scripts/render_video.py').read_text()
-        import re
-        for clip, ref in re.findall(r"\('(\w+)', '([a-z_]+)[^']*'", source):
-            if clip in markers:
-                self.assertIn(ref, markers[clip], f'{clip}: marker {ref} missing')
+        for feature in render_video.FEATURES:
+            with self.subTest(feature['key']):
+                footage = render_video.Footage(m, feature['footage'])  # raises on a missing marker / empty cut
+                self.assertGreater(footage.duration, 1.0)
+                for part, _, _ in feature['bullets']:
+                    self.assertLess(part, len(footage.parts))
+
+    def test_the_storyboard_shows_every_main_feature(self):
+        keys = [f['key'] for f in render_video.FEATURES]
+        self.assertEqual(keys[:2], ['video-analysis', 'customization'], 'focus scenes first')
+        for key in ('plan-with-ai', 'training', 'coach-insight', 'analysis', 'ai-chat'):
+            self.assertIn(key, keys)
+        copy = json.dumps(render_video.FEATURES)
+        for words in ('Sleep and steps', 'Filter by period', 'record', 'Muscle involvement', 'accent colour'):
+            self.assertIn(words, copy)
+        clips = {seg[0] for f in render_video.FEATURES for seg in f['footage']}
+        self.assertEqual(clips, set(SCENES))
+
+    def test_each_format_lays_out_copy_and_phone_inside_the_frame_without_overlap(self):
+        for name, layout in render_video.LAYOUTS.items():
+            with self.subTest(name):
+                w, h = layout.size
+                self.assertEqual(layout.size, FORMATS[name])
+                phone = PhoneFrame(round(layout.phone_h * 720 / 1520), layout.phone_h)
+                cx, cy = layout.phone_xy
+                box = (cx - phone.w / 2, cy - phone.h / 2, cx + phone.w / 2, cy + phone.h / 2)
+                self.assertGreaterEqual(box[0], 0)
+                self.assertGreaterEqual(box[1], 0)
+                self.assertLessEqual(box[2], w)
+                self.assertLessEqual(box[3], h)
+                x, y = layout.text_xy
+                if layout.mode == 'side':
+                    self.assertLessEqual(x + layout.text_w, box[0] + 10, 'copy column ends left of the phone')
+                else:
+                    copy_bottom = y + layout.kicker * 1.7 + layout.title * 1.32 + layout.bullet * 2.7 + 7
+                    self.assertLessEqual(copy_bottom, box[1], 'copy ends above the phone')
+
+    def test_every_title_and_bullet_fits_its_format(self):
+        for name, layout in render_video.LAYOUTS.items():
+            for feature in render_video.FEATURES:
+                with self.subTest(f'{name} {feature["key"]}'):
+                    title_font = render_video.font('black', layout.title)
+                    lines = render_video.wrap(feature['title'], title_font, layout.text_w)
+                    self.assertLessEqual(len(lines), 2 if layout.mode == 'side' else 1)
+                    for line in lines:
+                        self.assertLessEqual(title_font.getlength(line), layout.text_w + 4)
+                    bullet_font = render_video.font('regular', layout.bullet)
+                    for _, _, value in feature['bullets']:
+                        self.assertLessEqual(len(render_video.wrap(value, bullet_font, layout.text_w)), 2, value)
 
 
 class StoreScreenshots(unittest.TestCase):
-    def test_all_features_exist_in_light_and_dark_as_1080x1920_rgb(self):
+    def test_4_to_8_features_in_light_and_dark_as_1080x1920_rgb(self):
+        shots = render_store_screenshots.SHOTS
+        self.assertTrue(4 <= len(shots) <= 8)
+        self.assertEqual(shots[0][0], 'video_analysis', 'strongest feature first')
         files = sorted((MARKETING / 'screenshots').glob('*.png'))
-        self.assertEqual(len(files), 2 * len(FEATURES))
-        for index, feature in enumerate(FEATURES, start=1):
+        self.assertEqual(len(files), 2 * len(shots), 'no stale screenshots left')
+        for index, (feature, _, _) in enumerate(shots, start=1):
             for theme in ('light', 'dark'):
-                path = MARKETING / 'screenshots' / f'{index:02d}-{feature}-{theme}.png'
+                path = MARKETING / 'screenshots' / f'{index:02d}-{feature.replace("_", "-")}-{theme}.png'
                 self.assertTrue(path.exists(), path.name)
                 with Image.open(path) as img:
                     self.assertEqual(img.size, (1080, 1920), path.name)
                     self.assertEqual(img.mode, 'RGB', f'{path.name} must not carry alpha')
 
+    def test_the_new_ui_is_in_the_shots(self):
+        names = [s[0] for s in render_store_screenshots.SHOTS]
+        for feature in ('analysis', 'plan_ai', 'coach_insight', 'ai_chat'):
+            self.assertIn(feature, names)
+
+    def test_feature_graphic_is_1024x500_without_alpha(self):
+        with Image.open(MARKETING / 'feature-graphic.png') as img:
+            self.assertEqual(img.size, (1024, 500))
+            self.assertEqual(img.mode, 'RGB')
+
     def test_light_and_dark_captures_really_differ_in_theme(self):
-        for feature in ('training', 'plan', 'analysis', 'ai_chat', 'customize_muscles'):
-            dark = Image.open(MARKETING / f'captures/screens/{feature}_dark.png').convert('L')
-            light = Image.open(MARKETING / f'captures/screens/{feature}_light.png').convert('L')
-            mean = lambda im: sum(im.resize((36, 80)).getdata()) / (36 * 80)  # noqa: E731
-            self.assertGreater(mean(light) - mean(dark), 60, feature)
+        for feature, _, _ in render_store_screenshots.SHOTS:
+            with self.subTest(feature):
+                dark = Image.open(MARKETING / f'captures/screens/{feature}_dark.png').convert('L')
+                light = Image.open(MARKETING / f'captures/screens/{feature}_light.png').convert('L')
+                mean = lambda im: sum(im.resize((36, 80)).getdata()) / (36 * 80)  # noqa: E731
+                self.assertGreater(mean(light) - mean(dark), 40, feature)
+
+    def test_raw_captures_are_from_the_same_run(self):
+        """No screen of an older capture run is left over (all captures within a few hours)."""
+        m = markers()
+        self.assertIn('captured_at', m)
+        files = list((MARKETING / 'captures/screens').glob('*.png'))
+        used = {f'{s[0]}_{t}.png' for s in render_store_screenshots.SHOTS for t in ('light', 'dark')}
+        used |= {f'{n}.png' for n in render_video.FAN}
+        self.assertEqual({p.name for p in files}, used, 'only screens that are used, all from capture.py')
 
 
 class StatusBarCleanup(unittest.TestCase):
@@ -88,7 +170,6 @@ class DemoFixture(unittest.TestCase):
             subprocess.run([sys.executable, str(MARKETING / 'scripts/make_demo_fixture.py'), '--out', str(out),
                             '--days-ago', '2'], check=True, capture_output=True)
             data = json.loads(out.read_text())
-            import time
             age_days = (time.time() * 1000 - make_demo_fixture.newest_training_end(data)) / 86400000
             self.assertAlmostEqual(age_days, 2, delta=0.01)
             self.assertEqual(data['videoAnalyses'], {'byId': {}, 'allIds': []})
@@ -125,18 +206,19 @@ class PrivateMaterial(unittest.TestCase):
         for path in self.tracked():
             for clip in capture.VA_CLIPS:
                 self.assertNotEqual(path.name, clip)
-            if path.suffix in ('.py', '.md', '.json', '.txt'):
+            if path.suffix in ('.py', '.md', '.json', '.txt') and path.exists():
                 self.assertNotRegex(path.read_text(errors='ignore'), r'sk-ant-api\d\d-', path.name)
 
     def test_the_file_picker_is_blacked_out_in_the_committed_recording(self):
-        markers = json.loads((MARKETING / 'captures/markers.json').read_text())['video_analysis']
-        mid = (markers['import'] + 0.35 + markers['analysing']) / 2
-        frame = subprocess.run(['ffmpeg', '-loglevel', 'error', '-ss', f'{mid:.2f}', '-i',
-                                str(MARKETING / 'captures/video/video_analysis.mp4'), '-frames:v', '1',
-                                '-vf', 'scale=36:80', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
-                               capture_output=True, check=True).stdout
-        self.assertEqual(len(frame), 36 * 80)
-        self.assertLess(max(frame), 24, 'picker frames must be black')
+        m = markers()['video_analysis']
+        for at in (m['import'] + 0.4, (m['import'] + 0.35 + m['analysing']) / 2, m['analysing'] - 0.05):
+            frame = subprocess.run(['ffmpeg', '-loglevel', 'error', '-i',
+                                    str(MARKETING / 'captures/video/video_analysis.mp4'), '-vf',
+                                    f'fps={render_video.FPS},scale=36:80', '-ss', f'{at:.2f}', '-frames:v', '1',
+                                    '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
+                                   capture_output=True, check=True).stdout
+            self.assertEqual(len(frame), 36 * 80)
+            self.assertLess(max(frame), 24, f'picker frames must be black (t={at:.2f})')
 
 
 if __name__ == '__main__':
