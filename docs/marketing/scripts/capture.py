@@ -112,12 +112,14 @@ class Capture:
             log(f'  screenshot {name}.png (from the recording at {at:.2f}s)')
         vf = []
         if blank:
-            a, b = markers[blank[0]] + 0.35, markers[blank[1]]
+            a, b = markers[blank[0]], markers[blank[1]]  # the video lags the markers, never leads
             vf = ['-vf', f"drawbox=x=0:y=0:w=iw:h=ih:color=black:t=fill:enable='between(t,{a:.2f},{b:.2f})'"]
-        # Keeps the variable frame timestamps of screenrecord (the markers rely on them),
-        # drops its extra data stream, and makes the file ~10x smaller.
+        # Keeps the variable frame timestamps of screenrecord (the markers rely on them;
+        # without `-enc_time_base -1` libx264 rounds them to 1/<guessed frame rate> and many
+        # frames share one time, which plays back at ~6 fps), drops its extra data stream,
+        # and makes the file ~10x smaller.
         subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(raw), '-map', '0:v:0', *vf,
-                        '-vsync', 'passthrough', '-c:v', 'libx264', '-preset', 'medium', '-crf', '25',
+                        '-vsync', 'passthrough', '-enc_time_base', '-1', '-c:v', 'libx264', '-preset', 'medium', '-crf', '25',
                         '-pix_fmt', 'yuv420p', str(VIDEO / f'{scene}.mp4')], check=True)
         raw.unlink()
         self.markers[scene] = markers
@@ -242,6 +244,11 @@ class Capture:
         """Replaces the app's own sleep and steps records in Health Connect by the demo week
         (debug builds only). Health Connect must be connected once by hand (README)."""
         d = self.d
+        stamp = BUILD / 'health_connect_seeded'
+        today = dt.date.today().isoformat()
+        if stamp.exists() and stamp.read_text().strip() == today and not self.args.reseed:
+            log('  sleep and steps in Health Connect already seeded today (--reseed to redo)')
+            return
         log('  seeding sleep and steps in Health Connect')
         sleep = ','.join(f'{h}@{i}@staged' for i, h in enumerate(DEMO_SLEEP))
         steps = ','.join(f'{n}@{i}' for i, n in enumerate(DEMO_STEPS))
@@ -260,6 +267,7 @@ class Capture:
             time.sleep(1)
         else:
             raise CaptureError('seeding Health Connect did not finish')
+        stamp.write_text(today + '\n')
         d.ensure_app_foreground()
         self.settings_top()
         status = self.scroll_to(rid='health-connect-status')
@@ -953,6 +961,8 @@ def main():
     parser.add_argument('--ai-key-file', default=os.environ.get('GAINALYTICS_DEMO_AI_KEY_FILE'),
                         help='file with a real Anthropic key (needed for Plan with AI, Coach Insight and the '
                              'AI chat). It is typed into the app by the ai_key scene and deleted by remove_key')
+    parser.add_argument('--reseed', action='store_true',
+                        help='write the demo sleep and steps to Health Connect even if setup did today')
     parser.add_argument('--va-clip', default=DEFAULT_VA_CLIP,
                         help=f'lift clip for the video analysis scene, one of: {", ".join(VA_CLIPS)}')
     args = parser.parse_args()

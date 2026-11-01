@@ -66,6 +66,19 @@ class PromoVideo(unittest.TestCase):
                 for part, _, _ in feature['bullets']:
                     self.assertLess(part, len(footage.parts))
 
+    def test_recordings_keep_their_frame_times(self):
+        """Re-encoding must not round screenrecord's frame times (frames sharing a time are
+        dropped by the 30 fps renderer: the footage would stutter)."""
+        for scene in SCENES:
+            with self.subTest(scene):
+                out = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries',
+                                      'packet=pts_time', '-of', 'csv=p=0',
+                                      str(MARKETING / f'captures/video/{scene}.mp4')],
+                                     capture_output=True, text=True, check=True).stdout
+                times = [float(v.strip(',')) for v in out.split() if v.strip(',') not in ('', 'N/A')]
+                self.assertGreater(len(times), 30)
+                self.assertGreaterEqual(len({round(t, 4) for t in times}) / len(times), 0.98)
+
     def test_the_storyboard_shows_every_main_feature(self):
         keys = [f['key'] for f in render_video.FEATURES]
         self.assertEqual(keys[:2], ['video-analysis', 'customization'], 'focus scenes first')
@@ -210,15 +223,16 @@ class PrivateMaterial(unittest.TestCase):
                 self.assertNotRegex(path.read_text(errors='ignore'), r'sk-ant-api\d\d-', path.name)
 
     def test_the_file_picker_is_blacked_out_in_the_committed_recording(self):
+        """Every frame from the import tap until the app is back (the picker in between) is black."""
         m = markers()['video_analysis']
-        for at in (m['import'] + 0.4, (m['import'] + 0.35 + m['analysing']) / 2, m['analysing'] - 0.05):
-            frame = subprocess.run(['ffmpeg', '-loglevel', 'error', '-i',
-                                    str(MARKETING / 'captures/video/video_analysis.mp4'), '-vf',
-                                    f'fps={render_video.FPS},scale=36:80', '-ss', f'{at:.2f}', '-frames:v', '1',
-                                    '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
-                                   capture_output=True, check=True).stdout
-            self.assertEqual(len(frame), 36 * 80)
-            self.assertLess(max(frame), 24, f'picker frames must be black (t={at:.2f})')
+        frames = subprocess.run(['ffmpeg', '-loglevel', 'quiet', '-i', str(MARKETING / 'captures/video/video_analysis.mp4'),
+                                 '-vf', f"select='between(t,{m['import']:.2f},{m['analysing'] - 0.05:.2f})',scale=36:80",
+                                 '-vsync', 'passthrough', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
+                                capture_output=True, check=True).stdout
+        size = 36 * 80
+        self.assertGreater(len(frames) // size, 10, 'the picker part has frames')
+        for i in range(len(frames) // size):
+            self.assertLess(max(frames[i * size:(i + 1) * size]), 24, f'picker frame {i} must be black')
 
 
 if __name__ == '__main__':
