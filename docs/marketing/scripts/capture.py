@@ -57,6 +57,8 @@ DEFAULT_VA_CLIP = 'Deadlift200-3reps@7.mp4'
 # What the demo user asks the AI.
 PLAN_PROMPT = 'Short on time: only squats, leg curls and leg extensions today. One more set of squats'
 QUESTION = 'How do my sleep and steps affect my training? What should I change next week?'
+# --chat-without-health-connect (when Health Connect rate-limits the reads, see README)
+QUESTION_PLAIN = 'Plan my squat sessions for next week. What should I focus on?'
 
 # Demo sleep (hours, ends 07:00 N days ago, with stages) and steps for Health Connect,
 # written by the debug build's HealthConnectTestDataActivity (14 days back).
@@ -129,8 +131,11 @@ class Capture:
     def wait_app(self, timeout=300):
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if APP_ID in self.d.focus() and self.d.exists(desc='tab-training'):
-                return
+            if APP_ID in self.d.focus():
+                if self.d.exists(rid='onboarding-skip'):  # first start of a fresh install
+                    self.d.tap_el(rid='onboarding-skip', settle=2)
+                if self.d.exists(desc='tab-training'):
+                    return
             time.sleep(3)
         raise CaptureError('app did not finish loading')
 
@@ -854,15 +859,22 @@ class Capture:
         nodes = d.dump()
         d.tap(*d.find(rid='chat-preset-28d', nodes=nodes).center)  # the last 4 weeks
         time.sleep(1.2)
-        d.tap(*d.find(rid='chat-recovery-switch', nodes=nodes).center)
-        d.find(rid='chat-recovery-info', text='Sleep and steps attached: \\d+ days?')
-        d.mark('recovery_on')
+        question = QUESTION_PLAIN
+        if not self.args.chat_without_health_connect:
+            question = QUESTION
+            d.tap(*d.find(rid='chat-recovery-switch', nodes=nodes).center)
+            if not d.find(rid='chat-recovery-info', text='Sleep and steps attached: \\d+ days?', timeout=15,
+                          required=False):
+                info = d.find(rid='chat-recovery-info', required=False)
+                raise CaptureError(f'sleep and steps not attached: {info.text if info else "?"} '
+                                   '(rate limited: see README, or --chat-without-health-connect)')
+            d.mark('recovery_on')
         time.sleep(2.0)
         d.tap_el(rid='chat-context-badge', settle=0.8)
         d.mark('filters_closed')
         d.tap_el(rid='chat-input', settle=1)
         d.mark('typing')
-        words = QUESTION.split(' ')
+        words = question.split(' ')
         for i in range(0, len(words), 3):
             d.text_input(' '.join(words[i:i + 3]) + (' ' if i + 3 < len(words) else ''))
             time.sleep(0.2)
@@ -936,14 +948,16 @@ class Capture:
         d.sh('am broadcast -a com.android.systemui.demo -e command exit', check=False)
         d.sh('cmd notification set_dnd off', check=False)
         d.sh('settings put system accelerometer_rotation 1', check=False)
-        d.sh(f'cmd locale set-app-locales {APP_ID} --locales ""', check=False)  # back to the system language
         d.forget_dump()
         if KEY_ON_PHONE.exists():
             raise CaptureError('the real API key may still be on the phone - run --scenes remove_key')
         if self.dev_mode_changed or (BUILD / 'js_dev_mode_changed').exists():
             log('  switching JS Dev Mode back on')
+            d.ensure_app_foreground()
             self.toggle_js_dev_mode()
             (BUILD / 'js_dev_mode_changed').unlink(missing_ok=True)
+        # back to the system language (restarts the app, so after the dev menu)
+        d.sh(f'cmd locale set-app-locales {APP_ID} --locales ""', check=False)
         self.restart_app()
 
 
@@ -961,6 +975,8 @@ def main():
     parser.add_argument('--ai-key-file', default=os.environ.get('GAINALYTICS_DEMO_AI_KEY_FILE'),
                         help='file with a real Anthropic key (needed for Plan with AI, Coach Insight and the '
                              'AI chat). It is typed into the app by the ai_key scene and deleted by remove_key')
+    parser.add_argument('--chat-without-health-connect', action='store_true',
+                        help='ai_chat without sleep and steps (when Health Connect rate-limits the reads)')
     parser.add_argument('--reseed', action='store_true',
                         help='write the demo sleep and steps to Health Connect even if setup did today')
     parser.add_argument('--va-clip', default=DEFAULT_VA_CLIP,

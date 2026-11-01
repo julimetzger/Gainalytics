@@ -11,6 +11,7 @@ Each screenshot gets a headline, a short line of copy and the screenshot in a ne
 phone frame. The status bar is repainted (9:41, no notification icons) and the
 system navigation bar is cropped. The order puts the strongest features first.
 """
+import json
 import pathlib
 
 from PIL import Image, ImageDraw
@@ -78,9 +79,9 @@ def feature_graphic():
     draw.text((66, 330), 'Plan. Train. Analyse.', font=font('regular', 32), fill=(170, 184, 214), anchor='la')
     draw.text((66, 382), 'Video analysis · AI coach', font=font('semibold', 24), fill=BRAND_BLUE, anchor='la')
 
-    phone = PhoneFrame(190, 401)
-    for name, cx, cy, angle in (('analysis_dark', 640, 330, 8), ('plan_ai_light', 935, 330, -8),
-                                ('video_analysis_dark', 790, 292, 0)):
+    phone = PhoneFrame(158, 334)
+    for name, cx, cy, angle in (('analysis_dark', 655, 268, 8), ('plan_ai_light', 915, 268, -8),
+                                ('video_analysis_dark', 785, 250, 0)):
         img = phone.render(clean_screen(Image.open(SRC / f'{name}.png')))
         img = img.rotate(angle, resample=Image.BICUBIC, expand=True)
         shadow = Image.new('RGBA', img.size, (0, 0, 0, 0))
@@ -90,10 +91,20 @@ def feature_graphic():
     return canvas.convert('RGB')
 
 
+def shots():
+    """SHOTS, with the AI coach copy of a chat captured without sleep and steps
+    (capture.py --chat-without-health-connect)."""
+    markers = json.loads((SRC.parent / 'markers.json').read_text())
+    if 'recovery_on' in markers.get('ai_chat', {}):
+        return SHOTS
+    return [(f, t, 'Ask about your training -\nanswers built on your own data') if f == 'ai_chat' else (f, t, b)
+            for f, t, b in SHOTS]
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     wanted = set()
-    for index, (feature, title, body) in enumerate(SHOTS, start=1):
+    for index, (feature, title, body) in enumerate(shots(), start=1):
         for theme in ('light', 'dark'):
             out = OUT / f'{index:02d}-{feature.replace("_", "-")}-{theme}.png'
             wanted.add(out)

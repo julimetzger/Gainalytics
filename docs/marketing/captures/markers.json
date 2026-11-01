@@ -1,59 +1,81 @@
 {
-  "training": {
-    "home": 2.5,
-    "suggest": 11.67,
-    "plan": 22.91,
-    "train": 36.04,
-    "started": 41.54,
-    "squat": 43.81,
-    "logged": 45.88,
-    "end": 49.89
-  },
   "video_analysis": {
-    "list": 2.5,
-    "import": 2.83,
-    "analysing": 34.47,
-    "done": 79.0,
-    "link": 104.73,
-    "linked": 107.03,
-    "detail": 112.63,
-    "player": 123.17,
-    "play": 154.06,
-    "summary": 169.03,
-    "chart": 175.03,
-    "end": 178.04
+    "list": 7.28,
+    "import": 9.08,
+    "analysing": 41.11,
+    "done": 108.35,
+    "link": 123.42,
+    "linked": 125.71,
+    "end": 125.71
+  },
+  "captured_at": "2026-11-02T00:19:15",
+  "video_analysis_detail": {
+    "list": 1.0,
+    "detail": 8.48,
+    "player": 18.69,
+    "play": 49.66,
+    "summary": 63.59,
+    "chart": 69.54,
+    "end": 72.54
   },
   "custom_settings": {
     "settings": 1.5,
-    "light": 6.36,
-    "dark": 11.05,
-    "wheel": 18.23,
-    "picked": 23.03,
-    "applied": 29.48,
-    "recolored": 34.66,
-    "end": 39.89
+    "light": 6.31,
+    "dark": 10.88,
+    "wheel": 19.76,
+    "picked": 24.38,
+    "applied": 29.77,
+    "recolored": 34.85,
+    "end": 39.9
   },
   "custom_muscles": {
     "detail": 1.5,
-    "editor": 7.24,
-    "core": 12.41,
-    "back": 17.49,
-    "hamstrings": 22.52,
-    "end": 25.32
+    "editor": 6.08,
+    "core": 10.92,
+    "back": 15.42,
+    "hamstrings": 20.13,
+    "end": 24.85
+  },
+  "training": {
+    "home": 2.5,
+    "plan_screen": 15.85,
+    "typing": 18.37,
+    "typed": 23.0,
+    "ai_sent": 29.9,
+    "ai_planned": 36.14,
+    "light": 39.97,
+    "train": 54.95,
+    "started": 59.89,
+    "exercise": 61.7,
+    "logged": 63.28,
+    "end": 66.79
+  },
+  "coach_insight": {
+    "menu": 3.06,
+    "finished": 3.83,
+    "refresh": 11.59,
+    "insight": 17.43,
+    "scrolled": 28.46,
+    "end": 31.46
   },
   "analysis": {
-    "dashboard": 2.5,
-    "dashboard_scrolled": 5.46,
-    "records": 13.48,
-    "graphs": 24.94,
-    "end": 27.94
+    "graphs": 2.0,
+    "panel_open": 5.72,
+    "filtered": 15.49,
+    "panel_closed": 16.97,
+    "records": 27.06,
+    "records_scrolled": 33.02,
+    "end": 34.53
   },
   "ai_chat": {
     "empty": 1.5,
-    "typed": 8.27,
-    "sent": 12.09,
-    "reply": 20.64,
-    "reply_scrolled": 27.89,
-    "end": 30.4
+    "filters": 5.34,
+    "filters_closed": 14.69,
+    "typing": 18.33,
+    "typed": 21.19,
+    "sent": 24.9,
+    "reply": 34.13,
+    "reply_scrolled": 40.43,
+    "end": 42.94
   }
 }

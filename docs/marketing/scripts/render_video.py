@@ -224,12 +224,13 @@ FEATURES = [
          footage=[('training', 'started-0.2', 'end', '3.5s')],
          bullets=[(0, 0.1, 'Sets, rest timer, live 1RM')]),
     dict(key='coach-insight', kicker='COACH INSIGHT', title='Instant feedback.', accent=ACCENT_GREEN,
-         footage=[('coach_insight', 'finished-0.3', 'insight', '1.2s'),
-                  ('coach_insight', 'insight', 'end', '2.6s')],
+         footage=[('coach_insight', 'menu-0.3', 'finished+0.4', 1.0),          # "Finish Training"
+                  ('coach_insight', 'insight-2.0', 'insight+0.3', '0.9s'),       # "Generating insight…"
+                  ('coach_insight', 'insight+0.3', 'end', '2.6s')],              # the answer, scrolled up
          bullets=[(0, 0.0, 'An AI review of every session')]),
     dict(key='analysis', kicker='ANALYSIS', title='See your progress.', accent=BRAND_BLUE,
-         footage=[('analysis', 'graphs-0.3', 'panel_closed+1.2', '3.0s'),
-                  ('analysis', 'records+0.6', 'end', '1.6s')],
+         footage=[('analysis', 'graphs-0.3', 'panel_closed+1.2', '3.3s'),
+                  ('analysis', 'records+1.0', 'end', '1.6s')],
          bullets=[(0, 0.0, 'Filter by period, exercise and muscle'),
                   (1, 0.0, 'Every record on a heatmap')]),
     dict(key='ai-chat', kicker='AI COACH', title='Ask anything.', accent=ACCENT_GREEN,
@@ -239,6 +240,8 @@ FEATURES = [
          bullets=[(0, 0.0, 'Sleep and steps from Health Connect'),
                   (2, 0.0, 'Answers from your own training')]),
 ]
+AI_CHAT_BULLETS_WITHOUT_HEALTH_CONNECT = [(0, 0.0, 'You choose what the AI sees'),
+                                         (2, 0.0, 'Answers from your own training')]
 FAN = ['plan_ai_light', 'training_dark', 'video_analysis_light', 'analysis_dark', 'customize_settings_light',
        'coach_insight_dark', 'ai_chat_light']
 LEAD, TAIL, OVERLAP = 0.6, 0.5, 0.4
@@ -314,6 +317,8 @@ class Promo:
         t = 3.2  # the intro
         self.t_intro = (0.0, t + OVERLAP)
         for spec in FEATURES:
+            if spec['key'] == 'ai-chat' and 'recovery_on' not in markers['ai_chat']:
+                spec = dict(spec, bullets=AI_CHAT_BULLETS_WITHOUT_HEALTH_CONNECT)  # captured without them
             footage = Footage(markers, spec['footage'])
             span = (t, t + LEAD + footage.duration + TAIL)
             self.features.append(dict(spec, footage=footage, span=span))
