@@ -2,12 +2,13 @@ import React, {memo, useCallback, useEffect, useMemo, useState} from 'react';
 import {processColor, ScrollView, StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
-import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
+import {Range} from '../../components/picker/date/DateRangePicker';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ChartSelectEvent, LineChart} from 'react-native-charts-wrapper';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
-import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
+import AnalyseFilterPanel from '../../components/picker/filter/AnalyseFilterPanel';
+import {Accumulation} from '../../models/Accumulation';
 import {useWorkoutsByIds} from '../../redux/Workout/use/useWorkoutsByIds';
 import WorkoutView from '../../components/Workout/show/WorkoutDoneList';
 import {Muscles} from '../../models/Muscles';
@@ -97,7 +98,10 @@ const AnalyseGraphics = ({}: Props) => {
         flex: 1,
       }}
     >
-      <TrainingElementPicker
+      {/* GH-642: one filter panel holds the period (it replaced the DateRangePicker), group by, metrics, exercises and muscles. */}
+      <AnalyseFilterPanel
+        range={range}
+        setRange={setRange}
         exercise={exercise}
         setExercise={setExercise}
         accumulation={accumulation}
@@ -106,9 +110,7 @@ const AnalyseGraphics = ({}: Props) => {
         setMuscle={setMuscle}
         metrics={metricFilter}
         setMetrics={setMetricFilter}
-        dropdownLabel="Select Exercises, Muscles, Metrics, Accumulation Mode"
       />
-      <DateRangePicker range={range} setRange={setRange} />
 
       <AnalyseStaleRangeBanner
         range={range}

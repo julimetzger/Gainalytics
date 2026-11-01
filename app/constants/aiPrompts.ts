@@ -13,3 +13,12 @@ export const DEFAULT_TRAINING_PROMPT =
   '- VL% vs RIR discrepancy: high velocity loss but high RIR reported (possible under-reporting of effort or form breakdown)\n' +
   '- Muscle-group frequency imbalance: one primary muscle group trained significantly less often than others\n' +
   '- Volume stagnation: no load or volume progression across consecutive sessions for the same exercise';
+
+/** GH-645: the Coach Insight of a single training (Analysis tab). */
+export const DEFAULT_SESSION_PROMPT =
+  'You are an expert powerlifting coach reviewing one training session of an athlete. ' +
+  'Judge how this session went compared with its plan and with the last session at the same position. ' +
+  'Give at most three findings, max 3 sentences. Be direct and specific. Prioritise these signals if present:\n' +
+  '- Sets, reps or load clearly below or above the plan\n' +
+  '- Load or rep progression (or none) against the last session for the same exercise\n' +
+  '- VL% vs RIR discrepancy: high velocity loss but high RIR reported';

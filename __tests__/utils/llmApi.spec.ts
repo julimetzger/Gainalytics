@@ -212,3 +212,49 @@ describe('callAnthropicClaude — a call that never returns (GH-447)', () => {
     });
   });
 });
+
+describe('callAnthropicClaude with a tool (GH-544 structured output)', () => {
+  const tool = {name: 'plan_training', description: 'Plans a training.', input_schema: {type: 'object'}};
+
+  it('forces the tool and returns its input as JSON text', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          stop_reason: 'tool_use',
+          content: [
+            {type: 'text', text: 'Here you go.'},
+            {type: 'tool_use', id: 'tu_1', name: 'plan_training', input: {explanation: 'RIR -1', exercises: []}},
+          ],
+        }),
+    });
+
+    const result = await callAnthropicClaude('sk-key', 'sys', 'msg', DEFAULT_ANTHROPIC_MODEL, {tool, maxTokens: 4096});
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect({tools: body.tools, tool_choice: body.tool_choice, max_tokens: body.max_tokens}).toEqual({
+      tools: [tool],
+      tool_choice: {type: 'tool', name: 'plan_training'},
+      max_tokens: 4096,
+    });
+    expect(result).toEqual({ok: true, text: '{"explanation":"RIR -1","exercises":[]}', truncated: false});
+  });
+
+  it('falls back to the text when the model did not call the tool', async () => {
+    mockFetch.mockReturnValueOnce(makeOkResponse('```json\n{}\n```'));
+
+    const result = await callAnthropicClaude('sk-key', 'sys', 'msg', DEFAULT_ANTHROPIC_MODEL, {tool});
+
+    expect(result).toEqual({ok: true, text: '```json\n{}\n```', truncated: false});
+  });
+
+  it('sends no tools without the option', async () => {
+    mockFetch.mockReturnValueOnce(makeOkResponse('ok'));
+
+    await callAnthropicClaude('sk-key', 'sys', 'msg', DEFAULT_ANTHROPIC_MODEL);
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect({tools: body.tools, tool_choice: body.tool_choice}).toEqual({tools: undefined, tool_choice: undefined});
+  });
+});

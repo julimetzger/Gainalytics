@@ -4,7 +4,7 @@ import {Button, Switch, Text, useTheme} from 'react-native-paper';
 import SettingsSection from './SettingsSection';
 import {useHealthConnectActions, useHealthConnectConnection, useHealthConnectState} from '../../redux/HealthConnect/use/useHealthConnect';
 import {canWriteTrainings, HEALTH_CONNECT_PERMISSION_LABELS, HealthConnectConnection} from '../../utils/healthConnect/healthConnectStatus';
-import {getHealthConnect, HEALTH_CONNECT_PLAY_STORE_URL, HEALTH_CONNECT_PLAY_STORE_WEB_URL} from '../../utils/healthConnect/healthConnectNative';
+import {CONNECT_PERMISSIONS, getHealthConnect, HEALTH_CONNECT_PLAY_STORE_URL, HEALTH_CONNECT_PLAY_STORE_WEB_URL} from '../../utils/healthConnect/healthConnectNative';
 import {HealthConnectSyncEvent} from '../../redux/HealthConnect/healthConnectReducer';
 import {getDateStringFromDate} from '../../utils/DateHelper';
 
@@ -16,7 +16,8 @@ const STATUS_TEXT: Record<HealthConnectConnection['kind'], {title: string; descr
   unavailable: {title: 'Not available', description: 'Health Connect is not available on this device.'},
   not_connected: {
     title: 'Available · not connected',
-    description: 'Write finished trainings to Health Connect and show your body weight and relative strength in the analysis. Everything stays on your device.',
+    description:
+      'Write finished trainings to Health Connect and show your body weight and relative strength in the analysis. Sleep and steps can be added to the AI chat context; they are only sent if you switch that on in the chat.',
   },
   revoked: {title: 'Permissions revoked', description: 'Gainalytics has no Health Connect permissions anymore. Nothing is read or written until you connect again.'},
   connected: {title: 'Connected', description: ''},
@@ -74,6 +75,16 @@ const HealthConnectSection = () => {
       {connection.kind === 'connected' && (
         <Text variant="bodySmall" style={styles.description} testID="health-connect-permissions">
           Allowed: {connection.granted.map((permission) => HEALTH_CONNECT_PERMISSION_LABELS[permission]).join(', ')}
+        </Text>
+      )}
+      {connection.kind === 'connected' && connection.missing.length > 0 && (
+        <Text variant="bodySmall" style={[styles.description, {color: theme.colors.onSurfaceVariant}]} testID="health-connect-missing-permissions">
+          Not allowed: {connection.missing.map((permission) => HEALTH_CONNECT_PERMISSION_LABELS[permission]).join(', ')}
+        </Text>
+      )}
+      {connection.kind !== 'connected' && connection.kind !== 'checking' && (
+        <Text variant="bodySmall" style={[styles.description, {color: theme.colors.onSurfaceVariant}]} testID="health-connect-requested-permissions">
+          Gainalytics asks for: {CONNECT_PERMISSIONS.map((permission) => HEALTH_CONNECT_PERMISSION_LABELS[permission]).join(', ')}
         </Text>
       )}
       {(connection.kind === 'not_installed' || connection.kind === 'update_required') && (

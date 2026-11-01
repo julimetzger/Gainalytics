@@ -89,7 +89,7 @@ See [app-specific scroll quirks](app-screens.md#training-home-dashboard). (seen 
 ### Small syntax gotchas
 - `tapOn: point` takes integer percentages only (`"3.5%,6.5%"` → NumberFormatException).
 - `pressKey:` knows only a few names (HOME, BACK, ENTER, BACKSPACE, VOLUME_*, POWER…); `Menu`/`82` are invalid — open the dev menu from a wrapper with `adb shell input keyevent 82`.
-- A sub-flow's header `env:` default OVERRIDES the value the caller passes (`-e` or `runFlow: {env:}`) — no `env:` defaults in parametrised sub-flows; check `defineVariablesCommand` in `commands-*.json`.
+- A flow's header `env:` default OVERRIDES the value the caller passes (`-e` or `runFlow: {env:}`) — this holds for top-level flows run with `maestro test -e X=…` too (GH-621: `-e FPS=30` silently ran with the header's 15 and still passed). No header `env:` defaults in parametrised flows; write the default inline, `'…-${FPS || "15"}$'` (works in selectors and `text:`), and check `defineVariablesCommand` in `commands-*.json`.
 - `setAirplaneMode: enabled/disabled` works — use it to prove network-failure, spinner and retry paths without real API calls.
 - `copyTextFrom` works on plain RN `<Text>`; not on Paper TextInputs (see above).
 

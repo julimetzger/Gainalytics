@@ -27,7 +27,7 @@ local automation failures:
 
 Core:
 
-- React Native 0.72.6
+- React Native
 - TypeScript
 - Redux (global state)
 - React Navigation

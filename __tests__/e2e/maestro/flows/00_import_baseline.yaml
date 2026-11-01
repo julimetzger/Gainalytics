@@ -1,6 +1,8 @@
 appId: com.powerliftingworkoutplanner
 ---
 - launchApp
+# GH-589: a system ANR dialog on a loaded emulator (never the app's own).
+- runFlow: dismiss_system_anr.yaml
 # Dismiss React Native dev error overlay if it appears on startup after force-stop
 - runFlow:
     when:

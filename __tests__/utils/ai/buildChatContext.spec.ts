@@ -56,6 +56,37 @@ describe('buildChatContext', () => {
     expect(chatContextSize(parts({finishedJson: '{"a":1}'}))).toBeLessThan(chatContextSize(p));
   });
 
+  describe('GH-619 recovery section', () => {
+    const RECOVERY = '[\n{"date":"2026-10-13","sleep_h":5,"steps":20113},\n{"date":"2026-10-14","sleep_h":7.5}\n]';
+
+    it('is absent without recovery data, so the prompt is unchanged', () => {
+      const p = parts({finishedJson: '{"a":1}', plannedJson: '{"b":2}'});
+      expect(buildChatSystemPrompt(BASE, {...p, recoveryJson: null})).toBe(buildChatSystemPrompt(BASE, p));
+      expect(chatContextSections({...p, recoveryJson: null}).map(s => s.key)).toEqual(['planned', 'finished']);
+    });
+
+    it('goes between the plan and the history, and the preview sections are exactly the prompt block', () => {
+      const p = parts({finishedJson: '{"a":1}', plannedJson: '{"b":2}', selectedJson: '{"c":3}', recoveryJson: RECOVERY});
+      const sections = chatContextSections(p);
+
+      expect(sections.map(s => s.key)).toEqual(['selected', 'planned', 'recovery', 'finished']);
+      expect(sections[2]).toEqual({
+        key: 'recovery',
+        title: 'Recovery (sleep and steps per day, JSON; sleep_h = the night ending on that date; a missing value means no data)',
+        json: RECOVERY,
+      });
+      expect(buildChatSystemPrompt(BASE, p)).toBe(
+        `${BASE}\n\nAnalysis context:\n\n${sections.map(s => `${s.title}:\n\n${s.json}`).join('\n\n')}`,
+      );
+      expect(chatContextSize(p)).toBe(buildChatContextBlock(p)!.length);
+    });
+
+    it('stays small: one line per day', () => {
+      const [section] = chatContextSections(parts({recoveryJson: RECOVERY}));
+      expect(section.json.split('\n')).toEqual(['[', '{"date":"2026-10-13","sleep_h":5,"steps":20113},', '{"date":"2026-10-14","sleep_h":7.5}', ']']);
+    });
+  });
+
   it('labels ranges so the model cannot read "8-12" as a single number', () => {
     const [section] = chatContextSections(parts({plannedJson: '{}'}));
     expect(section.title).toContain('8-12');

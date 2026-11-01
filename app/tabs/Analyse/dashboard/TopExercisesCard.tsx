@@ -27,7 +27,7 @@ const TopExercisesCard = ({exerciseMetricMap, onExercisePress}: TopExercisesCard
       <Card.Content>
         {topExercises.map(({exercise, metrics}) => {
           const volume = metrics.get(Metric.VOLUME);
-          const oneRm = metrics.get(Metric.ONE_RM);
+          const oneRm = metrics.get(Metric.ONE_RM)?.value;
           const volumeDelta = volume?.difference;
           const positive = (volumeDelta ?? 0) >= 0;
           const deltaColor = volumeDelta === undefined ? undefined : volumeDelta === 0 ? theme.colors.onSurface : positive ? theme.colors.primary : theme.colors.error;
@@ -47,9 +47,9 @@ const TopExercisesCard = ({exerciseMetricMap, onExercisePress}: TopExercisesCard
                   </Text>
                 )}
               </View>
-              {oneRm && oneRm.value > 0 && (
+              {oneRm !== undefined && oneRm > 0 && (
                 <View style={styles.rmCol}>
-                  <Text style={styles.metricValue}>{oneRm.value.toFixed(1)} kg</Text>
+                  <Text style={styles.metricValue}>{oneRm.toFixed(1)} kg</Text>
                   <Text style={styles.metricLabel}>~1RM</Text>
                 </View>
               )}

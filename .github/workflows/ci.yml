@@ -17,8 +17,6 @@ concurrency:
 jobs:
   lint-typecheck:
     name: Lint + typecheck
-    # Temporarily disabled by the owner; set back to true (or remove this line) to re-enable.
-    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

@@ -12,6 +12,7 @@ OUT="${AGENT_RUN_DIR:-${ROOT}/.agent-run}"
 FLOW="${SMOKE_FLOW:-${ROOT}/__tests__/e2e/maestro/flows/smoke.yaml}"
 mkdir -p "${OUT}"
 S="$("${TOOL}" serial)"
+"${TOOL}" display-geometry   # GH-636: same screen geometry the flows are calibrated on
 
 now() { date +%s; }
 t0=$(now)

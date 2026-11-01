@@ -58,12 +58,28 @@ appId: com.powerliftingworkoutplanner
 - eraseText: 6
 - inputText: '95'
 - hideKeyboard
+# GH-636: the ring is checked against the wall time since the tap, not against
+# a fixed clock window - every tap on this live screen first waits up to ~20 s
+# for a settled hierarchy, so a loaded emulator ran out of fixed windows.
+- evalScript: "${output.submitAt = Date.now()}"
 - tapOn:
     id: 'add-workout-set-submit-button'
 - extendedWaitUntil:
     visible:
       id: 'rest-timer-card'
     timeout: 30000
+# The fresh rest counts down from the target: no "+" (overrun) and at most the
+# seconds since the submit tap have elapsed (an older, still running rest or a
+# rest that did not start at the target fails here).
+- extendedWaitUntil:
+    visible:
+      id: 'rest-progress-ring-text'
+      text: '\d\d:\d\d'
+    timeout: 20000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); var elapsed = 90 - value; var since = Math.ceil((Date.now() - output.submitAt) / 1000); output.startVerdict = !over && elapsed >= 0 && elapsed <= since + 1 ? 'PASS' : 'FAIL shown=' + shown + ' since=' + since}"
+- assertTrue: "${output.startVerdict == 'PASS'}"
 - extendedWaitUntil:
     visible:
       id: '^add-workout-set-reps-input-1$'
@@ -73,12 +89,6 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'rest-timer-target'
     text: 'target 01:30'
-# The fresh rest is near the target (01:05–01:30; the asserts above cost time).
-- extendedWaitUntil:
-    visible:
-      id: 'rest-progress-ring-text'
-      text: '01:(0[5-9]|[1-2][0-9]|30)'
-    timeout: 20000
 - assertVisible:
     id: 'estimated-1rm-header'
     text: 'ESTIMATED 1RM'
@@ -91,11 +101,14 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'rest-progress-ring'
 
-# ===== 2. let the rest run down to ~01:10, remember the elapsed seconds =====
+# ===== 2. let the rest run >= 18 s, remember the elapsed seconds =====
+# Wait until the ring has left 01:13–01:30 (a slow run may already be past
+# 01:12, which a fixed "01:1[0-2]" window never matched); section 4 checks
+# the elapsed value itself (>= 18 s).
 - extendedWaitUntil:
-    visible:
+    notVisible:
       id: 'rest-progress-ring-text'
-      text: '01:1[0-2]'
+      text: '01:(1[3-9]|2[0-9]|30)'
     timeout: 60000
 - copyTextFrom:
     id: 'rest-progress-ring-text'
@@ -188,14 +201,33 @@ appId: com.powerliftingworkoutplanner
     timeout: 5000
 
 # ===== 6. Reset restarts the ring at the target, target unchanged =====
-# The rest is well over 20 s old here, so 01:20–01:30 proves the restart.
+# GH-636: the nightly failed the old fixed window "01:20–01:30": the reset tap
+# itself waits ~11 s for a settled hierarchy on the ticking ring (more on a
+# loaded emulator), so the 10 s window could pass before the assert ran.
+# Instead: after a restart at most the seconds since the tap have elapsed and
+# the ring counts down again (no "+"). Without a restart the elapsed rest is
+# the pre-reset value (>= 18 s, see section 4) PLUS the time since the tap, so
+# this cannot pass. Re-read a few times in case the tap is delivered late.
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.preResetShown = shown; output.preResetElapsed = over ? 90 + value : 90 - value; output.resetVerdict = 'PENDING'; output.resetAt = Date.now()}"
 - tapOn:
     id: 'rest-timer-reset'
-- extendedWaitUntil:
-    visible:
-      id: 'rest-progress-ring-text'
-      text: '01:(2[0-9]|30)'
-    timeout: 20000
+- repeat:
+    times: 8
+    while:
+      true: "${output.resetVerdict != 'PASS'}"
+    commands:
+      - copyTextFrom:
+          id: 'rest-progress-ring-text'
+      - evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); var elapsed = over ? 90 + value : 90 - value; var since = Math.ceil((Date.now() - output.resetAt) / 1000); output.resetVerdict = !over && output.preResetElapsed >= 18 && elapsed <= since + 1 && elapsed < output.preResetElapsed ? 'PASS' : 'FAIL before=' + output.preResetShown + ' after=' + shown + ' since=' + since}"
+      - runFlow:
+          when:
+            true: "${output.resetVerdict != 'PASS'}"
+          commands:
+            - waitForAnimationToEnd:
+                timeout: 1500
+- assertTrue: "${output.resetVerdict == 'PASS'}"
 - assertVisible:
     id: 'rest-timer-target'
     text: 'target 01:30'

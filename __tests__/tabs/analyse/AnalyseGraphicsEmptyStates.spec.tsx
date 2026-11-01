@@ -39,16 +39,16 @@ jest.mock('../../../app/components/picker/date/DateRangePicker', () => {
   };
 });
 
-// The picker is the only way to make a selection; expose it as buttons.
-jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () => {
+// The filter panel is the only way to make a selection; expose it as buttons (GH-642: it also shows the range).
+jest.mock('../../../app/components/picker/filter/AnalyseFilterPanel', () => {
   const ReactLocal = require('react');
   const {Text, TouchableOpacity, View} = require('react-native');
-  const actual = jest.requireActual('../../../app/components/picker/elements/TrainingElementPicker');
 
   return {
     __esModule: true,
-    default: ({setExercise, setMetrics}: {setExercise: (exercises: unknown[]) => void; setMetrics: (metrics: string[]) => void}) => (
+    default: ({setExercise, setMetrics, range}: {setExercise: (exercises: unknown[]) => void; setMetrics: (metrics: string[]) => void; range: {startDate: Date; endDate: Date}}) => (
       <View>
+        <Text testID="mock-range-picker">{`${range.startDate.toISOString()}|${range.endDate.toISOString()}`}</Text>
         <TouchableOpacity testID="pick-volume-and-frequency" onPress={() => setMetrics(['Frequency', 'Volume'])}>
           <Text>pick volume and frequency</Text>
         </TouchableOpacity>
@@ -63,7 +63,6 @@ jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () =>
         </TouchableOpacity>
       </View>
     ),
-    Accumulation: actual.Accumulation,
   };
 });
 

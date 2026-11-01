@@ -1,4 +1,4 @@
-import {AnyAction, combineReducers, Reducer} from 'redux';
+import {AnyAction, combineReducers, Reducer, ReducersMapObject} from 'redux';
 import exerciseReducer from './Exercises/exercisesReducer';
 import {NormalizedState} from './normalizedState';
 import workoutReducer from './Workout/workoutReducer';
@@ -13,6 +13,7 @@ import {TrainingsPlan} from '../models/entities/TrainingsPlan';
 import {VideoAnalysis} from '../models/entities/VideoAnalysis';
 import effectsReducer, {Effects} from './Effects/effectsReducer';
 import fullStateReducer from './fullstateactions/fullStateReducer';
+import {resolvePlanTrainingFromAi} from './fullstateactions/planTrainingFromAi';
 import videoAnalysisReducer from './VideoAnalysis/videoAnalysisReducer';
 import aiChatReducer, {AIChatState} from './AIChat/aiChatSlice';
 import healthConnectReducer, {HealthConnectState} from './HealthConnect/healthConnectReducer';
@@ -33,7 +34,9 @@ export interface GlobalState {
   healthConnect?: HealthConnectState;
 }
 
-const combinedReducer = combineReducers<GlobalState>({
+// Redux 5: combineReducers infers the state from the reducer map (its type parameter is the map,
+// not the state); `satisfies` keeps the map checked against GlobalState.
+const combinedReducer = combineReducers({
   exercises: exerciseReducer,
   workouts: workoutReducer,
   trainingsPlan: trainingsPlanReducer,
@@ -44,12 +47,16 @@ const combinedReducer = combineReducers<GlobalState>({
   effects: effectsReducer,
   aiChat: aiChatReducer,
   healthConnect: healthConnectReducer,
-});
+} satisfies ReducersMapObject<GlobalState, AnyAction>);
 
 // Same as reduceReducers(combinedReducer, fullStateReducer): the slice reducers first, then the
 // cross-cutting full-state actions. Written out so the result is a redux Reducer that accepts the
 // undefined initial state — reduce-reducers' own typing does not, which made every
 // createStore(rootReducer) / rootReducer(undefined, …) a type error.
-const rootReducer: Reducer<GlobalState, AnyAction> = (state, action) => fullStateReducer(combinedReducer(state, action), action);
+// GH-544: PLAN_TRAINING_FROM_AI gets its new ids from the full state before the slices see it.
+const rootReducer: Reducer<GlobalState, AnyAction> = (state, action) => {
+  const resolved = resolvePlanTrainingFromAi(state, action);
+  return fullStateReducer(combinedReducer(state, resolved), resolved);
+};
 
 export default rootReducer;

@@ -2,6 +2,7 @@ import {Training} from '../models/entities/Training';
 import {Workout} from '../models/entities/Workout';
 import {Metric} from '../models/Metric';
 import {calculateMetricValue} from './AnalyseUtils';
+import {MicroTrainingCount} from './micro-training-count';
 
 /**
  * GH-526 — formatting for the Overview / training analysis rework: every view
@@ -118,6 +119,25 @@ const numericKpi = (
   return {key, title, value: format(value), reference: format(reference), delta, sign};
 };
 
+/**
+ * GH-527 (H5) — the planned workouts every overview and analysis compares. A plan
+ * keeps the sets of an exercise that was later removed from the training; they stay
+ * stored, but no longer count: the Plan tab only lists the training's exercises, so
+ * the muscle map, the Muscle Overview and the Sets KPI must not plan more than that.
+ * A legacy training without an exercise list keeps all of its planned workouts.
+ */
+export const plannedWorkoutIdsOf = (trainings: (Training | undefined)[]): number[] =>
+  trainings.flatMap((training) => {
+    if (!training?.plannedWorkouts) return [];
+    const listed = Array.isArray(training.exercises) ? new Set(training.exercises.map(Number)) : undefined;
+    return Object.entries(training.plannedWorkouts)
+      .filter(([exerciseId]) => listed === undefined || listed.has(Number(exerciseId)))
+      .map(([, workoutId]) => workoutId);
+  });
+
+export const doneWorkoutIdsOf = (trainings: (Training | undefined)[]): number[] =>
+  trainings.flatMap((training) => (training?.doneWorkoutIds ? (Object.values(training.doneWorkoutIds) as number[]) : []));
+
 export const setsOf = (workouts: Workout[]) => calculateMetricValue(workouts.flatMap((workout) => workout.sets ?? []), Metric.SETS) ?? 0;
 export const volumeOf = (workouts: Workout[]) => calculateMetricValue(workouts.flatMap((workout) => workout.sets ?? []), Metric.VOLUME) ?? 0;
 
@@ -128,6 +148,17 @@ export const volumeKpi = (subject: Workout[], reference: Workout[] | undefined, 
   numericKpi('volume', 'Volume', volumeOf(subject), reference ? volumeOf(reference) : undefined, formatVolume, mode, shareOf);
 
 export const countKpi = (key: string, title: string, value: number, reference: number | undefined): Kpi => numericKpi(key, title, value, reference, formatCount, 'diff');
+
+/**
+ * GH-644 — Trainings `done / total` of a micro against its plan. The open trainings of a
+ * running micro are not a shortfall: while some are open the delta reads neutral
+ * (`3 open · 2 not planned`), only a completed micro gets the usual delta.
+ */
+export const trainingsKpi = ({done, total, open, notPlanned}: MicroTrainingCount): Kpi => {
+  if (open === 0) return countKpi('trainings', 'Trainings', done, total);
+  const delta = notPlanned > 0 ? `${open} open · ${notPlanned} not planned` : `${open} open`;
+  return {key: 'trainings', title: 'Trainings', value: formatCount(done), reference: formatCount(total), delta, sign: 0};
+};
 
 /** Duration only exists for done trainings; the delta is shown without a percentage. */
 export const durationKpi = (valueMs: number, referenceMs: number | undefined, title = 'Duration'): Kpi => {

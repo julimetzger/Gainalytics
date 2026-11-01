@@ -196,7 +196,8 @@ const trainingsReducer = (state: NormalizedState<Training> = initialState, actio
           [workout.exerciseId]: workoutId,
         };
       });
-      training.exercises = action.lastTrainingInMicro.exercises;
+      // GH-544: "Plan with AI" passes its own exercise order (swaps, removals).
+      training.exercises = action.exercises ?? action.lastTrainingInMicro.exercises;
       return {
         ...state,
         byId: {

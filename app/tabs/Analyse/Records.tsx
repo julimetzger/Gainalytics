@@ -1,11 +1,12 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/AnalyseRouter';
-import React, {useState} from 'react';
-import TrainingElementPicker, {Accumulation} from '../../components/picker/elements/TrainingElementPicker';
+import React, {useCallback, useEffect, useState} from 'react';
+import AnalyseFilterPanel from '../../components/picker/filter/AnalyseFilterPanel';
+import {Accumulation} from '../../models/Accumulation';
 import {ScrollView, View} from 'react-native';
 import {Exercise, Record} from '../../models/entities/Exercise';
 import {Muscles} from '../../models/Muscles';
-import DateRangePicker, {Range} from '../../components/picker/date/DateRangePicker';
+import {Range} from '../../components/picker/date/DateRangePicker';
 import {firstDayOfWeek, lastDayOfWeek, subtractMonths} from '../../utils/DateHelper';
 import {useWorkoutsIn} from '../../redux/Workout/use/useWorkoutsIn';
 import {Workout} from '../../models/entities/Workout';
@@ -15,6 +16,7 @@ import {useAlleExercises} from '../../redux/Exercises/use/useAllExercises';
 import {AccumulationMode} from '../../models/AccumulationMode';
 import RecordsOverTimeCard from '../../components/analyse/records/RecordsOverTimeCard';
 import RecordCardList from '../../components/analyse/records/RecordCardList';
+import {RecordsSelection} from '../../utils/RecordsAnalysis';
 
 const RecordsTab = () => {
   let now = new Date(Date.now());
@@ -24,6 +26,27 @@ const RecordsTab = () => {
   const [exercise, setExercise] = useState<Exercise[]>([]);
   const [muscle, setMuscle] = useState<Muscles[]>([]);
   const [range, setRange] = useState(new Range(subtractMonths(3, firstDayOfWeek(now, 1)), lastDayOfWeek(now, 0)));
+  // GH-617: the heatmap tile/bar whose records the list shows. Any change of the
+  // range or the exercise/muscle/accumulation filter drops it.
+  const [selection, setSelection] = useState<RecordsSelection | undefined>(undefined);
+  const selectTile = useCallback((next?: RecordsSelection) => setSelection((current) => (next === undefined || current?.key === next.key ? undefined : next)), []);
+  const showAll = useCallback(() => setSelection(undefined), []);
+  const changeRange = useCallback((next: Range) => {
+    setRange(next);
+    setSelection(undefined);
+  }, []);
+  const changeExercise = useCallback((next: Exercise[]) => {
+    setExercise(next);
+    setSelection(undefined);
+  }, []);
+  const changeMuscle = useCallback((next: Muscles[]) => {
+    setMuscle(next);
+    setSelection(undefined);
+  }, []);
+  const changeAccumulation = useCallback((next: Accumulation | undefined) => {
+    setAccumulation(next);
+    setSelection(undefined);
+  }, []);
   let exercisesForMuscles = useExercisesForMuscles(muscle);
   let exerciseIDs = exercise.map((it) => it.id);
   let exercisesForMusclesIds = exercisesForMuscles.map((it) => it.id);
@@ -36,6 +59,16 @@ const RecordsTab = () => {
   ) as Workout[];
   let combinedWorkouts = [...workoutsForExercise, ...workoutsForMuscles];
   let uniqueWorkouts = Array.from(new Set(combinedWorkouts.map((workout) => workout.id))).map((id) => combinedWorkouts.find((workout) => workout.id === id)!!);
+  // The screen stays mounted while workouts are edited or deleted on other tabs. The list therefore
+  // shows the current workout objects of the selection, and any change of which records exist (or of
+  // their dates, which decide the tile) drops the selection so tile count and list cannot disagree.
+  const recordsSignature = uniqueWorkouts
+    .map((workout) => `${workout.id}:${workout.start ? new Date(workout.start).getTime() : ''}`)
+    .sort()
+    .join(',');
+  useEffect(() => setSelection(undefined), [recordsSignature]);
+  const selectedIds = selection ? new Set(selection.workouts.map((workout) => workout.id)) : undefined;
+  const selectedWorkouts = selectedIds ? uniqueWorkouts.filter((workout) => selectedIds.has(workout.id)) : undefined;
 
   return (
     <ScrollView
@@ -45,10 +78,28 @@ const RecordsTab = () => {
         flex: 1,
       }}
     >
-      <TrainingElementPicker exercise={exercise} setExercise={setExercise} accumulation={accumulation} setAccumulation={setAccumulation} muscle={muscle} setMuscle={setMuscle} />
-      <DateRangePicker range={range} setRange={setRange} />
-      <RecordsOverTimeCard recordWorkouts={uniqueWorkouts} exercises={exercises} rangeStart={range.startDate} rangeEnd={range.endDate} accumulation={accumulation} now={now} />
-      <RecordCardList recordWorkouts={uniqueWorkouts} exercises={exercises} />
+      {/* GH-617 / GH-642: the filter panel starts collapsed to its summary card; a tap expands it. */}
+      <AnalyseFilterPanel
+        range={range}
+        setRange={changeRange}
+        exercise={exercise}
+        setExercise={changeExercise}
+        accumulation={accumulation}
+        setAccumulation={changeAccumulation}
+        muscle={muscle}
+        setMuscle={changeMuscle}
+      />
+      <RecordsOverTimeCard
+        recordWorkouts={uniqueWorkouts}
+        exercises={exercises}
+        rangeStart={range.startDate}
+        rangeEnd={range.endDate}
+        accumulation={accumulation}
+        now={now}
+        selectedKey={selection?.key}
+        onSelect={selectTile}
+      />
+      <RecordCardList recordWorkouts={selectedWorkouts ?? uniqueWorkouts} exercises={exercises} filterTitle={selection?.title} onShowAll={showAll} />
       <View style={{height: 16}} />
     </ScrollView>
   );

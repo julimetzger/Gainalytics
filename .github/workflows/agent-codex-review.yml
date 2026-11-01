@@ -1,0 +1,96 @@
+# Automatic feedback round after a Codex review.
+#
+# When the Codex review bot submits a review with at least one inline finding on a PR of this repo,
+# this workflow dispatches agent-emulator.yml on the PR's head branch (auto_review=true). The agent
+# then works through the findings as a normal feedback round: it fixes what it agrees with, declines
+# the rest with a reason, and the publish job posts its assessment as a PR comment. If it declines
+# everything, it commits nothing and only comments.
+#
+# Guards:
+#   - only the Codex bot's reviews, only PRs from this repo (no forks), no dependabot branches
+#   - only reviews with inline findings (a clean review has none) and only for the current head commit
+#   - at most MAX_AUTO_ROUNDS automatic rounds per PR (the agent's push makes Codex review again)
+#   - label `agent:no-auto-fix` on the PR switches it off for that PR
+#
+# Note: the dispatched run uses agent-emulator.yml from the PR branch, so the branch must already
+# contain the auto_review support (branches created before it need master merged in first).
+name: Agent on Codex review
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions: {}
+
+concurrency:
+  group: agent-codex-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  CODEX_BOT: chatgpt-codex-connector[bot]
+  MAX_AUTO_ROUNDS: "2"
+  ROUND_MARKER: "<!-- agent-auto-review-round -->"
+  LIMIT_MARKER: "<!-- agent-auto-review-limit -->"
+
+jobs:
+  dispatch:
+    if: >-
+      github.event.review.user.login == 'chatgpt-codex-connector[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.state == 'open' &&
+      !startsWith(github.event.pull_request.head.ref, 'dependabot/') &&
+      !contains(github.event.pull_request.labels.*.name, 'agent:no-auto-fix')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Decide and dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          REVIEW_ID: ${{ github.event.review.id }}
+          REVIEW_SHA: ${{ github.event.review.commit_id }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          findings="$(gh api --paginate "repos/${REPO}/pulls/${PR}/reviews/${REVIEW_ID}/comments" --jq 'length' | awk '{s+=$1} END {print s+0}')"
+          echo "inline findings in review ${REVIEW_ID}: ${findings}"
+          if [[ "${findings}" -eq 0 ]]; then
+            echo "::notice title=codex review::no inline findings, nothing to do"; exit 0
+          fi
+
+          head_sha="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha')"
+          if [[ "${head_sha}" != "${REVIEW_SHA}" ]]; then
+            echo "::notice title=codex review::review is for ${REVIEW_SHA:0:10}, head is ${head_sha:0:10} -- stale, skipped"; exit 0
+          fi
+
+          comments="$(gh api --paginate "repos/${REPO}/issues/${PR}/comments" --jq '.[] | select(.user.login == "github-actions[bot]") | .body')"
+          rounds="$(grep -cF -- "${ROUND_MARKER}" <<<"${comments}" || true)"
+          echo "automatic rounds so far: ${rounds}/${MAX_AUTO_ROUNDS}"
+          if [[ "${rounds}" -ge "${MAX_AUTO_ROUNDS}" ]]; then
+            if ! grep -qF -- "${LIMIT_MARKER}" <<<"${comments}"; then
+              gh api "repos/${REPO}/issues/${PR}/comments" -f body="${LIMIT_MARKER}
+          Codex has new findings, but this PR already had ${MAX_AUTO_ROUNDS} automatic agent rounds. No further automatic round; start one by hand (Agent emulator workflow on \`${BRANCH}\`) if needed." >/dev/null
+            fi
+            echo "::notice title=codex review::round limit reached"; exit 0
+          fi
+
+          # Keep the original issue in the agent's context when the PR closes one.
+          issue="$(grep -oiE '(closes|fixes|resolves) #[0-9]+' <<<"${PR_BODY}" | head -1 | grep -oE '[0-9]+' || true)"
+          args=(-f auto_review=true -f model=opus)
+          [[ -z "${issue}" ]] || args+=(-f issue_number="${issue}")
+
+          if ! gh workflow run agent-emulator.yml --repo "${REPO}" --ref "${BRANCH}" "${args[@]}" 2>"${RUNNER_TEMP}/dispatch.err"; then
+            err="$(tr '\n' ' ' < "${RUNNER_TEMP}/dispatch.err")"
+            echo "::warning title=codex review::dispatch on ${BRANCH} failed (branch without auto_review support? merge master into it): ${err}"
+            exit 0
+          fi
+          n=$((rounds + 1))
+          gh api "repos/${REPO}/issues/${PR}/comments" -f body="${ROUND_MARKER}
+          Codex review with ${findings} finding(s): started automatic agent round ${n}/${MAX_AUTO_ROUNDS} on \`${BRANCH}\` ([workflow runs](${GITHUB_SERVER_URL}/${REPO}/actions/workflows/agent-emulator.yml)). Label \`agent:no-auto-fix\` turns this off for the PR." >/dev/null
+          echo "::notice title=codex review::dispatched round ${n} on ${BRANCH} (issue: ${issue:-none})"

@@ -96,12 +96,31 @@ export function calculateMetricValue(sets: WorkoutSet[], metric: Metric, workout
   }
 }
 
-export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, WorkoutSet[]>, metric: Metric, muscle: Muscles, workoutsCounts?: Map<Exercise, number>) {
-  let sets = Array.from(exerxiseWorkoutMap.values()).flat();
-  const oneRm = repetitionMax(...sets)?.valueOf();
+const musclePercent = (exercise: Exercise, muscle: Muscles) => exercise.muscles?.find((m) => m.muscle === muscle)?.percent ?? 0;
+
+/**
+ * GH-527 (H6) — 1RM and intensity of a muscle. An estimated 1RM belongs to one
+ * exercise, so it is never pooled across exercises: only the exercises that train
+ * the muscle count, each against its own 1RM. 1RM and Max Intensity are the highest
+ * value of those exercises, Average Intensity is the mean over all of their sets.
+ * Undefined when none of them has a set — the table shows "–" instead of a number.
+ */
+const strengthMetricForMuscle = (exerciseWorkoutMap: Map<Exercise, WorkoutSet[]>, metric: Metric.ONE_RM | Metric.MAX_INTENSITY | Metric.AVERAGE_INTENSITY, muscle: Muscles) => {
+  const training = Array.from(exerciseWorkoutMap.entries()).filter(([exercise, sets]) => musclePercent(exercise, muscle) > 0 && sets.length > 0);
+  if (training.length === 0) return undefined;
+  if (metric === Metric.AVERAGE_INTENSITY) {
+    const setCount = sumBy(training, ([, sets]) => sets.length);
+    return sumBy(training, ([, sets]) => calculateMetricValue(sets, metric)!! * sets.length) / setCount;
+  }
+  return Math.max(...training.map(([, sets]) => calculateMetricValue(sets, metric)!!));
+};
+
+export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise, WorkoutSet[]>, metric: Metric, muscle: Muscles, workoutsCounts?: Map<Exercise, number>): number | undefined {
   switch (metric) {
     case Metric.ONE_RM:
-      return oneRm;
+    case Metric.MAX_INTENSITY:
+    case Metric.AVERAGE_INTENSITY:
+      return strengthMetricForMuscle(exerxiseWorkoutMap, metric, muscle);
     case Metric.VOLUME:
       let collection = Array.from(exerxiseWorkoutMap.entries()).map(([exercise, workoutSets]) =>
         sumBy(workoutSets, (value) => {
@@ -109,10 +128,6 @@ export function calculateMetricValueForMuscles(exerxiseWorkoutMap: Map<Exercise,
         }),
       );
       return sum(collection);
-    case Metric.MAX_INTENSITY:
-      return oneRm ? Math.max(...sets.map((value) => evaluationWeight(value) / oneRm)) * 100 : 100;
-    case Metric.AVERAGE_INTENSITY:
-      return oneRm ? (sumBy(sets, (value) => evaluationWeight(value)) / sets.length / oneRm) * 100 : 100;
     case Metric.SETS:
       return sum(Array.from(exerxiseWorkoutMap.entries()).map(([exercise, workoutSets]) => sumBy(workoutSets, (value) => exercise.muscles?.find((m) => m.muscle === muscle)?.percent ?? 0) / 100));
     case Metric.REPS:
@@ -178,9 +193,10 @@ export function calculateMetricComparisonsForMuscle(workout: Map<Exercise, Worko
   muscles.map((muscle) => {
     let metricComparison = new Map<Metric, Comparison>();
     Object.values(Metric).forEach((metric) => {
-      let current = calculateMetricValueForMuscles(exerciseWorkoutMap.currentWorkoutSets, metric, muscle, exerciseWorkoutMap.currentWorkoutsCounts)!!;
+      let current = calculateMetricValueForMuscles(exerciseWorkoutMap.currentWorkoutSets, metric, muscle, exerciseWorkoutMap.currentWorkoutsCounts);
       let last = (exerciseWorkoutMap.lastWorkoutSets?.size ?? 0) > 0 ? calculateMetricValueForMuscles(exerciseWorkoutMap.lastWorkoutSets ?? new Map(), metric, muscle, exerciseWorkoutMap.lastWorkoutsCounts) : undefined;
-      let difference = last ? current - last : undefined;
+      // GH-527: a muscle without a 1RM of its own shows "–" and no delta.
+      let difference = current !== undefined && last ? current - last : undefined;
       metricComparison.set(metric, {value: current, difference: difference});
     });
     muscleMetricComparison.set(muscle, metricComparison);

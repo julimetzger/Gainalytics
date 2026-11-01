@@ -1,9 +1,9 @@
 import {createMigrate, persistReducer, persistStore, Storage} from 'redux-persist';
 import rootReducer from './app/redux/rootReducer';
 import hardSet from 'redux-persist/lib/stateReconciler/hardSet';
-import {MMKV} from 'react-native-mmkv';
+import {createMMKV} from 'react-native-mmkv';
 import createFilter from 'redux-persist-transform-filter';
-import {configureStore} from '@reduxjs/toolkit';
+import {configureStore, Tuple} from '@reduxjs/toolkit';
 import logger from 'redux-logger';
 import {healthConnectMiddleware} from './app/redux/HealthConnect/healthConnectMiddleware';
 
@@ -175,7 +175,8 @@ export const migrations = {
   }),
 };
 
-const storage = new MMKV();
+// No id: v4 falls back to the default instance 'mmkv.default', the same file v3's `new MMKV()` used.
+const storage = createMMKV();
 
 export const reduxStorage: Storage = {
   setItem: (key, value) => {
@@ -187,7 +188,7 @@ export const reduxStorage: Storage = {
     return Promise.resolve(value);
   },
   removeItem: (key) => {
-    storage.delete(key);
+    storage.remove(key);
     return Promise.resolve();
   },
 };
@@ -214,7 +215,10 @@ export default () => {
   const store = configureStore({
     reducer: persistedReducer,
     devTools: process?.env?.NODE_ENV === 'development',
-    middleware: process?.env?.NODE_ENV === 'development' ? [healthConnectMiddleware, logger] : [healthConnectMiddleware],
+    // RTK 2: `middleware` must be a callback. A plain array throws in development and is
+    // silently replaced by the default middleware in production, which dropped the Health
+    // Connect middleware. The Tuple keeps the previous set: no default thunk/check middleware.
+    middleware: () => (process?.env?.NODE_ENV === 'development' ? new Tuple(healthConnectMiddleware, logger) : new Tuple(healthConnectMiddleware)),
   });
   let persistor = persistStore(store);
   return {store, persistor};

@@ -1,5 +1,5 @@
 import {LineValue} from 'react-native-charts-wrapper';
-import {Accumulation} from '../components/picker/elements/TrainingElementPicker';
+import {Accumulation} from '../models/Accumulation';
 import {AccumulationMode} from '../models/AccumulationMode';
 import {Metric} from '../models/Metric';
 import {Workout} from '../models/entities/Workout';

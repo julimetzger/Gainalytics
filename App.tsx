@@ -7,6 +7,7 @@ import {Provider as PaperProvider} from 'react-native-paper';
 import {BottomTabs} from './app/routing/bottomNavigator';
 import OnboardingGate from './app/components/onboarding/OnboardingGate';
 import HealthConnectLifecycle from './app/components/healthConnect/HealthConnectLifecycle';
+import {toastConfig} from './app/components/common/toastConfig';
 import {EventProvider} from 'react-native-outside-press';
 import {registerTranslation} from 'react-native-paper-dates';
 import {useSettings} from './app/redux/settings/use/useSettings';
@@ -123,7 +124,7 @@ const AppWithPersist = () => {
             </EventProvider>
           </SafeAreaProvider>
         </PaperProvider>
-        <Toast />
+        <Toast config={toastConfig} />
       </GestureHandlerRootView>
     </PersistGate>
   );

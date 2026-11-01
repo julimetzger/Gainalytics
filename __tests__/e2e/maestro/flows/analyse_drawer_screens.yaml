@@ -11,9 +11,14 @@ appId: com.powerliftingworkoutplanner
 #   * GH-420: the drawer closes via the menu icon, a tap on the dimmed area and a
 #     swipe - also after a bottom-tab switch with the drawer open. "Closed" is
 #     proven by a control of the screen behind that lies inside the drawer area.
-#   * GH-452: History's picker reads "Select Exercises, Muscles"; selecting still
-#     counts; the Analysis picker keeps its own (longer) label.
+#   * GH-452 / GH-642: History's filter panel offers exercises and muscles only
+#     (no period, group by or metrics); a muscle tap counts and shows in the card.
 #   * GH-341: Records KPIs re-pinned to the baseline (see below).
+#   * GH-617 / GH-642: Records filter panel starts collapsed ("Week", no sections),
+#     the custom range comes from its "Custom" chip;
+#     a heatmap tile / muscle bar filters the record list to exactly its records
+#     (fixed range 12/01/2025 - 03/01/2026), tap again / "Show all" / a new range
+#     restore the full list, empty tiles do nothing.
 #   * GH-458 H6 + 08_training_length: Training Length names its outliers
 #     ("2 trainings over 4 h hidden/included"), month view, bar detail, editor.
 #
@@ -86,7 +91,9 @@ appId: com.powerliftingworkoutplanner
     below:
       id: 'analyse-drawer-toggle'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Muscles, Metrics, Accumulation Mode'
+    visible:
+      id: 'filter-groupby-summary'
+      text: 'Day · All metrics'
     timeout: 60000
 - extendedWaitUntil:
     notVisible: 'Close drawer'
@@ -112,13 +119,16 @@ appId: com.powerliftingworkoutplanner
     below:
       id: 'analyse-drawer-toggle'
 - extendedWaitUntil:
-    visible: 'Select Exercises, Metrics, Accumulation Mode'
-    timeout: 30000
-- extendedWaitUntil:
     notVisible: 'Close drawer'
     timeout: 15000
-# Opened from the drawer = no drill-down: nothing preselected.
-- assertVisible: '0 selected'
+# Opened from the drawer = no drill-down: nothing preselected (GH-642 panel summary).
+- extendedWaitUntil:
+    visible:
+      id: 'filter-selection-summary'
+      text: 'All exercises'
+    timeout: 30000
+- assertNotVisible:
+    id: 'filter-groupby-summary'
 - assertNotVisible:
     id: 'analyse-error-boundary'
 
@@ -151,30 +161,49 @@ appId: com.powerliftingworkoutplanner
     text: 'Sat, 28/02/26'
 - assertNotVisible:
     id: 'analyse-error-boundary'
+# GH-452 / GH-642: History's filter panel offers exercises and muscles only.
+- assertVisible:
+    id: 'filter-selection-summary'
+    text: 'All exercises'
+- assertNotVisible:
+    id: 'filter-groupby-summary'
+- assertNotVisible:
+    id: 'filter-range-label'
 - tapOn:
-    id: 'history-picker-toggle'
-- waitForAnimationToEnd
-- assertVisible: 'Select Exercises, Muscles'
-- assertNotVisible: 'Select Exercises, Metrics, Accumulation Mode'
-- assertVisible: '0 selected'
-- tapOn: 'Select Exercises, Muscles'
-- waitForAnimationToEnd
+    id: 'filter-panel-card'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-panel-collapse'
+    timeout: 10000
+- assertVisible:
+    id: 'filter-exercise-section-title'
+    text: 'Exercises \(0\)'
+- assertNotVisible:
+    id: 'filter-groupby-section'
+- assertNotVisible:
+    id: 'filter-metrics-section'
 - scrollUntilVisible:
-    element: 'Chest'
+    element:
+      id: 'filter-muscle-Chest'
     direction: DOWN
-    timeout: 20000
-- tapOn: 'Chest'
-- waitForAnimationToEnd
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - back
-- waitForAnimationToEnd
-- assertVisible: '1 selected'
-- assertVisible: 'Select Exercises, Muscles'
-- assertNotVisible: '0 selected'
+- tapOn:
+    id: 'filter-muscle-Chest'
+- assertVisible:
+    id: 'filter-muscle-section-title'
+    text: 'Muscles \(1\)'
+- scrollUntilVisible:
+    element:
+      id: 'filter-panel-collapse'
+    direction: UP
+- tapOn:
+    id: 'filter-panel-collapse'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-selection-summary'
+      text: 'Chest'
+    timeout: 10000
+- assertVisible:
+    id: 'history-date-header'
 
 # ------------------------------- Records: KPIs re-pinned + GH-420 close paths
 - tapOn:
@@ -223,9 +252,11 @@ appId: com.powerliftingworkoutplanner
     id: 'records-view-heatmap'
 - assertVisible:
     id: '^records-heatmap$'
+# GH-589: scroll to the LAST asserted element — stopping at the count left the empty
+# text below the fold (the count is the section header's last line on screen).
 - scrollUntilVisible:
     element:
-      id: 'records-shown-count'
+      id: 'records-list-empty'
     direction: DOWN
 - assertVisible:
     id: 'records-shown-count'
@@ -324,6 +355,361 @@ appId: com.powerliftingworkoutplanner
     id: 'records-view-heatmap'
 - assertVisible:
     id: '^records-heatmap$'
+
+# ---------------------- Records: tile filter + collapsed filter header (GH-617)
+# GH-617 / GH-642: the filter panel opens collapsed - period, "All exercises",
+# "Week" (no metrics on Records) and no sections. A tap expands, the chevron collapses.
+- scrollUntilVisible:
+    element:
+      id: 'filter-panel-card'
+    direction: UP
+- assertVisible:
+    id: 'filter-groupby-summary'
+    text: 'Week'
+- assertVisible:
+    id: 'filter-selection-summary'
+    text: 'All exercises'
+- assertNotVisible:
+    id: 'filter-groupby-section'
+- tapOn:
+    id: 'filter-panel-card'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-groupby-Week'
+    timeout: 10000
+- assertNotVisible:
+    id: 'filter-metrics-section'
+- tapOn:
+    id: 'filter-panel-collapse'
+- extendedWaitUntil:
+    notVisible:
+      id: 'filter-groupby-section'
+    timeout: 10000
+- assertVisible:
+    id: 'filter-groupby-summary'
+    text: 'Week'
+# A fixed range 12/01/2025 - 03/01/2026 holds all 40 baseline records and stays
+# the same on any later date (no bundling: 13 weeks). Expected values, computed
+# with buildHeatmapModel/buildMuscleLaneModel from fixtures/baseline.gains:
+#   weeks 12/01/25 = 9, 12/08/25 = 2, 12/29/25 = 0, 01/26/26 = 7;
+#   By muscle: Back in the week of 01/26/26 (bar 8) = 4.
+# Typing: see data_strong_import_records.yaml (tap the field's right end, single
+# Backspaces, one digit per command - the mask adds the slashes).
+# GH-642: the date dialog opens from the expanded panel's "Custom" chip.
+- tapOn:
+    id: 'filter-panel-card'
+- tapOn:
+    id: 'filter-range-preset-custom'
+- extendedWaitUntil:
+    visible: '^Save$'
+    timeout: 15000
+- tapOn:
+    id: 'date-range-start-input'
+- waitForAnimationToEnd:
+    timeout: 5000
+- repeat:
+    times: 3
+    while:
+      notVisible: '12/01/2025'
+    commands:
+      - tapOn:
+          point: '31%, 16%'
+      - repeat:
+          times: 12
+          commands:
+            - pressKey: Backspace
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '2'
+      - inputText: '5'
+- assertVisible: '12/01/2025'
+- repeat:
+    times: 3
+    while:
+      notVisible: '03/01/2026'
+    commands:
+      - tapOn:
+          point: '64%, 16%'
+      - repeat:
+          times: 12
+          commands:
+            - pressKey: Backspace
+      - inputText: '0'
+      - inputText: '3'
+      - inputText: '0'
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '2'
+      - inputText: '6'
+- assertVisible: '03/01/2026'
+- assertVisible: '12/01/2025'
+- tapOn: '^Save$'
+- extendedWaitUntil:
+    notVisible: '^Save$'
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: 'filter-range-label'
+      text: '1 Dec 2025 – 1 Mar 2026'
+    timeout: 15000
+- tapOn:
+    id: 'filter-panel-collapse'
+- assertVisible:
+    id: 'records-kpi-total'
+    text: '40'
+- assertVisible:
+    id: 'records-kpi-best'
+    text: '9'
+
+# Tile 1: week of 01/26/26 shows 7 -> the list shows exactly 7 records.
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2026-01-26$'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: '^records-tile-week-2026-01-26$'
+    text: 'week of 01/26/26: 7 records'
+    selected: false
+- tapOn:
+    id: '^records-tile-week-2026-01-26$'
+- assertVisible:
+    id: '^records-tile-week-2026-01-26$'
+    selected: true
+# The header count must equal the tile's number: read both back from the screen.
+- copyTextFrom:
+    id: '^records-tile-week-2026-01-26$'
+- evalScript: "${output.tileCount = maestro.copiedText.replace(/^.*: /, '').split(' ')[0]}"
+- scrollUntilVisible:
+    element:
+      id: 'records-show-all'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '7 records · week of 01/26/26'
+- copyTextFrom:
+    id: 'records-shown-count'
+- assertTrue: "${maestro.copiedText.split(' ')[0] === output.tileCount && output.tileCount === '7'}"
+# ... and the list really holds 7 cards (record-card-0..6).
+- scrollUntilVisible:
+    element:
+      id: 'record-card-6'
+    direction: DOWN
+    centerElement: true
+- swipe:
+    start: '50%, 85%'
+    end: '50%, 20%'
+    duration: 600
+- waitForAnimationToEnd
+- assertNotVisible:
+    id: 'record-card-7'
+
+# Tile 2: week of 12/08/25 shows 2; tapping it again restores the full list.
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2025-12-08$'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: '^records-tile-week-2025-12-08$'
+- assertVisible:
+    id: '^records-tile-week-2026-01-26$'
+    selected: false
+- scrollUntilVisible:
+    element:
+      id: 'records-show-all'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '2 records · week of 12/08/25'
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2025-12-08$'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: '^records-tile-week-2025-12-08$'
+- assertVisible:
+    id: '^records-tile-week-2025-12-08$'
+    selected: false
+- scrollUntilVisible:
+    element:
+      id: 'records-shown-count'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '40 shown'
+- assertNotVisible:
+    id: 'records-show-all'
+
+# Tile 3: week of 12/01/25 shows 9; "Show all" restores the full list.
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2025-12-01$'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: '^records-tile-week-2025-12-01$'
+- scrollUntilVisible:
+    element:
+      id: 'records-show-all'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '9 records · week of 12/01/25'
+- tapOn:
+    id: 'records-show-all'
+- assertVisible:
+    id: 'records-shown-count'
+    text: '40 shown'
+
+# An empty tile does nothing.
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2025-12-29$'
+    direction: UP
+    centerElement: true
+- assertVisible:
+    id: '^records-tile-week-2025-12-29$'
+    text: 'week of 12/29/25: 0 records'
+    enabled: false
+- tapOn:
+    id: '^records-tile-week-2025-12-29$'
+- assertVisible:
+    id: '^records-tile-week-2025-12-29$'
+    selected: false
+- scrollUntilVisible:
+    element:
+      id: 'records-shown-count'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '40 shown'
+
+# By muscle: a bar filters the list too; switching the view drops the selection.
+- scrollUntilVisible:
+    element:
+      id: 'records-view-muscle'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: 'records-view-muscle'
+- scrollUntilVisible:
+    element:
+      id: '^records-bar-Back-8$'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: '^records-bar-Back-8$'
+    text: 'Back · week of 01/26/26: 4 records'
+- tapOn:
+    id: '^records-bar-Back-8$'
+- scrollUntilVisible:
+    element:
+      id: 'records-show-all'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '4 records · Back · week of 01/26/26'
+- scrollUntilVisible:
+    element:
+      id: 'records-view-heatmap'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: 'records-view-heatmap'
+- scrollUntilVisible:
+    element:
+      id: 'records-shown-count'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '40 shown'
+
+# A new date range drops the tile selection: select 01/26/26 (7), then start
+# the range on 12/08/2025 -> the unfiltered list of the new range (40 - 9).
+- scrollUntilVisible:
+    element:
+      id: '^records-tile-week-2026-01-26$'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: '^records-tile-week-2026-01-26$'
+- assertVisible:
+    id: '^records-tile-week-2026-01-26$'
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: 'filter-panel-card'
+    direction: UP
+- tapOn:
+    id: 'filter-panel-card'
+- tapOn:
+    id: 'filter-range-preset-custom'
+- extendedWaitUntil:
+    visible: '^Save$'
+    timeout: 15000
+- tapOn:
+    id: 'date-range-start-input'
+- waitForAnimationToEnd:
+    timeout: 5000
+- repeat:
+    times: 3
+    while:
+      notVisible: '12/08/2025'
+    commands:
+      - tapOn:
+          point: '31%, 16%'
+      - repeat:
+          times: 12
+          commands:
+            - pressKey: Backspace
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '8'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '2'
+      - inputText: '5'
+- assertVisible: '12/08/2025'
+- tapOn: '^Save$'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-range-label'
+      text: '8 Dec 2025 – 1 Mar 2026'
+    timeout: 15000
+- tapOn:
+    id: 'filter-panel-collapse'
+- assertVisible:
+    id: 'records-kpi-total'
+    text: '31'
+- scrollUntilVisible:
+    element:
+      id: 'records-shown-count'
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: 'records-shown-count'
+    text: '31 shown'
+- assertNotVisible:
+    id: 'records-show-all'
+- scrollUntilVisible:
+    element:
+      id: 'records-view-heatmap'
+    direction: UP
 
 # ------------------------------------------------------- Video Analysis
 - tapOn:
@@ -546,10 +932,13 @@ appId: com.powerliftingworkoutplanner
       id: 'training-length-selected-trainings'
     direction: DOWN
 - assertVisible: 'Average duration'
+# GH-589: scrolling UP stops at the top edge — target the mode label (it sits ABOVE
+# the Day/Week/Month buttons); stopping at the button left the label off screen.
 - scrollUntilVisible:
     element:
-      id: 'training-length-accumulation-week'
+      id: 'training-length-mode-label'
     direction: UP
+- waitForAnimationToEnd
 - tapOn:
     id: 'training-length-accumulation-week'
 - waitForAnimationToEnd

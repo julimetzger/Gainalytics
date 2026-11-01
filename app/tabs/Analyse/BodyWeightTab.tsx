@@ -212,7 +212,6 @@ const BodyWeightTab = () => {
     <View style={styles.container} testID="body-weight-screen">
       <FlashList
         data={healthConnectNewestFirst}
-        estimatedItemSize={44}
         ListHeaderComponent={manualSection}
         keyExtractor={(item: HealthConnectWeight) => `${item.time}-${item.origin}-${item.kg}`}
         renderItem={({item, index}: {item: HealthConnectWeight; index: number}) => <HealthConnectWeightRow item={item} index={index} />}

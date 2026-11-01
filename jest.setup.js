@@ -23,12 +23,12 @@ jest.mock('react-native-keychain', () => ({
   },
 }));
 
-// Mock react-native-mmkv (used for secureStorage and insightCache)
+// Mock react-native-mmkv (used for redux-persist, secureStorage and insightCache)
 jest.mock('react-native-mmkv', () => ({
-  MMKV: jest.fn().mockImplementation(() => ({
+  createMMKV: jest.fn().mockImplementation(() => ({
     getString: jest.fn(),
     set: jest.fn(),
-    delete: jest.fn(),
+    remove: jest.fn(),
     contains: jest.fn(() => false),
   })),
 }));
@@ -92,6 +92,7 @@ jest.mock('react-native-gesture-handler', () => {
       Pan: chainable,
       Simultaneous: chainable,
     },
+    usePanGesture: () => ({}),
   };
 });
 // The real ReanimatedSwipeable loads the native gesture-handler TurboModule (DateRangePicker, GH-588).

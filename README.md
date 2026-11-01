@@ -10,13 +10,17 @@ for advanced lifters and powerlifters.
 Your training data stays on your phone. There is no account, no cloud and no tracking. Backups are
 plain files you own.
 
-<!--
-TODO(screenshots): add 3-5 screenshots made with synthetic demo data (no real training logs, no
-status bar notifications), e.g. training plan, workout logging, analytics dashboard, video bar-path
-analysis, AI chat. Suggested location: docs/images/readme/.
--->
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/01-video-analysis-dark.jpg"><img src="docs/images/readme/01-video-analysis-light.jpg" width="240" alt="Video analysis: bar path, reps and velocity from a lift video"></picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/04-training-dark.jpg"><img src="docs/images/readme/04-training-light.jpg" width="240" alt="Training: log sets with rest timer and live 1RM estimate"></picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/05-plan-dark.jpg"><img src="docs/images/readme/05-plan-light.jpg" width="240" alt="Plan: mesocycles, microcycles and progression"></picture>
+  <br>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/06-analysis-dark.jpg"><img src="docs/images/readme/06-analysis-light.jpg" width="240" alt="Analysis: weekly overview, muscle groups and top lifts"></picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/02-customize-settings-dark.jpg"><img src="docs/images/readme/02-customize-settings-light.jpg" width="240" alt="Theming: light or dark and any accent colour"></picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/08-ai-chat-dark.jpg"><img src="docs/images/readme/08-ai-chat-light.jpg" width="240" alt="AI coach: questions about your training"></picture>
+</p>
 
-> Screenshots will be added once synthetic demo data is available.
+<sub>Screenshots use demo training data (the video-analysis clip is a real lift). They follow your GitHub light or dark theme.</sub>
 
 ## Features
 

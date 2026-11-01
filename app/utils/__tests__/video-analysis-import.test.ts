@@ -156,11 +156,35 @@ describe('importVideoAnalysisFromSource', () => {
           normalizedWidth: 0.12,
           normalizedHeight: 0.08,
         },
+        undefined,
       ],
     ]);
     await flushBackgroundWork();
     expect(mocks.attachVideoAnalysisResult.mock.calls).toEqual([[7, '/tmp/results/analysis-7.json']]);
     expect(mocks.setManualSeedFramePath.mock.calls).toEqual([]);
+  });
+
+  it('passes the analysis frame rate setting to the native analysis (GH-621)', async () => {
+    prepareSquatVideoSeed.mockResolvedValue(SINGLE_CANDIDATE_PREFLIGHT);
+    analyzeSquatVideo.mockResolvedValue('/tmp/results/analysis-7.json');
+
+    const mocks = makeMocks();
+    await importVideoAnalysisFromSource({analysisId: 7, sourceUri: 'content://video.mp4', analyzedFps: 15, ...mocks});
+
+    expect(analyzeSquatVideo.mock.calls).toEqual([
+      [
+        'content://video.mp4',
+        7,
+        {
+          candidateId: 'candidate-1',
+          normalizedX: 0.3,
+          normalizedY: 0.4,
+          normalizedWidth: 0.12,
+          normalizedHeight: 0.08,
+        },
+        15,
+      ],
+    ]);
   });
 
   it('should move the analysis to awaiting seed selection when multiple candidates are found', async () => {

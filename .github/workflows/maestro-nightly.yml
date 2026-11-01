@@ -1,0 +1,335 @@
+# GH-589: nightly run of all automated Maestro target flows on Android emulators.
+#
+# Schedule: 01:00 UTC (02:00 Berlin in winter, 03:00 in summer). A scheduled run only works if
+# master changed since the last successful nightly run; otherwise it ends right away. A manual
+# start (Actions -> Maestro nightly -> Run workflow) always runs.
+#
+# Jobs: gate (skip if unchanged) -> build (debug APK, x86_64, embedded JS bundle; once) ->
+# shard x4 (fresh emulator each, flows from the sharding table in
+# __tests__/e2e/maestro/FLOW_AUDIT.md, one retry per flow, per-flow timeout) -> report (summary,
+# and ONE issue "Nightly Maestro: failing flows" that is created/updated on failures and closed when
+# everything is green again).
+#
+# Not run: __tests__/e2e/maestro/flows/manual/ (real key/account/device), helper flows, and the
+# Health Connect flows gh528_* (need the Health Connect app on the emulator).
+# No secrets, no environment. Only the report job may write issues.
+name: Maestro nightly
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maestro-nightly
+  cancel-in-progress: false
+
+# Keep in sync with maestro-smoke.yml / agent-emulator.yml: same AVD cache key and Maestro build.
+env:
+  API_LEVEL: "34"
+  AVD_TARGET: google_apis
+  AVD_ARCH: x86_64
+  MAESTRO_VERSION: "2.11.0"
+  MAESTRO_SHA256: "5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a"
+  ISSUE_TITLE: "Nightly Maestro: failing flows"
+
+jobs:
+  gate:
+    name: Changed since last nightly?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" != "schedule" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; echo "Manual start: always runs."; exit 0
+          fi
+          last=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/maestro-nightly.yml/runs?branch=master&status=success&per_page=1" \
+            --jq '.workflow_runs[0].head_sha // ""')
+          if [[ -n "${last}" && "${last}" == "${GITHUB_SHA}" ]]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=nightly skipped::master (${GITHUB_SHA::8}) unchanged since the last successful nightly run"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Last successful nightly: ${last:-none}; master now: ${GITHUB_SHA}"
+          fi
+
+  build:
+    name: Build debug APK
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: npm ci
+        run: npm ci --no-audit --no-fund
+      # Same key as the other emulator workflows (same x86_64 debug build).
+      - name: Gradle cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-agent-emu-${{ runner.os }}-${{ hashFiles('android/**/*.gradle', 'android/gradle.properties', 'android/gradle/wrapper/gradle-wrapper.properties', 'package-lock.json') }}
+          restore-keys: gradle-agent-emu-${{ runner.os }}-
+      - name: Build debug APK (x86_64, embedded JS bundle)
+        working-directory: android
+        run: |
+          ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain --no-daemon
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "assets/index.android.bundle"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 3
+          if-no-files-found: error
+
+  shard:
+    name: Shard ${{ matrix.shard }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Order matters in shard 1: one baseline import shared by the read-only flows, the video
+          # flows after them (video_list_filters_vl needs gh415-result.json, no clearState before).
+          - shard: 1
+            flows: >-
+              00_import_baseline home_dashboard settings_general training_analysis_compare
+              micro_overview_compare analyse_dashboard_drilldown analyse_graphics_metrics
+              analyse_drawer_screens video_import_playback video_list_filters_vl video_compare
+          - shard: 2
+            flows: >-
+              start_existing_data home_new_plan_current plan_create_meso_template plan_edit_sets
+              plan_overflow_actions train_start_log_finish body_weight
+          - shard: 3
+            flows: >-
+              train_rest_timer_1rm train_delete_exercise_running training_edit_delete
+              exercises_list_detail exercise_edit_alternatives_delete muscles_manage
+              muscles_exercise_editor
+          - shard: 4
+            flows: >-
+              settings_appearance data_strong_export_roundtrip data_strong_import_records
+              ai_settings_provider ai_chat_context ai_chat_errors_history start_onboarding_template
+    env:
+      NIGHTLY_FLOWS: ${{ matrix.flows }}
+      NIGHTLY_FLOW_TIMEOUT_S: "900"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare run directory
+        run: |
+          echo "AGENT_RUN_DIR=$RUNNER_TEMP/nightly-${{ matrix.shard }}" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/nightly-${{ matrix.shard }}"
+          chmod +x .github/agent-emulator/*.sh
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nightly-apk
+          path: android/app/build/outputs/apk/debug/
+      - name: Install Maestro
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/maestro.zip" \
+            "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  $RUNNER_TEMP/maestro.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$HOME"
+          echo "$HOME/maestro/bin" >> "$GITHUB_PATH"
+      - name: AVD cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.API_LEVEL }}-${{ env.AVD_TARGET }}-${{ env.AVD_ARCH }}-v2
+      - name: Emulator + flows
+        id: run1
+        continue-on-error: true
+        timeout-minutes: 100
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: ${{ env.AVD_TARGET }}
+          arch: ${{ env.AVD_ARCH }}
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 6G
+          force-avd-creation: false
+          emulator-boot-timeout: 420
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: .github/agent-emulator/nightly-shard.sh
+      - name: Check emulator start
+        id: boot
+        if: always()
+        env:
+          RUN1: ${{ steps.run1.outcome }}
+        run: |
+          if [[ "${RUN1}" == "failure" && ! -f "$AGENT_RUN_DIR/shard.started" ]]; then
+            echo "::warning title=emulator boot::first emulator start failed, retrying once with a cold boot"
+            echo "retry=true" >> "$GITHUB_OUTPUT"
+            pkill -f qemu-system || true
+            "$ANDROID_HOME/platform-tools/adb" kill-server 2>/dev/null || true
+            sleep 5
+          fi
+      - name: Retry once if the emulator never came up
+        id: run2
+        if: steps.boot.outputs.retry == 'true'
+        continue-on-error: true
+        timeout-minutes: 100
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: ${{ env.AVD_TARGET }}
+          arch: ${{ env.AVD_ARCH }}
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 6G
+          force-avd-creation: false
+          emulator-boot-timeout: 420
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: .github/agent-emulator/nightly-shard.sh
+      - name: Shard result
+        if: always()
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          res="$AGENT_RUN_DIR/results.tsv"
+          touch "$res"
+          [[ -s "$res" ]] || echo "::error title=nightly shard ${SHARD}::no flow ran (emulator or install failed)"
+          # Every expected flow gets a row: a shard that stopped early (step timeout, crash) must not
+          # look green just because the flows it reached passed.
+          for f in ${NIGHTLY_FLOWS}; do
+            cut -f1 "$res" | grep -qx "$f" || printf '%s\tnot-run\t0\t0\n' "$f" >> "$res"
+          done
+          # Failing-step annotations from the Maestro reports (if any flow ran).
+          [[ -d "$AGENT_RUN_DIR/maestro" ]] && { python3 .github/agent-emulator/maestro-summary.py "$AGENT_RUN_DIR" >/dev/null || true; }
+          while IFS=$'\t' read -r flow result secs retried; do
+            case "$result" in
+              pass) ;;
+              pass-on-retry) echo "::warning title=nightly ${flow}::passed only on retry (${secs}s)";;
+              *) echo "::error title=nightly ${flow}::${result} (${secs}s)";;
+            esac
+          done < "$res"
+          sed "s/^/${SHARD}\t/" "$res" > "$RUNNER_TEMP/results-${SHARD}.tsv"
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-results-${{ matrix.shard }}
+          path: ${{ runner.temp }}/results-${{ matrix.shard }}.tsv
+          retention-days: 14
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-evidence-${{ matrix.shard }}
+          path: |
+            ${{ runner.temp }}/nightly-${{ matrix.shard }}/maestro/
+            ${{ runner.temp }}/nightly-${{ matrix.shard }}/retries/
+            ${{ runner.temp }}/nightly-${{ matrix.shard }}/screenshots/
+            ${{ runner.temp }}/nightly-${{ matrix.shard }}/logcat/
+            ${{ runner.temp }}/nightly-${{ matrix.shard }}/results.tsv
+          if-no-files-found: warn
+          retention-days: 14
+
+  report:
+    name: Nightly report
+    needs: [gate, shard]
+    if: always() && needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: nightly-results-*
+          merge-multiple: true
+          path: results
+      - name: Summary and failing-flows issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHARD_RESULT: ${{ needs.shard.result }}
+          EXPECTED_SHARDS: "4" # keep in sync with the shard matrix
+        run: |
+          set -euo pipefail
+          cat results/*.tsv 2>/dev/null | sort -n -k1,1 -s > all.tsv || true
+          total=$(wc -l < all.tsv); bad=$(awk -F'\t' '$3!="pass" && $3!="pass-on-retry"' all.tsv | wc -l)
+          retried=$(awk -F'\t' '$5=="1"' all.tsv | wc -l)
+          {
+            echo "## Maestro nightly — ${GITHUB_SHA::8}"
+            echo
+            echo "${total} flows, **${bad} failing**, ${retried} retried. [Run](${RUN_URL})"
+            echo
+            echo "| Shard | Flow | Result | Duration | Retried |"
+            echo "|---|---|---|---|---|"
+            while IFS=$'\t' read -r shard flow result secs retried; do
+              icon="✅"; [[ "$result" == pass-on-retry ]] && icon="⚠️"
+              [[ "$result" != pass && "$result" != pass-on-retry ]] && icon="❌"
+              printf '| %s | `%s` | %s %s | %dm %02ds | %s |\n' "$shard" "$flow" "$icon" "$result" $((secs/60)) $((secs%60)) "$([[ $retried == 1 ]] && echo yes || echo no)"
+            done < all.tsv
+          } > summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          shards_with_results=$(cut -f1 all.tsv | sort -u | wc -l)
+          if [[ "${shards_with_results}" -lt "${EXPECTED_SHARDS}" ]]; then
+            echo "::error title=nightly::results from only ${shards_with_results} of ${EXPECTED_SHARDS} shards (shard jobs: ${SHARD_RESULT})"
+            bad=$(( bad + EXPECTED_SHARDS - shards_with_results ))
+          elif [[ "${SHARD_RESULT}" != "success" && "${bad}" -eq 0 ]]; then
+            echo "::error title=nightly::shard jobs ended with '${SHARD_RESULT}' although every reported flow passed"
+            bad=1
+          fi
+
+          # All pages: the issue must be found even with more than 100 open issues/PRs.
+          number=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues?state=open&per_page=100" \
+            --jq ".[] | select(.pull_request == null and .title == \"${ISSUE_TITLE}\") | .number" | sed -n 1p)
+          if [[ "${bad}" -gt 0 ]]; then
+            {
+              echo "The nightly Maestro run on \`master\` (${GITHUB_SHA::8}) has failing flows. Evidence (screenshots, logcat, Maestro reports) is in the run's \`nightly-evidence-<shard>\` artifacts."
+              echo
+              tail -n +3 summary.md
+              echo
+              echo "_This issue is updated by \`.github/workflows/maestro-nightly.yml\` and closed automatically once all flows pass._"
+            } > body.md
+            if [[ -n "${number}" ]]; then
+              gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/${number}" -F body=@body.md --silent
+              echo "Updated issue #${number}"
+            else
+              gh api "repos/${GITHUB_REPOSITORY}/issues" -f title="${ISSUE_TITLE}" -F body=@body.md --jq '"Created issue #\(.number)"'
+            fi
+            exit 1
+          elif [[ -n "${number}" ]]; then
+            gh api "repos/${GITHUB_REPOSITORY}/issues/${number}/comments" \
+              -f body="All ${total} flows pass again in [this nightly run](${RUN_URL}) (${GITHUB_SHA::8}). Closing." --silent
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/${number}" -f state=closed -f state_reason=completed --silent
+            echo "Closed issue #${number}"
+          fi

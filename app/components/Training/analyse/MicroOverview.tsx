@@ -6,7 +6,9 @@ import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
 import {Training} from '../../../models/entities/Training';
-import {TrainingsState} from '../../../models/TrainingsState';
+import {shallowEqual, useSelector} from 'react-redux';
+import {GlobalState} from '../../../redux/rootReducer';
+import {countMicroTrainings} from '../../../utils/micro-training-count';
 import {getLocalMicro, getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReducer';
 import VelocityLossInsightCard from '../VelocityLossInsightCard';
 import {useVelocityLossInsights} from '../useVelocityLossInsights';
@@ -15,7 +17,7 @@ import {Stage} from '../../common/ProgressiveMount';
 import CompareChips, {CompareChipOption} from '../../analyse/CompareChips';
 import ComparisonKpiCards from '../../analyse/ComparisonKpiCards';
 import MuscleMapCard, {MuscleMapDetails} from '../../analyse/MuscleMapCard';
-import {countKpi, durationKpi, Kpi, setsKpi, setsOf, trainingDurationMs, volumeKpi} from '../../../utils/overview-comparison';
+import {doneWorkoutIdsOf, durationKpi, Kpi, plannedWorkoutIdsOf, setsKpi, setsOf, trainingDurationMs, trainingsKpi, volumeKpi} from '../../../utils/overview-comparison';
 
 interface TrainingsBaseProps {
   trainingsPlan: TrainingsPlan;
@@ -27,8 +29,6 @@ interface TrainingsBaseProps {
 /** GH-526 — the references of the Total tab: done vs the previous micro's done, or done vs this micro's plan. */
 export type MicroTotalCompare = 'previous' | 'plan';
 
-const plannedIdsOf = (trainings: Training[]) => trainings.flatMap((training) => (training.plannedWorkouts ? (Object.values(training.plannedWorkouts) as number[]) : []));
-const doneIdsOf = (trainings: Training[]) => trainings.flatMap((training) => (training.doneWorkoutIds ? (Object.values(training.doneWorkoutIds) as number[]) : []));
 const totalDurationMs = (trainings: Training[]) => trainings.reduce((total, training) => total + (training.end ? trainingDurationMs(training) : 0), 0);
 
 /**
@@ -44,11 +44,16 @@ const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBasePro
   const vlInsights = useVelocityLossInsights(trainingsPlan, micro);
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
   const previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, previousMicro ?? -1);
+  // the stored plan, like Home: the prop may come from navigation params and miss newer slots
+  const trainingCount = useSelector(
+    (state: GlobalState) => countMicroTrainings(state.trainingsPlan.byId[trainingsPlan.id!!] ?? trainingsPlan, micro, state.trainings.byId),
+    shallowEqual,
+  );
 
-  const doneCur = useWorkoutsByIds(useMemo(() => doneIdsOf(trainings), [trainings]));
-  const planCur = useWorkoutsByIds(useMemo(() => plannedIdsOf(trainings), [trainings]));
-  const donePrev = useWorkoutsByIds(useMemo(() => doneIdsOf(previousTrainings), [previousTrainings]));
-  const planPrev = useWorkoutsByIds(useMemo(() => plannedIdsOf(previousTrainings), [previousTrainings]));
+  const doneCur = useWorkoutsByIds(useMemo(() => doneWorkoutIdsOf(trainings), [trainings]));
+  const planCur = useWorkoutsByIds(useMemo(() => plannedWorkoutIdsOf(trainings), [trainings]));
+  const donePrev = useWorkoutsByIds(useMemo(() => doneWorkoutIdsOf(previousTrainings), [previousTrainings]));
+  const planPrev = useWorkoutsByIds(useMemo(() => plannedWorkoutIdsOf(previousTrainings), [previousTrainings]));
 
   const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
   const previousLocalMicro = previousMicro !== undefined ? getLocalMicro(trainingsPlan.mesos, previousMicro) : undefined;
@@ -78,9 +83,8 @@ const MicroOverview = ({trainingsPlan, micro, isActive = true}: TrainingsBasePro
     comparisonLine = `Micro ${localMicro} done vs Micro ${localMicro} plan`;
     subjectLabel = 'Done';
     referenceLabel = 'Plan';
-    const finished = trainings.filter((training) => training.state === TrainingsState.FINISHED).length;
-    const planned = trainings.filter((training) => Object.keys(training.plannedWorkouts ?? {}).length > 0).length;
-    kpis.push(countKpi('trainings', 'Trainings', finished, planned));
+    // GH-644: all trainings of the micro, the same counter as Home — not only the planned ones.
+    kpis.push(trainingsKpi(trainingCount));
   } else {
     kpis.push(durationKpi(totalDurationMs(trainings), undefined));
   }

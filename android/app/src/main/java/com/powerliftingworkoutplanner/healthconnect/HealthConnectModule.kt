@@ -11,8 +11,11 @@ import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.facebook.react.bridge.Arguments
@@ -24,6 +27,7 @@ import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.UiThreadUtil
 import java.time.Instant
+import java.time.Period
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -174,6 +178,83 @@ class HealthConnectModule(reactContext: ReactApplicationContext) :
   }
 
   /**
+   * GH-619: reads all sleep sessions overlapping [startMs, endMs), oldest first, following every
+   * page. Assigning nights to days and merging overlapping sources happens in JS (recovery.ts).
+   */
+  @ReactMethod
+  fun readSleepSessions(startMs: Double, endMs: Double, promise: Promise) {
+    launchAndResolve(promise) {
+      val result = Arguments.createArray()
+      var pageToken: String? = null
+      do {
+        val response =
+            client()
+                .readRecords(
+                    ReadRecordsRequest(
+                        recordType = SleepSessionRecord::class,
+                        timeRangeFilter =
+                            TimeRangeFilter.between(
+                                Instant.ofEpochMilli(startMs.toLong()),
+                                Instant.ofEpochMilli(endMs.toLong())),
+                        ascendingOrder = true,
+                        pageSize = 1000,
+                        pageToken = pageToken))
+        response.records.forEach { record ->
+          val stages = Arguments.createArray()
+          record.stages.forEach { stage ->
+            val stageMap = Arguments.createMap()
+            stageMap.putDouble("startMs", stage.startTime.toEpochMilli().toDouble())
+            stageMap.putDouble("endMs", stage.endTime.toEpochMilli().toDouble())
+            stageMap.putString("stage", sleepStageKey(stage.stage))
+            stages.pushMap(stageMap)
+          }
+          val map = Arguments.createMap()
+          map.putDouble("startMs", record.startTime.toEpochMilli().toDouble())
+          map.putDouble("endMs", record.endTime.toEpochMilli().toDouble())
+          map.putArray("stages", stages)
+          result.pushMap(map)
+        }
+        pageToken = response.pageToken
+      } while (pageToken != null)
+      result
+    }
+  }
+
+  /**
+   * GH-619: total steps per local calendar day from the day of [startMs] to the day of [endMs].
+   * The aggregate deduplicates overlapping sources (phone + watch); days without steps are left
+   * out instead of being reported as 0.
+   */
+  @ReactMethod
+  fun readDailySteps(startMs: Double, endMs: Double, promise: Promise) {
+    launchAndResolve(promise) {
+      val zone = ZoneId.systemDefault()
+      val firstDay = Instant.ofEpochMilli(startMs.toLong()).atZone(zone).toLocalDate()
+      val lastDay = Instant.ofEpochMilli(endMs.toLong()).atZone(zone).toLocalDate()
+      val buckets =
+          client()
+              .aggregateGroupByPeriod(
+                  AggregateGroupByPeriodRequest(
+                      metrics = setOf(StepsRecord.COUNT_TOTAL),
+                      timeRangeFilter =
+                          TimeRangeFilter.between(
+                              firstDay.atStartOfDay(), lastDay.plusDays(1).atStartOfDay()),
+                      timeRangeSlicer = Period.ofDays(1)))
+      val result = Arguments.createArray()
+      buckets.forEach { bucket ->
+        val steps = bucket.result[StepsRecord.COUNT_TOTAL]
+        if (steps != null && steps > 0) {
+          val map = Arguments.createMap()
+          map.putString("date", bucket.startTime.toLocalDate().toString())
+          map.putDouble("steps", steps.toDouble())
+          result.pushMap(map)
+        }
+      }
+      result
+    }
+  }
+
+  /**
    * Writes one finished training as a strength-training ExerciseSessionRecord. The
    * clientRecordId makes the write an upsert: writing the same training again (with a higher
    * clientRecordVersion) replaces the earlier record instead of duplicating it.
@@ -273,6 +354,19 @@ class HealthConnectModule(reactContext: ReactApplicationContext) :
           is SecurityException -> "E_PERMISSION"
           is IllegalStateException -> "E_UNAVAILABLE"
           else -> "E_HEALTH_CONNECT"
+        }
+
+    /** GH-619: SleepSessionRecord stage ints to the JS keys (HealthConnectSleepStageType). */
+    fun sleepStageKey(stage: Int): String =
+        when (stage) {
+          SleepSessionRecord.STAGE_TYPE_AWAKE -> "AWAKE"
+          SleepSessionRecord.STAGE_TYPE_SLEEPING -> "SLEEPING"
+          SleepSessionRecord.STAGE_TYPE_OUT_OF_BED -> "OUT_OF_BED"
+          SleepSessionRecord.STAGE_TYPE_LIGHT -> "LIGHT"
+          SleepSessionRecord.STAGE_TYPE_DEEP -> "DEEP"
+          SleepSessionRecord.STAGE_TYPE_REM -> "REM"
+          SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED -> "AWAKE_IN_BED"
+          else -> "UNKNOWN"
         }
 
     /** Maps the JS-side segment keys (see healthConnectMapping.ts) to Health Connect ints. */

@@ -11,9 +11,14 @@ export interface ChatContextParts {
   plannedJson: string | null;
   /** The single training the user picked as the subject, or null. */
   selectedJson: string | null;
+  /**
+   * GH-619: sleep and steps per day from Health Connect, one line per day. Null/absent unless
+   * the user switched "Include sleep and steps" on and there is data in the range.
+   */
+  recoveryJson?: string | null;
 }
 
-export type ChatContextSectionKey = 'selected' | 'finished' | 'planned';
+export type ChatContextSectionKey = 'selected' | 'finished' | 'planned' | 'recovery';
 
 export interface ChatContextSection {
   key: ChatContextSectionKey;
@@ -25,12 +30,13 @@ const SECTION_TITLES: Record<ChatContextSectionKey, string> = {
   selected: 'Selected training (subject of this conversation; plan and, if trained, what was actually done)',
   finished: 'Finished trainings (JSON)',
   planned: 'Planned trainings (JSON; a value such as "8-12" is a planned range, not a fixed number)',
+  recovery: 'Recovery (sleep and steps per day, JSON; sleep_h = the night ending on that date; a missing value means no data)',
 };
 
 /** The sections that actually carry data, in the order the model sees them. */
 export function chatContextSections(parts: ChatContextParts): ChatContextSection[] {
   const sections: ChatContextSection[] = [];
-  const push = (key: ChatContextSectionKey, json: string | null) => {
+  const push = (key: ChatContextSectionKey, json: string | null | undefined) => {
     if (json) sections.push({key, title: SECTION_TITLES[key], json});
   };
   // Subject first, then the plan, then the history: the two small, question-
@@ -39,6 +45,8 @@ export function chatContextSections(parts: ChatContextParts): ChatContextSection
   // finished sessions to see whether the planning is attached at all.
   push('selected', parts.selectedJson);
   push('planned', parts.plannedJson);
+  // GH-619: small (one line per day), so it also goes before the long history.
+  push('recovery', parts.recoveryJson);
   push('finished', parts.finishedJson);
   return sections;
 }

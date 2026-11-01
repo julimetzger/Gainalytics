@@ -81,49 +81,17 @@ appId: com.powerliftingworkoutplanner
           start: '90%,20%'
           end: '10%,20%'
           duration: 300
+# GH-642: the tile opens the exercise search sheet; the helper checks the row and closes with Done.
 - tapOn:
     id: 'training-add-exercise-box'
 - extendedWaitUntil:
     visible:
-      id: 'search-bar'
+      id: 'exercise-search-sheet'
     timeout: 30000
-- tapOn:
-    id: 'search-bar'
-- eraseText: 30
-- inputText: 'GH542'
-- extendedWaitUntil:
-    visible: 'GH542 Added'
-    timeout: 20000
-- tapOn:
-    text: 'GH542 Added'
-    below:
-      id: 'search-bar'
-- waitForAnimationToEnd:
-    timeout: 3000
-# Re-tap only if the first tap was eaten by the keyboard (see gh486).
 - runFlow:
-    when:
-      visible:
-        text: 'GH542 Added'
-        below:
-          id: 'search-bar'
-    commands:
-      - tapOn:
-          text: 'GH542 Added'
-          below:
-            id: 'search-bar'
-          optional: true
-- pressKey: Back
-- waitForAnimationToEnd:
-    timeout: 5000
-- runFlow:
-    when:
-      visible:
-        id: 'search-bar'
-    commands:
-      - pressKey: Back
-      - waitForAnimationToEnd:
-          timeout: 5000
+    file: pick_exercise_in_search_sheet.yaml
+    env:
+      NAME: 'GH542 Added'
 
 # ---- 4. reach the new exercise the way a user does: "Add Workout" on the one before ----
 # "Add Workout" moves on to the next exercise and REMOUNTS the edit pane

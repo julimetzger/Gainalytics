@@ -22,6 +22,7 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../../routing/TrainingRouter';
 import {trainingsPlanDisplayName} from '../../../utils/trainings-plan-name';
 import {BAR_VALUE_TEXT_SIZE, barAxisMaximum, barValueLabels, formatBarValue, MetricKey} from './microBarLabels';
+import {countMicroTrainings} from '../../../utils/micro-training-count';
 
 interface MicroBarDatum {
   localMicro: number;
@@ -56,14 +57,15 @@ const useMesoBarData = (plan: TrainingsPlan, currentMicro: number): MicroBarDatu
         return sum;
       }, 0);
 
-      const trainingTypeCount = Object.keys(plan.trainingNames ?? {}).length;
+      // GH-644: the same counter as the micro Overview "vs Plan".
+      const trainingCount = countMicroTrainings(plan, m, state.trainings.byId);
       result.push({
         localMicro: m - mesoStart + 1,
         volume: Math.round(calculateMetricValue(sets, Metric.VOLUME)),
         sets: calculateMetricValue(sets, Metric.SETS),
         timeMinutes: Math.round(timeMs / 60000),
-        trainingsCompleted: trainings.filter(t => t.end).length,
-        trainingsTotal: trainingTypeCount > 0 ? trainingTypeCount : trainingIds.length,
+        trainingsCompleted: trainingCount.done,
+        trainingsTotal: trainingCount.total,
         avgRir: sets.length > 0 ? sets.reduce((s, ws) => s + (ws.rir ?? 0), 0) / sets.length : null,
       });
     }

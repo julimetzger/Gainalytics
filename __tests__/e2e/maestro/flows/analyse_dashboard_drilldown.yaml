@@ -10,7 +10,7 @@ appId: com.powerliftingworkoutplanner
 #     the stat tiles show a dash instead of crashing. Sets/Volume toggle relabels
 #     the radar.
 #   * GH-458 H4 (+ round 3): a radar muscle -> Details opens Metrics Overview with
-#     that muscle preselected (`1 selected`, never `0 selected`), without the
+#     that muscle preselected (filter card reads `Quads`, never `All exercises`), without the
 #     removed "Showing: ..." line; the selection survives a period swipe.
 #   * "Show that period" opens Metrics Overview unfiltered.
 #
@@ -186,13 +186,17 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'muscle-radar-details-button'
 - waitForAnimationToEnd
-# Metrics Overview with the muscle preselected - the audit's failure was "0 selected".
+# Metrics Overview with the muscle preselected - the audit's failure was "0 selected"
+# (GH-642: the filter card names the selection, "All exercises" when empty).
 - extendedWaitUntil:
-    visible: '1 selected'
+    visible:
+      id: 'filter-selection-summary'
+      text: 'Quads'
     timeout: 60000
 - assertVisible: 'Metrics Overview'
-- assertVisible: 'Quads'
-- assertNotVisible: '0 selected'
+- assertNotVisible:
+    id: 'filter-selection-summary'
+    text: 'All exercises'
 - assertNotVisible: 'Showing.*'
 - assertNotVisible:
     id: 'analyse-error-boundary'
@@ -206,9 +210,10 @@ appId: com.powerliftingworkoutplanner
 # Wait instead of asserting right after the gesture: the pane re-renders after
 # the snap animation (SWIPE_SETTLE_MS) on a slow runner.
 - extendedWaitUntil:
-    visible: '1 selected'
+    visible:
+      id: 'filter-selection-summary'
+      text: 'Quads'
     timeout: 15000
-- assertVisible: 'Quads'
 - assertNotVisible: 'Showing.*'
 
 # ------------------------------ "Show that period": unfiltered Metrics Overview
@@ -235,9 +240,13 @@ appId: com.powerliftingworkoutplanner
     id: 'analyse-stale-range-banner-action'
 - waitForAnimationToEnd
 - extendedWaitUntil:
-    visible: '0 selected'
+    visible:
+      id: 'filter-selection-summary'
+      text: 'All exercises'
     timeout: 60000
 - assertVisible: 'Metrics Overview'
-- assertNotVisible: '1 selected'
+- assertNotVisible:
+    id: 'filter-selection-summary'
+    text: 'Quads'
 - assertNotVisible:
     id: 'analyse-error-boundary'

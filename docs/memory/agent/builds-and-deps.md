@@ -55,9 +55,9 @@ The release keystore and `ANDROID_RELEASE_PASSWORD` live on the user's Windows m
 (seen in GH-401, GH-403)
 
 ### Current patches in this repo
-- `react-native-modal+13.0.1.patch`: replaces the removed `BackHandler.removeEventListener` with `subscription.remove()`. Before it, ANY unmount of a `MultiselectDropdown`/`react-native-modal` subtree red-screened with `TypeError: undefined is not a function` (`modal.js:459`). Don't reintroduce "keep the picker mounted / display:none" workarounds; if that error returns, check the patch exists and applied.
+- GH-642 removed `sharingan-rn-modal-dropdown` and `react-native-modal` (only sharingan used it) together with their patches, the `.d.ts` and the `overrides` entry. If either comes back, the old `BackHandler.removeEventListener` crash of `react-native-modal` 13 returns with it (`git show 6264d7a:patches/react-native-modal+13.0.1.patch`).
 - `react-native-document-picker+9.3.1.patch`: RN 0.80 removed `GuardedResultAsyncTask`; replaced by a helper + executor. When writing such native patches: use an instance `ExecutorService` shut down in `invalidate()` (a static one leaks a thread per reload), and capture `promise` as a final local before `executor.execute(...)` and call `promise.reject(...)` directly (`sendError` uses a field that may already be null).
-- `react-native-draggable-flatlist+4.0.3.patch` and `sharingan-rn-modal-dropdown+1.4.0.patch` — see [shared patch rules](#regenerating-or-merging-a-patch-while-other-worktrees-are-live).
+- `react-native-draggable-flatlist+4.0.3.patch` — see [shared patch rules](#regenerating-or-merging-a-patch-while-other-worktrees-are-live).
 
 ### React Native upgrade notes still relevant
 Current stack: RN 0.84.1, React 19, New Architecture, reanimated 4.3 + `react-native-worklets`, `@react-navigation/*` v7, mmkv 3.

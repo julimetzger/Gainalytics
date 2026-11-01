@@ -2,7 +2,7 @@ appId: com.powerliftingworkoutplanner
 ---
 # GH-528 (T1): connect Health Connect from Settings.
 # Precondition: baseline imported, no Health Connect permission granted
-#   (adb shell pm revoke com.powerliftingworkoutplanner android.permission.health.<READ_EXERCISE|WRITE_EXERCISE|READ_WEIGHT>).
+#   (adb shell pm revoke com.powerliftingworkoutplanner android.permission.health.<READ_EXERCISE|WRITE_EXERCISE|READ_WEIGHT|READ_SLEEP|READ_STEPS>).
 # Checks the real status texts before and after the system dialog, and the permission list it reads back.
 - runFlow: gh528_open_health_connect_settings.yaml
 - assertVisible:
@@ -36,7 +36,7 @@ appId: com.powerliftingworkoutplanner
     timeout: 20000
 - assertVisible:
     id: 'health-connect-permissions'
-    text: 'Allowed: Read trainings, Write trainings, Read body weight'
+    text: 'Allowed: Read trainings, Write trainings, Read body weight, Read sleep, Read steps'
 - assertNotVisible:
     id: 'health-connect-connect'
 - takeScreenshot: gh528_connect_03_connected

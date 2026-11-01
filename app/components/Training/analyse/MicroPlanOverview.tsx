@@ -3,22 +3,18 @@ import React, {useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Text, useTheme} from 'react-native-paper';
 import {TrainingsPlan} from '../../../models/entities/TrainingsPlan';
-import {Training} from '../../../models/entities/Training';
 import {useAllTrainingsInMicro} from '../../../redux/Training/use/useAllTrainingsInMicro';
 import {useWorkoutsByIds} from '../../../redux/Workout/use/useWorkoutsByIds';
 import {getLocalMicro, getPreviousMicroInMeso} from '../../../redux/Training/trainingsPlanReducer';
 import MetricsOverviewForWorkouts from '../../analyse/MetricsOverviewForWorkouts';
 import ComparisonKpiCards from '../../analyse/ComparisonKpiCards';
 import MuscleMapCard, {MuscleMapDetails} from '../../analyse/MuscleMapCard';
-import {setsKpi, setsOf, volumeKpi} from '../../../utils/overview-comparison';
+import {doneWorkoutIdsOf, plannedWorkoutIdsOf, setsKpi, setsOf, volumeKpi} from '../../../utils/overview-comparison';
 
 interface MicroPlanOverviewProps {
   trainingsPlan: TrainingsPlan;
   micro: number;
 }
-
-const plannedIdsOf = (trainings: Training[]) => trainings.flatMap((training) => (training.plannedWorkouts ? (Object.values(training.plannedWorkouts) as number[]) : []));
-const doneIdsOf = (trainings: Training[]) => trainings.flatMap((training) => (training.doneWorkoutIds ? (Object.values(training.doneWorkoutIds) as number[]) : []));
 
 /**
  * The Plan tab of the micro Overview (GH-417 / GH-436). GH-526: one fixed
@@ -34,10 +30,10 @@ const MicroPlanOverview = ({trainingsPlan, micro}: MicroPlanOverviewProps) => {
   const previousMicro = getPreviousMicroInMeso(trainingsPlan.mesos, micro);
   const trainings = useAllTrainingsInMicro(trainingsPlan.id!!, micro);
   const previousTrainings = useAllTrainingsInMicro(trainingsPlan.id!!, previousMicro ?? -1);
-  const planCur = useWorkoutsByIds(useMemo(() => plannedIdsOf(trainings), [trainings]));
-  const doneCur = useWorkoutsByIds(useMemo(() => doneIdsOf(trainings), [trainings]));
-  const planPrev = useWorkoutsByIds(useMemo(() => plannedIdsOf(previousTrainings), [previousTrainings]));
-  const donePrev = useWorkoutsByIds(useMemo(() => doneIdsOf(previousTrainings), [previousTrainings]));
+  const planCur = useWorkoutsByIds(useMemo(() => plannedWorkoutIdsOf(trainings), [trainings]));
+  const doneCur = useWorkoutsByIds(useMemo(() => doneWorkoutIdsOf(trainings), [trainings]));
+  const planPrev = useWorkoutsByIds(useMemo(() => plannedWorkoutIdsOf(previousTrainings), [previousTrainings]));
+  const donePrev = useWorkoutsByIds(useMemo(() => doneWorkoutIdsOf(previousTrainings), [previousTrainings]));
 
   const localMicro = getLocalMicro(trainingsPlan.mesos, micro);
   const previousLocalMicro = previousMicro !== undefined ? getLocalMicro(trainingsPlan.mesos, previousMicro) : undefined;

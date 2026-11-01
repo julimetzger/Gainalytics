@@ -63,3 +63,15 @@ describe('MetricComparison delta colour (GH-458 round 2, review #3)', () => {
     expect(flatColor).toBe(MD3DarkTheme.colors.error);
   });
 });
+
+describe('MetricComparison without a value (GH-527)', () => {
+  it('shows "–" and no delta for a muscle that has no 1RM of its own', () => {
+    const {getByTestId, queryByTestId} = render(
+      <PaperProvider theme={MD3LightTheme}>
+        <MetricView comparison={{value: undefined, difference: undefined}} metric={Metric.ONE_RM} section="muscles" testID="cell" />
+      </PaperProvider>,
+    );
+
+    expect({value: getByTestId('cell').props.children, delta: queryByTestId('cell-delta')}).toEqual({value: '–', delta: null});
+  });
+});

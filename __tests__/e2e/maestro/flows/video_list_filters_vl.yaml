@@ -130,6 +130,9 @@ appId: com.powerliftingworkoutplanner
       id: 'video-analysis-lift-count'
       text: '2 lifts'
     timeout: 10000
+# The search field keeps focus: with the keyboard up the expanded filters push
+# the empty-state card under it (GH-589).
+- hideKeyboard
 
 # ------------------------------------------------- GH-200 / GH-152 filters
 - tapOn:
@@ -348,6 +351,16 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'video-analysis-detail-screen'
     timeout: 30000
+# The detail screen can reopen scrolled down (where the previous one was left):
+# scroll back to the header along the left edge (the video/chart eat swipes).
+- repeat:
+    times: 6
+    while:
+      notVisible: 'Squat · No linked set'
+    commands:
+      - swipe:
+          start: '6%, 25%'
+          end: '6%, 79%'
 - assertVisible: 'Squat · No linked set'
 - scrollUntilVisible:
     element:
@@ -375,6 +388,14 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'video-analysis-detail-screen'
     timeout: 30000
+- repeat:
+    times: 6
+    while:
+      notVisible: 'Bankdrücken · Set 1 · 115 kg @ 1 RIR'
+    commands:
+      - swipe:
+          start: '6%, 25%'
+          end: '6%, 79%'
 - assertVisible: 'Bankdrücken · Set 1 · 115 kg @ 1 RIR'
 - repeat:
     times: 6

@@ -17,12 +17,15 @@
     <!--
       GH-528 Health Connect (opt-in, see Settings → Health Connect). Only what a visible feature uses:
       exercise read/write (finished trainings), weight read (body weight + relative strength in the
-      analysis) and history read (body weight older than 30 days). No WRITE_WEIGHT in release.
+      analysis), history read (body weight older than 30 days) and, since GH-619, sleep and steps read
+      (recovery context the AI chat sends only with its own opt-in). No WRITE_WEIGHT in release.
     -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
 
     <!-- Up to Android 13 Health Connect is a separate app. -->
     <queries>

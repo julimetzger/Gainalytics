@@ -43,6 +43,27 @@ export interface LlmRequestOptions {
   timeoutMs?: number;
   /** Output token budget. Defaults to MAX_TOKENS. */
   maxTokens?: number;
+  /**
+   * GH-544: structured output. The model is forced to call this tool, and the tool's input
+   * comes back as the result text (JSON). Only the Anthropic provider supports it.
+   */
+  tool?: LlmTool;
+}
+
+export interface LlmTool {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}
+
+/** GH-544: the input of the first `tool_use` block as JSON, or undefined without one. */
+function extractToolInput(data: unknown): string | undefined {
+  const content = (data as {content?: unknown})?.content;
+  if (!Array.isArray(content)) return undefined;
+  const block = content.find(
+    (item): item is {input: unknown} => item !== null && typeof item === 'object' && (item as {type?: unknown}).type === 'tool_use',
+  );
+  return block === undefined ? undefined : JSON.stringify(block.input);
 }
 
 export async function callAnthropicClaude(
@@ -72,6 +93,10 @@ export async function callAnthropicClaude(
         max_tokens: options.maxTokens ?? MAX_TOKENS,
         system: systemPrompt,
         messages: [{role: 'user', content: userMessage}],
+        ...(options.tool && {
+          tools: [options.tool],
+          tool_choice: {type: 'tool', name: options.tool.name},
+        }),
       }),
       signal: deadline.signal,
     });
@@ -88,8 +113,13 @@ export async function callAnthropicClaude(
     }
 
     const data = await response.json();
-    const rawText = extractResponseText(data);
     const truncated = isTruncatedStopReason(data?.stop_reason);
+    const toolInput = options.tool ? extractToolInput(data) : undefined;
+    if (toolInput !== undefined) {
+      // A cut-off tool input is broken JSON; the caller's validator reports it.
+      return {ok: true, text: toolInput, truncated};
+    }
+    const rawText = extractResponseText(data);
     return {ok: true, text: truncated ? trimToCompleteText(rawText) : rawText, truncated};
   } catch (e: any) {
     const cause = deadline.getCause();

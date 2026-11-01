@@ -1,7 +1,6 @@
 import React, {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {Animated as RNAnimated, Pressable, StyleSheet, View} from 'react-native';
 import {GestureDetector} from 'react-native-gesture-handler';
-import type {PanGesture} from 'react-native-gesture-handler';
 import {Chip, HelperText, Icon, IconButton, Menu, Text, TextInput, ToggleButton, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
@@ -13,7 +12,7 @@ import {useAllTimeOneRepMax} from '../../../redux/Workout/use/useAllTimeOneRepMa
 import DashedAddButton from '../../shared/DashedAddButton';
 import {PendingPlanSet, PendingPlanSetByExerciseId, PlanCellTarget, PlanDraftField, PlanField, PlanSetDraft} from './planTypes';
 import {buildWorkoutSetFromDraft, getPlanDraftRangeError, getPlanRangeError, getPlanSetDraft, getQuickEditError, planSetsEqual} from './planUtils';
-import {DragItemBinding, DragPlaceholder, resolveSectionTargetIndex, useDragReorder} from './useDragReorder';
+import {DragHandlers, DragItemBinding, DragPlaceholder, resolveSectionTargetIndex, useDragHandleGesture, useDragReorder} from './useDragReorder';
 
 interface PlanEditListProps {
   exercises: Exercise[];
@@ -253,7 +252,7 @@ const PlanEditList = ({
                 sets={sortSets(plannedWorkoutsByExerciseId[exerciseId]?.sets ?? [])}
                 pendingSet={pendingSetByExerciseId[exerciseId] ?? null}
                 onSelect={() => onSelectExercise(item.exercise)}
-                dragGesture={binding.gesture}
+                drag={binding.drag}
                 commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
                 onAddSet={() => onAddSet(exerciseId)}
                 onPendingSetChange={(field, value) => onPendingSetChange(exerciseId, field, value)}
@@ -280,7 +279,7 @@ interface SectionProps {
   sets: WorkoutSet[];
   pendingSet: PendingPlanSet | null;
   onSelect: () => void;
-  dragGesture: PanGesture;
+  drag: DragHandlers;
   commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
   onAddSet: () => void;
   onPendingSetChange: (field: PlanDraftField, value: string) => void;
@@ -301,7 +300,7 @@ const PlanEditExerciseSection = ({
   sets,
   pendingSet,
   onSelect,
-  dragGesture,
+  drag,
   commitRowDraftsOnUnmountRef,
   onAddSet,
   onPendingSetChange,
@@ -315,6 +314,7 @@ const PlanEditExerciseSection = ({
   primaryColor,
 }: SectionProps) => {
   const theme = useTheme();
+  const dragGesture = useDragHandleGesture(drag);
   const [menuVisible, setMenuVisible] = useState(false);
   const oneRepMax = useAllTimeOneRepMax(exercise.id);
   const data = useMemo<RowItem[]>(
@@ -439,7 +439,7 @@ const PlanEditExerciseSection = ({
               oneRepMax={oneRepMax > 0 ? oneRepMax : undefined}
               showRanges={showRanges}
               onDelete={() => onDeleteSet(item.workoutSet)}
-              dragGesture={binding.gesture}
+              drag={binding.drag}
               commitRowDraftsOnUnmountRef={commitRowDraftsOnUnmountRef}
               onUpsert={onUpsertSet}
               active={rowIndex === rowDrag.activeIndex}
@@ -506,7 +506,7 @@ interface PlanEditSetRowProps {
   oneRepMax?: number;
   showRanges: boolean;
   onDelete: () => void;
-  dragGesture: PanGesture;
+  drag: DragHandlers;
   commitRowDraftsOnUnmountRef: React.MutableRefObject<boolean>;
   onUpsert: (workoutSet: WorkoutSet) => void;
   active: boolean;
@@ -518,13 +518,14 @@ const PlanEditSetRow = ({
   oneRepMax,
   showRanges,
   onDelete,
-  dragGesture,
+  drag,
   commitRowDraftsOnUnmountRef,
   onUpsert,
   active,
   autoFocusField,
 }: PlanEditSetRowProps) => {
   const theme = useTheme();
+  const dragGesture = useDragHandleGesture(drag);
   const [draft, setDraft] = useState(() => getPlanSetDraft(workoutSet));
   const draftRef = useRef(draft);
   // GH-324: saved rows default to NOT auto-suggesting — the user planned this

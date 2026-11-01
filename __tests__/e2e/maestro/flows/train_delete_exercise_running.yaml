@@ -148,78 +148,70 @@ appId: com.powerliftingworkoutplanner
           start: '90%,20%'
           end: '10%,20%'
           duration: 300
+# GH-642: the tile opens the exercise search sheet; the training's 10 exercises
+# are counted in "Done · 10 selected".
 - tapOn:
     id: 'training-add-exercise-box'
 - extendedWaitUntil:
     visible:
-      id: 'search-bar'
+      id: 'exercise-search-sheet'
     timeout: 30000
-- assertVisible: '10 selected'
+- assertVisible: 'Done · 10 selected'
 - tapOn:
-    id: 'search-bar'
+    id: 'exercise-search-bar'
 - eraseText: 30
 - inputText: 'GH486'
+# Both new exercises match; each row is a checkbox that toggles on tap (the
+# search stays). Re-tap only while the row is still unchecked (the keyboard can
+# eat the first tap; a blind re-tap would toggle it back).
 - extendedWaitUntil:
-    visible: 'GH486 With sets'
+    visible:
+      id: 'exercise-search-row-.*'
+      text: 'GH486 With sets'
     timeout: 20000
-- tapOn:
-    text: 'GH486 With sets'
-    below:
-      id: 'search-bar'
-- waitForAnimationToEnd:
-    timeout: 3000
-# Re-tap only if the first tap was eaten (count unchanged AND the filtered row
-# still there); selecting clears the search, so an unguarded re-tap would
-# toggle whatever row is now at that spot.
-- runFlow:
-    when:
-      notVisible: '11 selected'
-      visible:
+- repeat:
+    while:
+      notVisible:
+        id: 'exercise-search-row-.*'
         text: 'GH486 With sets'
-        below:
-          id: 'search-bar'
+        checked: true
+    times: 2
     commands:
       - tapOn:
+          id: 'exercise-search-row-.*'
           text: 'GH486 With sets'
-          below:
-            id: 'search-bar'
-          optional: true
-- extendedWaitUntil:
-    visible: '11 selected'
-    timeout: 20000
-- tapOn:
-    id: 'search-bar'
-- eraseText: 30
-- inputText: 'GH486 No'
-- extendedWaitUntil:
-    visible: 'GH486 No sets'
-    timeout: 20000
-- tapOn:
-    text: 'GH486 No sets'
-    below:
-      id: 'search-bar'
-- waitForAnimationToEnd:
-    timeout: 3000
-- runFlow:
-    when:
-      notVisible: '12 selected'
-      visible:
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+- repeat:
+    while:
+      notVisible:
+        id: 'exercise-search-row-.*'
         text: 'GH486 No sets'
-        below:
-          id: 'search-bar'
+        checked: true
+    times: 2
     commands:
       - tapOn:
+          id: 'exercise-search-row-.*'
           text: 'GH486 No sets'
-          below:
-            id: 'search-bar'
-          optional: true
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'exercise-search-row-.*'
+    text: 'GH486 With sets'
+    checked: true
+- assertVisible:
+    id: 'exercise-search-row-.*'
+    text: 'GH486 No sets'
+    checked: true
+- hideKeyboard
+- assertVisible: 'Done · 12 selected'
+# Done closes the sheet; the training stays open.
+- tapOn:
+    id: 'exercise-search-done'
 - extendedWaitUntil:
-    visible: '12 selected'
-    timeout: 20000
-# One BACK closes keyboard and picker; the training stays open.
-- back
-- waitForAnimationToEnd:
-    timeout: 5000
+    notVisible:
+      id: 'exercise-search-sheet'
+    timeout: 10000
 
 # ---- 3. log exactly one set for "GH486 With sets" (id 85) ----
 - repeat:

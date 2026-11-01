@@ -63,6 +63,10 @@ describe('GH-528 HealthConnectSection', () => {
 
     expect(await findByText('Not installed')).toBeTruthy();
     expect(queryByTestId('health-connect-connect')).toBeNull();
+    // GH-619: what Gainalytics would ask for is readable before connecting, sleep and steps included.
+    expect(getByTestId('health-connect-requested-permissions')).toHaveTextContent(
+      'Gainalytics asks for: Read trainings, Write trainings, Read body weight, Read sleep, Read steps',
+    );
     fireEvent.press(getByTestId('health-connect-play-store'));
     expect(openURL).toHaveBeenCalledWith(HEALTH_CONNECT_PLAY_STORE_URL);
   });
@@ -73,16 +77,30 @@ describe('GH-528 HealthConnectSection', () => {
 
     expect(await findByText('Available · not connected')).toBeTruthy();
     await act(async () => fireEvent.press(getByTestId('health-connect-connect')));
-    expect(module.requestPermissions.mock.calls).toEqual([[[HC_PERMISSION.READ_EXERCISE, HC_PERMISSION.WRITE_EXERCISE, HC_PERMISSION.READ_WEIGHT]]]);
+    expect(module.requestPermissions.mock.calls).toEqual([
+      [[HC_PERMISSION.READ_EXERCISE, HC_PERMISSION.WRITE_EXERCISE, HC_PERMISSION.READ_WEIGHT, HC_PERMISSION.READ_SLEEP, HC_PERMISSION.READ_STEPS]],
+    ]);
   });
 
   it('lists the granted permissions and enables the write switch only with write permission', async () => {
-    const {findByText, getByTestId, store} = renderSection(fakeModule('AVAILABLE', [HC_PERMISSION.READ_EXERCISE, HC_PERMISSION.WRITE_EXERCISE, HC_PERMISSION.READ_WEIGHT]));
+    const {findByText, getByTestId, queryByTestId, store} = renderSection(
+      fakeModule('AVAILABLE', [HC_PERMISSION.READ_EXERCISE, HC_PERMISSION.WRITE_EXERCISE, HC_PERMISSION.READ_WEIGHT, HC_PERMISSION.READ_SLEEP, HC_PERMISSION.READ_STEPS]),
+    );
 
     expect(await findByText('Connected')).toBeTruthy();
-    expect(getByTestId('health-connect-permissions')).toHaveTextContent('Allowed: Read trainings, Write trainings, Read body weight');
+    expect(getByTestId('health-connect-permissions')).toHaveTextContent('Allowed: Read trainings, Write trainings, Read body weight, Read sleep, Read steps');
+    expect([queryByTestId('health-connect-missing-permissions'), queryByTestId('health-connect-connect')]).toEqual([null, null]);
     fireEvent(getByTestId('health-connect-write-switch'), 'valueChange', true);
     expect(store.getState().healthConnect?.writeEnabled).toBe(true);
+  });
+
+  it('GH-619: names the missing sleep and steps permissions next to "Allow missing permissions"', async () => {
+    const module = fakeModule('AVAILABLE', [HC_PERMISSION.READ_EXERCISE, HC_PERMISSION.WRITE_EXERCISE, HC_PERMISSION.READ_WEIGHT]);
+    const {findByText, getByTestId} = renderSection(module);
+
+    expect(await findByText('Connected')).toBeTruthy();
+    expect(getByTestId('health-connect-missing-permissions')).toHaveTextContent('Not allowed: Read sleep, Read steps');
+    expect(getByTestId('health-connect-connect')).toHaveTextContent('Allow missing permissions');
   });
 
   it('shows revoked permissions after an earlier connection and keeps the switch off', async () => {

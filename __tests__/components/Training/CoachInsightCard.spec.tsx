@@ -489,6 +489,47 @@ describe('CoachInsightCard — a cut-off insight (GH-449)', () => {
   });
 });
 
+describe('CoachInsightCard — GH-645 (V18) notice without an API key', () => {
+  it('shows a one-line notice instead of nothing, and makes no request', async () => {
+    mockGetApiKey.mockReturnValue(undefined as unknown as string);
+    try {
+      const {getByTestId, queryByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} isActive={true} />);
+      await act(async () => {});
+
+      expect(queryByTestId('coach-insight-card')).toBeNull();
+      expect(getByTestId('coach-insight-notice-text')).toHaveTextContent('Coach Insight – available with an API key in Settings');
+      expect(mockCallAnthropicClaude).not.toHaveBeenCalled();
+    } finally {
+      mockGetApiKey.mockReturnValue('sk-test-key');
+    }
+  });
+
+  it('links to Settings → AI Configuration', async () => {
+    mockGetApiKey.mockReturnValue(undefined as unknown as string);
+    try {
+      const {getByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} isActive={true} />);
+      await act(async () => {});
+
+      fireEvent.press(getByTestId('coach-insight-notice-link'));
+      expect(mockNavigate).toHaveBeenCalledWith('Settings', {screen: 'Settings', params: {openAiConfig: true}});
+    } finally {
+      mockGetApiKey.mockReturnValue('sk-test-key');
+    }
+  });
+
+  it('shows no notice for a micro without finished trainings', async () => {
+    mockGetApiKey.mockReturnValue(undefined as unknown as string);
+    try {
+      const {queryByTestId} = render(<CoachInsightCard trainings={[]} isActive={true} />);
+      await act(async () => {});
+
+      expect(queryByTestId('coach-insight-notice')).toBeNull();
+    } finally {
+      mockGetApiKey.mockReturnValue('sk-test-key');
+    }
+  });
+});
+
 describe('CoachInsightCard — GH-504 ChatGPT provider', () => {
   beforeEach(() => mockUseAiProvider.mockReturnValue('chatgpt'));
   afterEach(() => {
@@ -507,11 +548,12 @@ describe('CoachInsightCard — GH-504 ChatGPT provider', () => {
     expect(mockCallAnthropicClaude).not.toHaveBeenCalled();
   });
 
-  it('stays hidden when not signed in to ChatGPT, even with a Claude key stored', async () => {
-    const {queryByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} isActive={true} />);
+  it('shows the sign-in notice when not signed in to ChatGPT, even with a Claude key stored', async () => {
+    const {queryByTestId, getByTestId} = render(<CoachInsightCard trainings={[makeFinishedTraining(1)]} isActive={true} />);
     await act(async () => {});
 
     expect(queryByTestId('coach-insight-card')).toBeNull();
+    expect(getByTestId('coach-insight-notice-text')).toHaveTextContent('Coach Insight – available after signing in to ChatGPT in Settings');
     expect(mockCallChatGpt).not.toHaveBeenCalled();
     expect(mockCallAnthropicClaude).not.toHaveBeenCalled();
   });
@@ -550,6 +592,7 @@ describe('CoachInsightCard — GH-504 ChatGPT provider', () => {
     rerender(<CoachInsightCard trainings={trainings} isActive={true} />);
 
     await waitFor(() => expect(queryByTestId('coach-insight-card')).toBeNull());
+    expect(getByTestId('coach-insight-notice')).toBeTruthy();
     expect(mockCallChatGpt).not.toHaveBeenCalled();
   });
 

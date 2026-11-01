@@ -19,6 +19,7 @@ setup the skill describes; where they conflict, this file wins.
 | Baseline import via `run-maestro-from-wsl.sh --mode bootstrap` | `.github/agent-emulator/tool.sh import-baseline` (pushes `__tests__/e2e/maestro/fixtures/baseline.gains`, runs `00_import_baseline.yaml`, checks for "Push pull"). The store starts empty; import before any evidence screenshot, as the skill requires. Other fixtures under `__tests__/` may be pushed with `adb push` when a ticket needs them. |
 | Metro provided by the orchestrator | The APK contains an embedded JS bundle of the checkout as it was at job start. After a JS change run `tool.sh metro-start`, then `tool.sh launch` (the emulator reaches Metro via `10.0.2.2:8081`), and prove which JS runs (see `docs/memory/agent/metro-and-bundling.md`). Native changes: `tool.sh rebuild` (~15–20 min). |
 | `git push`, `gh pr create`, `gh pr edit` | Not available. Only commit locally; the workflow pushes your commits to `agent/emulator-*` and opens a draft PR from the files below. **Feedback round** (`task.md` starts with "Feedback round on PR #n"): the checkout is that PR's branch; commit on top of it, the workflow pushes onto the same branch and `pr-body.md` replaces the PR description — so write the complete description, plus a short note on what this round changed. |
+| Review feedback from the orchestrator | **Automatic round** (`task.md` has "Automatic round after a Codex review"): judge every Codex finding, fix the ones you agree with, decline the rest, and write `.agent-run/review-reply.md` (one bullet per finding: file, title, **Fixed**/**Declined**, short reason). The workflow posts it on the PR. Declining everything is a valid result: then commit nothing and leave `pr-body.md` alone. |
 | Screenshot resize to 800 px | `tool.sh screenshot <name>` already writes a 540 px copy to `.agent-run/screenshots/small/`. Only read the small copy back. |
 | `npm test`, typecheck, lint | Allowed as in the skill. The runner is small (2 vCPU / 7 GB): never run Gradle or the full Jest suite while Maestro is driving the emulator. |
 
@@ -76,6 +77,25 @@ imports the baseline itself (needs `tool.sh push-baseline` first, replaces the a
 - `logcat <label>` — dump logcat to `.agent-run/logcat/<label>.txt`
 - `metro-start` — start Metro on :8081
 - `rebuild` — Gradle debug build (x86_64) + install
+
+## Live AI calls (real test key)
+
+If the run has one (the workflow notice says `CLAUDE_TEST_API_KEY set: true`), a real, budget-capped
+Anthropic key is in the file `$RUNNER_TEMP/ai-test-key/key`. It costs real money and this repo is
+public. Rules:
+
+- Use it only when the task changes what is sent to or parsed from an AI provider, and only to check
+  once by hand that a real answer works end to end (e.g. the model returns a change set the app can
+  parse). **At most 5 live requests per run.** Automated checks (Jest, Maestro) never use it: they use
+  fixed/mocked answers.
+- Never read, print or echo the key and never let it into your context: feed it from the file
+  straight into the device (e.g. `adb shell input text` with the file's content). Never type it with
+  Maestro `inputText` (its reports are uploaded), never commit it, never screenshot the key field
+  unmasked, and do not dump logcat lines or request headers that could contain it.
+- Tapping the secure key field puts the cursor mid-text (see `docs/memory/agent-memory.md`): clear it
+  completely and check the app's "API key saved" / "API key removed" toast.
+- When the live check is done, remove the key from the app again, and say in the PR body which live
+  checks ran and how many requests they made.
 
 ## Tools and limits
 

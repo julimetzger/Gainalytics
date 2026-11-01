@@ -19,6 +19,7 @@ import {
   recordCompletedAnalysisRate,
   shouldStopForegroundService,
 } from './videoAnalysisProgress';
+import {VideoAnalysisFps} from '../models/VideoAnalysisFps';
 
 /** Known plate diameter in metres (outer plate, 45 kg / standard Olympic plate). */
 export const PLATE_DIAMETER_M = 0.45;
@@ -58,6 +59,8 @@ interface ImportVideoAnalysisParams {
   attachVideoAnalysisResult: (analysisId: number, resultPath: string, localVideoPath?: string) => void;
   setMetersPerPixel?: (analysisId: number, metersPerPixel: number) => void;
   onRateUpdated?: (rate: number) => void;
+  /** GH-621: the "Analysis frame rate" setting at import time. */
+  analyzedFps?: VideoAnalysisFps;
 }
 
 const toManualSeedPayload = (candidate: NonNullable<VideoAnalysis['seedCandidates']>[number]): ManualSeedPayload => {
@@ -74,6 +77,7 @@ const runBackgroundAnalysis = ({
   analysisId,
   videoUri,
   manualSeed,
+  analyzedFps,
   videoDurationMs,
   importStartedAtMs,
   attachVideoAnalysisResult,
@@ -84,6 +88,7 @@ const runBackgroundAnalysis = ({
   /** Gallery content:// URI, or an app-private path for pre-GH-321 analyses. */
   videoUri: string;
   manualSeed: ManualSeedPayload;
+  analyzedFps?: VideoAnalysisFps;
   videoDurationMs: number;
   importStartedAtMs: number;
   attachVideoAnalysisResult: ImportVideoAnalysisParams['attachVideoAnalysisResult'];
@@ -95,7 +100,7 @@ const runBackgroundAnalysis = ({
     startVideoAnalysisForegroundService();
   }
 
-  analyzeSquatVideo(videoUri, analysisId, manualSeed)
+  analyzeSquatVideo(videoUri, analysisId, manualSeed, analyzedFps)
     .then((resultPath) => {
       // No localVideoPath: the video stays in the gallery until the user secures it.
       attachVideoAnalysisResult(analysisId, resultPath);
@@ -133,6 +138,7 @@ export const importVideoAnalysisFromSource = async ({
   attachVideoAnalysisResult,
   setMetersPerPixel,
   onRateUpdated,
+  analyzedFps,
 }: ImportVideoAnalysisParams): Promise<VideoAnalysisImportOutcome> => {
   const importStartedAtMs = Date.now();
   let videoDurationMs = 0;
@@ -204,6 +210,7 @@ export const importVideoAnalysisFromSource = async ({
       analysisId,
       videoUri: sourceUri,
       manualSeed: toManualSeedPayload(candidates[0]),
+      analyzedFps,
       videoDurationMs,
       importStartedAtMs,
       attachVideoAnalysisResult,

@@ -107,7 +107,7 @@ jest.mock('../../../../app/components/Training/execute/ExecuteTraining', () => {
 });
 
 jest.mock('../../../../app/components/Training/execute/EditTraining', () => 'EditTraining');
-jest.mock('../../../../app/components/picker/elements/TrainingElementPicker', () => 'TrainingElementPicker');
+jest.mock('../../../../app/components/picker/filter/ExerciseSearchSheet', () => 'ExerciseSearchSheet');
 jest.mock('../../../../app/components/Training/DraggableExercise', () => 'DraggableExercise');
 jest.mock('../../../../app/components/Training/execute/Timer', () => 'Timer');
 jest.mock('../../../../app/components/Training/analyse/TrainingsOverview', () => 'TrainingsOverview');

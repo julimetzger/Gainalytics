@@ -39,6 +39,11 @@ export interface AIChatState {
   contextRange: ContextRange | null;
   /** GH-391: whether the planned sessions of the current/next micro travel with the prompt. */
   includePlannedTrainings: boolean;
+  /**
+   * GH-619: explicit opt-in for sending sleep and steps from Health Connect to the AI provider.
+   * Absent (older stores, fresh install) means off.
+   */
+  includeRecoveryContext?: boolean;
   /** GH-391: id of the single training the conversation is about, or null. */
   selectedTrainingId: number | null;
   /** Archived conversations, newest first. Full contents live on disk. */
@@ -104,6 +109,10 @@ const aiChatSlice = createSlice({
     setIncludePlannedTrainings(state, action: PayloadAction<boolean>) {
       state.includePlannedTrainings = action.payload;
     },
+    /** GH-619: switch the sleep and steps section on or off; survives chat clears like the plan switch. */
+    setIncludeRecoveryContext(state, action: PayloadAction<boolean>) {
+      state.includeRecoveryContext = action.payload;
+    },
     /** GH-391: pick (or with null clear) the single training the chat is about. */
     setSelectedTrainingId(state, action: PayloadAction<number | null>) {
       state.selectedTrainingId = action.payload;
@@ -153,6 +162,7 @@ export const {
   setSeedContextJson,
   setContextRange,
   setIncludePlannedTrainings,
+  setIncludeRecoveryContext,
   setSelectedTrainingId,
   startChatWithContext,
   addHistoryEntry,

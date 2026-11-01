@@ -4,7 +4,8 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 export type RootStackParamList = {
   // GH-497: the onboarding's "Import data" opens the import confirmation.
-  Settings: {openImport?: boolean} | undefined;
+  // GH-645: the Coach Insight notice opens the AI Configuration.
+  Settings: {openImport?: boolean; openAiConfig?: boolean} | undefined;
 };
 
 const SettingsRouter = () => {

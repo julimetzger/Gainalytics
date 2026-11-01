@@ -11,6 +11,7 @@ import {useAllVideoAnalyses} from '../../redux/VideoAnalysis/use/useAllVideoAnal
 import {useVideoAnalysisSetIdentity} from '../../redux/VideoAnalysis/use/useVideoAnalysisSetIdentity';
 import {useVideoAnalysisExerciseId} from '../../redux/VideoAnalysis/use/useVideoAnalysisExerciseId';
 import {useExerciseVlReference} from '../../redux/Exercises/use/useExerciseVlReference';
+import {useVideoAnalysisFps} from '../../redux/settings/use/useVideoAnalysisFps';
 import {getVideoAnalysisPreviewPath, readBarTrackingResultFromFile} from '../../utils/videoAnalysisStorage';
 import CompareAnalysisPickerItem from '../../components/video/CompareAnalysisPickerItem';
 import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
@@ -102,6 +103,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
   const setMetersPerPixel = dispatchSetVideoAnalysisMetersPerPixel();
   const setLocalVideoPath = dispatchSetVideoAnalysisLocalVideoPath();
+  const analyzedFps = useVideoAnalysisFps();
   const [result, setResult] = useState<BarTrackingResult | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
   const [previewDimensions, setPreviewDimensions] = useState<PreviewDimensions>(DEFAULT_PREVIEW_DIMENSIONS);
@@ -206,7 +208,8 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           setMetersPerPixel(analysis.id, mpp);
         }
 
-        const resultPath = await analyzeSquatVideo(videoUri, analysis.id, manualSeed);
+        // GH-621: a re-analysis uses the CURRENT frame-rate setting.
+        const resultPath = await analyzeSquatVideo(videoUri, analysis.id, manualSeed, analyzedFps);
         attachVideoAnalysisResult(analysis.id, resultPath, analysis.localVideoPath);
         setManualSeedFramePath(analysis.id, undefined);
       } catch (error) {
@@ -215,7 +218,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         setManualSeedRunning(false);
       }
     },
-    [analysis, attachVideoAnalysisResult, setManualSeedFramePath, setMetersPerPixel, setVideoAnalysisStatus],
+    [analysis, analyzedFps, attachVideoAnalysisResult, setManualSeedFramePath, setMetersPerPixel, setVideoAnalysisStatus],
   );
 
   const onSecureVideo = useCallback(async () => {
@@ -309,6 +312,9 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         />
         <Card.Content>
           <Text testID="video-analysis-detail-status">Status: {analysis.status}</Text>
+          {result?.analysisMeta?.analyzedFps != null && (
+            <Text testID="video-analysis-detail-analyzed-fps">Analysed at {Math.round(result.analysisMeta.analyzedFps)} fps</Text>
+          )}
           <Text>Source: {analysis.sourceUri}</Text>
           {analysis.localVideoPath && <Text>Local Video: {analysis.localVideoPath}</Text>}
           {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}

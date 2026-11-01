@@ -89,10 +89,23 @@ jest.mock('../../../app/components/settings/MuscleListSettings', () => {
   const {View} = require('react-native');
   return {__esModule: true, default: () => <View testID="settings-muscle-list" />};
 });
+// GH-621: covered by VideoAnalysisFpsSelector.spec; it needs a real store.
+jest.mock('../../../app/components/settings/VideoAnalysisFpsSelector', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-video-analysis-fps" />};
+});
 jest.mock('../../../app/components/settings/ChatGptAccountSection', () => {
   const React = require('react');
   const {View} = require('react-native');
   return {__esModule: true, default: () => <View testID="settings-chatgpt-section" />};
+});
+
+// GH-645: a plain prompt editor bound to the store.
+jest.mock('../../../app/components/settings/AiSessionPromptEditor', () => {
+  const React = require('react');
+  const {View} = require('react-native');
+  return {__esModule: true, default: () => <View testID="settings-ai-session-prompt-mock" />};
 });
 
 // GH-528: covered by HealthConnectSection.spec; it needs a real store.
@@ -264,10 +277,10 @@ jest.mock('../../../app/utils/llmApi', () => ({
 }));
 
 jest.mock('react-native-mmkv', () => ({
-  MMKV: jest.fn().mockImplementation(() => ({
+  createMMKV: jest.fn().mockImplementation(() => ({
     getString: jest.fn(),
     set: jest.fn(),
-    delete: jest.fn(),
+    remove: jest.fn(),
     contains: jest.fn(() => false),
   })),
 }));
@@ -512,9 +525,11 @@ describe('SettingsTab', () => {
     const {getAllByTestId, getByTestId, queryByText} = render(<SettingsTab navigation={navigation} route={route} />);
 
     const titles = getAllByTestId(/^settings-section-[a-z-]+-title$/).map((node) => node.props.children);
-    expect(titles).toEqual(['Appearance', 'General', 'Muscles', 'Timers & Notifications', 'AI Coach', 'Help', 'Data']);
+    expect(titles).toEqual(['Appearance', 'General', 'Video analysis', 'Muscles', 'Timers & Notifications', 'AI Coach', 'Help', 'Data']);
     // GH-523: the muscle list lives in its own section.
     expect(getByTestId('settings-section-muscles')).toContainElement(getByTestId('settings-muscle-list'));
+    // GH-621: the analysis frame rate has its own section.
+    expect(getByTestId('settings-section-video-analysis')).toContainElement(getByTestId('settings-video-analysis-fps'));
 
     // GH-478: the Theme row and the single "Color" row share one section.
     expect(getByTestId('settings-section-theme')).toContainElement(getByTestId('settings-theme-mode-row'));
@@ -574,6 +589,19 @@ describe('SettingsTab', () => {
 
     expect(getByText('Import full data from backup file?')).toBeTruthy();
     expect(navigation.setParams).toHaveBeenCalledWith({openImport: undefined});
+  });
+
+  it('opens the AI Configuration when the Coach Insight notice links here (GH-645)', () => {
+    const navigation = createNavigation();
+    const closed = render(<SettingsTab navigation={navigation} route={settingsRoute({})} />);
+    expect(closed.queryByTestId('settings-anthropic-api-key-input')).toBeNull();
+    closed.unmount();
+
+    const {getByTestId} = render(<SettingsTab navigation={navigation} route={settingsRoute({openAiConfig: true})} />);
+
+    expect(getByTestId('settings-anthropic-api-key-input')).toBeTruthy();
+    expect(getByTestId('settings-ai-session-prompt-mock')).toBeTruthy();
+    expect(navigation.setParams).toHaveBeenCalledWith({openAiConfig: undefined});
   });
 
   it('renders the app version supplied by the native build', () => {

@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react';
 import {Platform, StyleSheet, View} from 'react-native';
-import {Text, useTheme} from 'react-native-paper';
+import {Chip, Text, useTheme} from 'react-native-paper';
 import {Exercise} from '../../../models/entities/Exercise';
 import {Workout} from '../../../models/entities/Workout';
 import {buildRecordCards, RecordCardModel} from '../../../utils/RecordsAnalysis';
@@ -10,6 +10,9 @@ const mono = Platform.select({ios: 'Menlo', android: 'monospace', default: 'mono
 interface Props {
   recordWorkouts: Workout[];
   exercises: Exercise[];
+  /** Title of the selected heatmap tile/bar the list is filtered to (GH-617). */
+  filterTitle?: string;
+  onShowAll?: () => void;
 }
 
 const RecordCardItem = ({card, index}: {card: RecordCardModel; index: number}) => {
@@ -56,18 +59,29 @@ const RecordCardItem = ({card, index}: {card: RecordCardModel; index: number}) =
   );
 };
 
-const RecordCardList = ({recordWorkouts, exercises}: Props) => {
+const RecordCardList = ({recordWorkouts, exercises, filterTitle, onShowAll}: Props) => {
   const theme = useTheme();
   const cards = useMemo(() => buildRecordCards(recordWorkouts, exercises), [recordWorkouts, exercises]);
+  const filtered = filterTitle !== undefined;
 
   return (
     <View>
       <View style={styles.headerRow}>
         <Text style={[styles.headerTitle, {color: theme.colors.onBackground}]}>Records in this range</Text>
-        <Text testID="records-shown-count" style={[styles.headerCount, {color: theme.colors.onSurfaceVariant}]}>
-          {cards.length} shown
+        <Text
+          testID="records-shown-count"
+          style={[styles.headerCount, filtered && styles.headerCountFiltered, {color: filtered ? theme.colors.primary : theme.colors.onSurfaceVariant}]}
+        >
+          {filtered ? `${cards.length} record${cards.length === 1 ? '' : 's'} · ${filterTitle}` : `${cards.length} shown`}
         </Text>
       </View>
+      {filtered ? (
+        <View style={styles.filterRow}>
+          <Chip testID="records-show-all" icon="close" compact onPress={onShowAll}>
+            Show all
+          </Chip>
+        </View>
+      ) : null}
       {cards.length === 0 ? (
         <Text testID="records-list-empty" style={[styles.emptyHint, {color: theme.colors.onSurfaceVariant}]}>
           No records in this range yet.
@@ -94,6 +108,17 @@ const styles = StyleSheet.create({
   },
   headerCount: {
     fontSize: 12,
+  },
+  headerCountFiltered: {
+    flexShrink: 1,
+    marginLeft: 8,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    marginHorizontal: 8,
+    marginBottom: 8,
   },
   emptyHint: {
     fontStyle: 'italic',

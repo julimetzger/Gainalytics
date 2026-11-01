@@ -74,18 +74,17 @@ jest.mock('../../../app/components/Workout/show/WorkoutView', () => {
 // Capture the setMuscle callback so tests can simulate muscle selection.
 let capturedSetMuscle: ((m: any[]) => void) | undefined;
 
-jest.mock('../../../app/components/picker/elements/TrainingElementPicker', () => {
+jest.mock('../../../app/components/picker/filter/AnalyseFilterPanel', () => {
   const React = require('react');
   const {View} = require('react-native');
   return {
     __esModule: true,
-    default: ({exercise, setExercise, muscle, setMuscle, setMetric, setAccumulation, dropdownLabel}: any) => {
+    default: ({setExercise, setMuscle, setMetrics, setAccumulation, setRange}: any) => {
       capturedSetMuscle = setMuscle;
       return (
         <View
-          testID="training-element-picker"
-          accessibilityLabel={dropdownLabel}
-          accessibilityHint={[setMetric && 'metric', setAccumulation && 'accumulation'].filter(Boolean).join(',')}
+          testID="analyse-filter-panel"
+          accessibilityHint={[setExercise && 'exercise', setMuscle && 'muscle', setMetrics && 'metric', setAccumulation && 'accumulation', setRange && 'range'].filter(Boolean).join(',')}
         />
       );
     },
@@ -238,22 +237,18 @@ describe('History tab', () => {
     expect(queryByText('Noch keine Trainings vorhanden.')).toBeNull();
   });
 
-  it('renders TrainingElementPicker in the list container', () => {
+  it('renders the filter panel in the list container', () => {
     mockUseWorkoutsByFilters.mockReturnValue([1, 2]);
     const {getByTestId} = render(<History />);
-    expect(getByTestId('training-element-picker')).toBeTruthy();
+    expect(getByTestId('analyse-filter-panel')).toBeTruthy();
   });
 
-  // GH-452: the History picker only offers exercises and muscles — its label must
-  // say exactly that instead of inheriting the "Metrics, Accumulation Mode" default.
-  it('labels the picker with only the selectable options (exercises and muscles)', () => {
+  // GH-452 / GH-642: History only filters by exercises and muscles — no range,
+  // group by or metric section is wired into its filter panel.
+  it('wires only the exercise and muscle sections into the filter panel', () => {
     mockUseWorkoutsByFilters.mockReturnValue([1, 2]);
     const {getByTestId} = render(<History />);
-    const picker = getByTestId('training-element-picker');
-    expect(picker.props.accessibilityLabel).toBe('Select Exercises, Muscles');
-    expect(picker.props.accessibilityLabel).not.toMatch(/Metric|Accumulation/);
-    // No metric / accumulation options are wired into the History picker.
-    expect(picker.props.accessibilityHint).toBe('');
+    expect(getByTestId('analyse-filter-panel').props.accessibilityHint).toBe('exercise,muscle');
   });
 
   it('shows no-match message when filters are active but no workouts match', () => {

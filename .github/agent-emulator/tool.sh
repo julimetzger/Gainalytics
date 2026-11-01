@@ -4,7 +4,8 @@
 # Every adb call passes -s and every Maestro call passes --device explicitly.
 #
 #   tool.sh serial                 print the emulator serial
-#   tool.sh wait-boot [timeout_s]  wait until sys.boot_completed=1
+#   tool.sh wait-boot [timeout_s]  wait until sys.boot_completed=1 (then display-geometry)
+#   tool.sh display-geometry       enable the cutout overlay so the status bar is ~136 px (GH-636)
 #   tool.sh install [apk]          adb install -r the debug APK
 #   tool.sh launch                 force-stop + cold start the app
 #   tool.sh screenshot <name>      save .agent-run/screenshots/<name>.png
@@ -73,6 +74,26 @@ case "${cmd}" in
       adb -s "${S}" shell settings put global "${k}" 0.0
     done
     echo "booted after $(( $(date +%s) - start ))s"
+    "$0" display-geometry
+    ;;
+  display-geometry)
+    # GH-636: the Maestro flows use point taps/swipes calibrated on a ~130 px status bar. Since
+    # 2026-10-29 the CI emulator boots with a 63 px one, every screen sits ~70 px higher and five
+    # flows missed their targets. The hole-punch cutout overlay restores a 136 px status bar
+    # (all flows green with it). A warning annotation flags a wrong geometry instead of five "flaky" flows.
+    S="$(serial)"
+    adb -s "${S}" shell cmd overlay enable com.android.internal.display.cutout.emulation.hole >/dev/null 2>&1 || true
+    h=""
+    for _ in $(seq 1 10); do
+      h="$(adb -s "${S}" shell dumpsys window 2>/dev/null | tr -d '\r' \
+        | sed -nE 's/.*type=statusBars frame=\[0,0\]\[[0-9]+,([0-9]+)\].*/\1/p' | head -n1)"
+      [[ -n "${h}" && "${h}" -ge 120 ]] && break
+      sleep 2
+    done
+    echo "status bar height: ${h:-unknown} px"
+    if [[ -z "${h}" || "${h}" -lt 120 ]]; then
+      echo "::warning title=emulator geometry::status bar ${h:-unknown} px (< 120); point taps in the Maestro flows will miss" >&2
+    fi
     ;;
   install)
     S="$(serial)"
@@ -192,7 +213,7 @@ case "${cmd}" in
     echo "Imported $(basename "${fixture}")"
     ;;
   *)
-    sed -n '2,26p' "$0"
+    sed -n '2,27p' "$0"
     exit 2
     ;;
 esac

@@ -92,7 +92,13 @@ appId: com.powerliftingworkoutplanner
     id: 'settings-anthropic-api-key-input'
 - eraseText: 200
 # A tap can drop the cursor mid-text; the second tap lands past the shorter
-# remainder, so this erase empties the field.
+# remainder, so this erase empties the field. GH-636: close the keyboard
+# before the second tap - the open IME covers the lower half of the screen and
+# Settings does not resize, so a field near the bottom edge (where
+# scrollUntilVisible stops) is tapped through the keyboard: the tap hits a key
+# and the tail survives (nightly: "claude-sonnet-4-5251001").
+- hideKeyboard
+- waitForAnimationToEnd
 - tapOn:
     id: 'settings-anthropic-api-key-input'
 - eraseText: 200
@@ -189,6 +195,9 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'settings-anthropic-model-input'
 - eraseText: 40
+# Keyboard down before the second tap (see the API key step above).
+- hideKeyboard
+- waitForAnimationToEnd
 - tapOn:
     id: 'settings-anthropic-model-input'
 - eraseText: 40
@@ -257,6 +266,8 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'settings-anthropic-model-input'
 - eraseText: 40
+- hideKeyboard
+- waitForAnimationToEnd
 - tapOn:
     id: 'settings-anthropic-model-input'
 - eraseText: 40
@@ -357,6 +368,8 @@ appId: com.powerliftingworkoutplanner
 - tapOn:
     id: 'settings-anthropic-api-key-input'
 - eraseText: 200
+- hideKeyboard
+- waitForAnimationToEnd
 - tapOn:
     id: 'settings-anthropic-api-key-input'
 - eraseText: 200

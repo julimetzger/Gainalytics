@@ -3,7 +3,7 @@
  * Uses react-native-mmkv with a per-device encryption key stored in Android Keystore / iOS Keychain.
  * Values are NOT stored in Redux or AsyncStorage.
  */
-import {MMKV} from 'react-native-mmkv';
+import {createMMKV, type MMKV} from 'react-native-mmkv';
 import * as Keychain from 'react-native-keychain';
 
 const KEYCHAIN_SERVICE = 'gainalytics-secure-store';
@@ -33,6 +33,15 @@ function generateHexKey(byteCount: number): string {
 }
 
 /**
+ * The keychain key is 64 hex chars, but MMKV's AES-128 only ever used the first 16 bytes
+ * (MMKV core truncates the key). react-native-mmkv v4 documents 16 bytes as the AES-128 limit,
+ * so pass exactly those 16 bytes: the same key the existing v3 store was encrypted with.
+ */
+export function toMmkvAes128Key(encryptionKey: string): string {
+  return encryptionKey.slice(0, 16);
+}
+
+/**
  * Retrieves or creates the per-device MMKV encryption key, stored in the platform keychain.
  * Must be called (and awaited) on app start before any component uses secureStorage.
  */
@@ -57,9 +66,9 @@ export async function initSecureStore(): Promise<void> {
     encryptionKey = generateHexKey(32);
   }
 
-  _store = new MMKV({
+  _store = createMMKV({
     id: 'secure-store',
-    encryptionKey,
+    encryptionKey: toMmkvAes128Key(encryptionKey),
   });
 }
 
@@ -108,7 +117,7 @@ export const secureStorage = {
   },
 
   deleteAnthropicApiKey(): void {
-    getStore().delete(ANTHROPIC_API_KEY);
+    getStore().remove(ANTHROPIC_API_KEY);
     notifyApiKeyListeners();
   },
 

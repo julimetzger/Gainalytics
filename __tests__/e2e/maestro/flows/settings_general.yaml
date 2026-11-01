@@ -4,7 +4,8 @@ appId: com.powerliftingworkoutplanner
 # Purpose: the General section lists its four switches and NOT the removed
 # "Show Plus-Button on the left" (GH-327); both timer rows show the baseline's values with
 # their own delete button (GH-522); the footer shows the real app version (GH-366) —
-# checked as a pattern, never a fixed number, and never the "Unknown" fallback.
+# checked as a pattern, never a fixed number, and never the "Unknown" fallback; the
+# Health Connect section names every permission, sleep and steps included (GH-619).
 # Data basis: READ-ONLY on the baseline (baseline.gains already imported; fixture settings
 # pauseTimerInSeconds 180, finishTrainingTimerInSeconds 1200).
 # Merged from: gh522_settings_refinement (base), gh366_settings_app_version,
@@ -62,6 +63,35 @@ appId: com.powerliftingworkoutplanner
     id: '^settings-pause-timer-delete$'
 - assertVisible:
     id: '^settings-finish-training-timer-delete$'
+
+# --- Health Connect (GH-619): sleep and steps are among the permissions asked for ---------
+# Before connecting the section lists what "Connect" asks for; once connected with
+# "Allow all" (the CI emulator, API 34) it lists what was granted. Either list must
+# name all five permissions.
+- scrollUntilVisible:
+    element:
+      id: '^health-connect-(permissions|requested-permissions)$'
+    direction: DOWN
+    timeout: 30000
+- evalScript: "${output.hcPermissions = ''}"
+- runFlow:
+    when:
+      visible:
+        id: '^health-connect-permissions$'
+    commands:
+      - copyTextFrom:
+          id: '^health-connect-permissions$'
+      - evalScript: "${output.hcPermissions = maestro.copiedText}"
+- runFlow:
+    when:
+      visible:
+        id: '^health-connect-requested-permissions$'
+    commands:
+      - copyTextFrom:
+          id: '^health-connect-requested-permissions$'
+      - evalScript: "${output.hcPermissions = maestro.copiedText}"
+- assertTrue: "${output.hcPermissions === 'Allowed: Read trainings, Write trainings, Read body weight, Read sleep, Read steps' || output.hcPermissions === 'Gainalytics asks for: Read trainings, Write trainings, Read body weight, Read sleep, Read steps'}"
+- takeScreenshot: gh619_settings_health_connect
 
 # --- App version (GH-366): "Version <major>.<minor>[.<patch>]" from the native build -----
 - scrollUntilVisible:
