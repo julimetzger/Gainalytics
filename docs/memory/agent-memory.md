@@ -1046,3 +1046,15 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Baseline exercise "Hyperextension " has a trailing blank — Maestro `text:` needs `'Hyperextension.*'`
 **Problem (GH-672):** `assertVisible {text: '13 reps', below: {text: 'Hyperextension'}}` failed although the card was on screen; uiautomator showed `text="Hyperextension "`. Text selectors are full-string regexes (known), so dump the hierarchy before trusting a visible label.
 **Apply when:** selecting History/exercise names from the baseline fixture.
+
+### Release builds have no JS trace sections — time JS with a temporary probe that logs to logcat
+**Observation (GH-671):** atrace of a release build shows `mqt_v_js` scheduling but no React/redux sections. A throw-away module (`docs/perf/raw-gh671/tools/perfProbe.ts.txt`: `performance.now()` spans around the root reducer, a first middleware, wrapped `store.subscribe` listeners, persist writes + `probeMark` in render bodies / `useLayoutEffect`) printed one `console.log` line per tap; release builds DO log to `ReactNativeJS` in logcat. Flush 2.5 s after the tap so logging stays outside the measured window. Incremental `rebuild-release` after JS-only edits took ~1m45s. Strip every probe line before the final build and prove it with `unzip -p base.apk assets/index.android.bundle | grep -c <probe tag>` = 0.
+**Apply when:** a perf ticket must say WHERE JS time goes in a release build.
+
+### Anything on `useSettings()` re-renders on every logged set — the rest timer lives in `settings`
+**Problem (GH-671):** `START_REST_TIMER` replaces `settings`; `App.tsx` read the whole slice and rebuilt the Paper themes per render, so every `useTheme()` component (each set row!) re-rendered per "Add" (~3.7 ms/row on the emulator = the per-set growth). **Fix / Rule:** `useSettingsSelector(s => s.toggles?.x)` for single values, memoise theme objects; never return fresh arrays/objects from always-mounted selectors (`useTrainings()` in `BottomTabs`). Test mocks of the `useSettings` module must also provide `useSettingsSelector: (select) => select(useSettings() ?? {})`.
+**Apply when:** adding a settings read to a component that stays mounted during a training.
+
+### Incremental persistence relies on "changed workout ⇒ new object" — reducers must not mutate a stored workout
+**Rule (GH-671):** `app/redux/persist/incremental-storage.ts` rewrites a `workouts.byId` chunk only when a workout is a different object than the one written last (it keeps its own reference map, so in-place changes of the `byId` CONTAINER — e.g. `addNewWorkoutToState` — are fine). `obj.end = …` on a stored workout is silently never persisted (was the case in `FINALIZE_WORKOUT`). `__tests__/redux/persist/workoutImmutability.spec.ts` guards the workout reducer; extend it for new workout actions. `Object.freeze` does NOT catch it in Jest (reducer code isn't strict-mode) — compare JSON before/after for same-reference workouts instead.
+**Apply when:** touching any reducer that writes `state.workouts.byId`.

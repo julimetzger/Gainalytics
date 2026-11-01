@@ -1,0 +1,54 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-671: delete the measurement training again (⋮ → Discard → confirm), like PERF-004 after
+# scenario 2; the slot "Meso 1 · M6 · D1" is empty afterwards.
+- launchApp:
+    stopApp: false
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-status-label'
+    text: 'Training running'
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'header-overflow-icon'
+    timeout: 30000
+- tapOn:
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-discard'
+    timeout: 10000
+- tapOn:
+    id: 'overflow-discard'
+- extendedWaitUntil:
+    visible:
+      id: 'training-delete-confirm'
+    timeout: 10000
+- tapOn:
+    id: 'training-delete-confirm'
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M6 · D1 · 0 exercises'

@@ -1,0 +1,132 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-671: preparation of PERF-004 scenario 2 ("Satz speichern") on the imported baseline.
+# Same measurement training as PERF-004: the empty next slot "Push pull › Meso 1 › Micro 6 ›
+# Push squat" is planned with ONE exercise (Bankdrücken, id 1, 0 planned sets) and started;
+# the input row gets 5 reps / RIR 0 / 20 kg (far below the 150 kg PR -> no record written).
+# Nothing is logged here — the measurement script (scn2save.sh) taps "Add".
+- launchApp:
+    stopApp: false
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'micro-hero-plan-name'
+    direction: UP
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-slot'
+    text: 'Meso 1 · M6 · D1 · 0 exercises'
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-go-to-plan-button'
+    timeout: 60000
+- tapOn:
+    id: 'train-tab-go-to-plan-button'
+- extendedWaitUntil:
+    visible: 'Plan new Training'
+    timeout: 30000
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'header-plan-editing-kicker'
+    commands:
+      - tapOn:
+          text: 'Plan new Training'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd:
+          timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: 'training-add-exercise-box'
+    timeout: 30000
+- tapOn:
+    id: 'training-add-exercise-box'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-search-bar'
+    timeout: 15000
+- tapOn:
+    id: 'exercise-search-bar'
+- inputText: 'Bankdr'
+- extendedWaitUntil:
+    visible:
+      id: '^exercise-search-row-1$'
+    timeout: 10000
+- repeat:
+    while:
+      notVisible:
+        id: '^exercise-search-row-1$'
+        checked: true
+    times: 2
+    commands:
+      - tapOn:
+          id: '^exercise-search-row-1$'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+- assertVisible:
+    id: '^exercise-search-row-1$'
+    text: 'Bankdr.*'
+    checked: true
+- hideKeyboard
+- tapOn:
+    id: 'exercise-search-done'
+- extendedWaitUntil:
+    notVisible:
+      id: 'exercise-search-sheet'
+    timeout: 10000
+- runFlow:
+    when:
+      visible:
+        id: 'header-plan-done-button'
+    commands:
+      - tapOn:
+          id: 'header-plan-done-button'
+- tapOn:
+    id: 'subtab-train'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-start-button'
+    timeout: 30000
+- tapOn:
+    id: 'train-tab-start-button'
+- extendedWaitUntil:
+    visible:
+      id: '^add-workout-set-reps-input$'
+    timeout: 60000
+- assertVisible:
+    id: 'add-workout-set-number'
+    text: '.*Set 1'
+- tapOn:
+    id: '^add-workout-set-reps-input$'
+- eraseText: 4
+- inputText: '5'
+- tapOn:
+    id: '^add-workout-set-rir-input$'
+- eraseText: 4
+- inputText: '0'
+- tapOn:
+    id: '^add-workout-set-weight-input$'
+- eraseText: 6
+- inputText: '20'
+- hideKeyboard
+- assertVisible:
+    id: '^add-workout-set-weight-input$'
+    text: '20'
+- assertVisible:
+    id: '^add-workout-set-reps-input$'
+    text: '5'
+- assertNotVisible:
+    id: '^add-workout-set-logged-1$'
