@@ -137,7 +137,8 @@ Tiefe 1, kein `git fetch` erlaubt) – der Vergleich ist deshalb eine Zuordnung,
   über den alten Bestand (Migration `persist:root` → neues Format) lief auf dem Gerät mit dem Baseline-Bestand
   (`screenshots/GH-671/after-install-migrated.png`). Danach war der read-only-Check aus PERF-004 grün
   (`perf004-readonly-check.yaml`: Plan „Push pull“, Slot „Meso 1 · M6 · D1 · 0 exercises“, Historie „Sat, 28/02/26“ + „Hyperextension“).
-  Ein erneuter Voll-Import der Baseline (FULL_IMPORT) lief ebenfalls über das neue Format.
+  Ein erneuter Voll-Import der Baseline (FULL_IMPORT) lief ebenfalls über das neue Format. Maestro auf dem Release-Build
+  nachher: `train_start_log_finish`, `train_rest_timer_1rm`, `train_delete_exercise_running` grün.
 * **Jest:** `__tests__/redux/persist/` – Migration vom Altformat, nur geänderte Blöcke werden geschrieben, Kill vor dem Manifest →
   alter vollständiger Stand + Aufräumen, Purge; Neustart-Rundlauf über den echten Store (`configureStore` + alle Reducer) mit dem
   Baseline-Bestand: Sätze, beendetes Workout, Pausentimer nach dem „Neustart“ identisch. Der Rundlauf-Test schlägt mit dem alten
