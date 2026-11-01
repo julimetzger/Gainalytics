@@ -14,6 +14,7 @@ target flow (see `../../FLOW_AUDIT.md`).
 | `gh439_playback_velocity_live.yaml` (+ helper `gh439_open_playback_overlay.yaml`) | real device with an existing on-device analysis (`ANALYSIS_ID`) |
 | `gh504_suite.yaml`, `gh504_chatgpt_provider.yaml`, `gh504_chatgpt_coach_insight.yaml` | signed-in ChatGPT account (and recent training data for the coach insight) |
 | `gh515_chat_device.yaml` | real Anthropic key saved in Settings › AI Coach |
+| `pr659_mmkv_upgrade_check.yaml` | two APKs (react-native-mmkv 3 build with baseline + dummy key, then `adb install -r` of the mmkv 4 build without clearing data) |
 
 They are **not** part of `../suite.yaml`, are not run by CI or the orchestrator, and do not
 count towards the "2–3 target flows per feature" rule.
