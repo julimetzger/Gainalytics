@@ -231,14 +231,20 @@ appId: com.powerliftingworkoutplanner
     timeout: 30000
 - tapOn:
     id: 'train-tab-start-button'
-# "Finish Training" sits below the first exercise's set list.
-- scrollUntilVisible:
-    element:
-      id: 'train-tab-finish-button'
-    direction: DOWN
-    timeout: 30000
+# GH-623: with open exercises the Train tab has no finish button — finish early via ⋮.
+- extendedWaitUntil:
+    visible:
+      id: 'header-session-timer'
+    timeout: 60000
 - tapOn:
-    id: 'train-tab-finish-button'
+    id: 'header-overflow-icon'
+- extendedWaitUntil:
+    visible:
+      id: 'overflow-finish'
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    id: 'overflow-finish'
 # Finishing pre-selects Analysis: 0 sets done.
 - extendedWaitUntil:
     visible:

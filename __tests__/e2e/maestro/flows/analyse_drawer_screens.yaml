@@ -13,6 +13,8 @@ appId: com.powerliftingworkoutplanner
 #     proven by a control of the screen behind that lies inside the drawer area.
 #   * GH-452 / GH-642: History's filter panel offers exercises and muscles only
 #     (no period, group by or metrics); a muscle tap counts and shows in the card.
+#   * GH-672: History rows are recycled while scrolling - content, edit mode and
+#     the set editor still belong to the workout shown (opened, never saved).
 #   * GH-341: Records KPIs re-pinned to the baseline (see below).
 #   * GH-617 / GH-642: Records filter panel starts collapsed ("Week", no sections),
 #     the custom range comes from its "Custom" chip;
@@ -161,6 +163,69 @@ appId: com.powerliftingworkoutplanner
     text: 'Sat, 28/02/26'
 - assertNotVisible:
     id: 'analyse-error-boundary'
+# GH-672: the list re-uses its row views for other workouts while scrolling. Content,
+# edit mode and the set editor must still belong to the workout shown. Read-only: the
+# editor is opened but nothing is saved or deleted.
+# (the baseline's name is "Hyperextension " with a trailing blank, hence the regex;
+# index 0: rows below the fold may already be rendered, Hyperextension is also on 17/02/26)
+- assertVisible:
+    text: '13 reps'
+    below:
+      text: 'Hyperextension.*'
+      index: 0
+- longPressOn:
+    text: 'Hyperextension.*'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-submit-button'
+    timeout: 10000
+# a tap outside the card leaves its edit mode
+- tapOn:
+    id: 'history-date-header'
+    text: 'Sat, 28/02/26'
+- extendedWaitUntil:
+    notVisible:
+      id: 'add-workout-set-submit-button'
+    timeout: 10000
+# tapping Hyperextension's 2nd set (12 reps x 45 kg, the first "12 reps" row) opens its editor
+- tapOn:
+    text: '12 reps'
+    index: 0
+- assertVisible:
+    id: 'add-workout-set-reps-input-2'
+    text: '12'
+- assertVisible:
+    id: 'add-workout-set-weight-input-2'
+    text: '45'
+# scroll a week down: the rows now show other workouts, none of them with that editor
+- scrollUntilVisible:
+    element:
+      id: 'history-date-header'
+      text: 'Sat, 21/02/26'
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- assertVisible:
+    text: 'Rear delt cable flys'
+    below:
+      id: 'history-date-header'
+      text: 'Sat, 21/02/26'
+- assertVisible: '7.5 kg'
+- assertNotVisible:
+    id: 'add-workout-set-reps-input-.*'
+# and back: the top workout shows its own sets again
+- scrollUntilVisible:
+    element:
+      id: 'history-date-header'
+      text: 'Sat, 28/02/26'
+    direction: UP
+    timeout: 60000
+- assertVisible:
+    text: '13 reps'
+    below:
+      text: 'Hyperextension.*'
+      index: 0
 # GH-452 / GH-642: History's filter panel offers exercises and muscles only.
 - assertVisible:
     id: 'filter-selection-summary'

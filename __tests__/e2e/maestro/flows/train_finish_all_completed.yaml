@@ -1,0 +1,188 @@
+appId: com.powerliftingworkoutplanner
+---
+# Feature F4 Training execution — T4.4 train_finish_all_completed (GH-623)
+#
+# Purpose: the Train tab's action bar at the END of a training, and the finish undo.
+#   - Mid-training the bar offers no finish button; on the last open exercise it
+#     reads "Complete exercise" and stays disabled until a set is logged.
+#   - Completing the last exercise turns it into "Finish Training" with the summary
+#     "1 of 1 exercises · 1 set · <duration>"; the tile reads "1 set ✓".
+#   - Finish → snackbar "Training finished" → Undo: the training runs again (bar,
+#     logged set and completion kept). Finish again → after the undo window it
+#     stays finished (Last Training card "Push squat … today").
+#
+# Data basis: fixtures/gh486-only-exercise.gains (the baseline reduced to "Squat",
+# id 2) imported with import_fixture.yaml (mutates: plans, starts, logs and
+# finishes a training). "Suggest based on last Training" for the next slot
+# Meso 1 · M6 · D1 "Push squat" yields a one-exercise training, so "every
+# exercise completed" is one logged set away — the same path on the baseline
+# needs ten exercises (train_start_log_finish.yaml covers the mid-training bar).
+
+- runFlow:
+    file: import_fixture.yaml
+    env:
+      FIXTURE: gh486-only-exercise.gains
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-name'
+    text: 'Push squat'
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-go-to-plan-button'
+    timeout: 60000
+- tapOn:
+    id: 'train-tab-go-to-plan-button'
+- extendedWaitUntil:
+    visible:
+      id: 'training-suggest-last-training-button'
+    timeout: 30000
+- tapOn:
+    id: 'training-suggest-last-training-button'
+- extendedWaitUntil:
+    visible:
+      id: '^training-exercise-2$'
+    timeout: 60000
+- tapOn:
+    id: 'subtab-train'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-start-button'
+    timeout: 30000
+- tapOn:
+    id: 'train-tab-start-button'
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-reps-input'
+    timeout: 60000
+
+# ===== the only exercise is open: no finish button, "Complete exercise" disabled =====
+- assertVisible:
+    id: 'train-tab-next-button-text'
+    text: '^Complete exercise$'
+- assertVisible:
+    id: 'train-tab-next-button'
+    enabled: false
+- assertNotVisible:
+    id: 'train-tab-finish-button'
+
+# ===== log one set: 5 x 100 kg =====
+- tapOn:
+    id: '^add-workout-set-reps-input$'
+- eraseText: 4
+- inputText: '5'
+- tapOn:
+    id: '^add-workout-set-weight-input$'
+- eraseText: 6
+- inputText: '100'
+- hideKeyboard
+- tapOn:
+    id: 'add-workout-set-submit-button'
+- extendedWaitUntil:
+    visible:
+      id: 'add-workout-set-logged-\d+'
+    timeout: 20000
+# Skip the rest: its animated ring keeps every later command waiting (GH-588).
+- tapOn:
+    id: 'rest-timer-overflow'
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    visible: 'Skip rest'
+    timeout: 10000
+- tapOn:
+    text: 'Skip rest'
+    waitToSettleTimeoutMs: 500
+- extendedWaitUntil:
+    notVisible:
+      id: 'rest-timer-card'
+    timeout: 10000
+- assertVisible:
+    id: 'train-tab-next-button'
+    enabled: true
+
+# ===== completing the last exercise turns the bar into "Finish Training" =====
+- tapOn:
+    id: 'train-tab-next-button'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-finish-button-text'
+      text: '^Finish Training$'
+    timeout: 20000
+- assertNotVisible:
+    id: 'train-tab-next-button'
+- assertVisible: '1 of 1 exercises · 1 set · \d+min'
+- assertVisible:
+    id: '^training-exercise-completed-2$'
+    text: '1 set ✓'
+
+# ===== Finish → Undo: running again, nothing lost =====
+- tapOn:
+    id: 'train-tab-finish-button'
+# Nothing slow between the finish and the Undo tap: the snackbar lasts 8 s.
+- extendedWaitUntil:
+    visible:
+      id: 'training-finished-undo'
+    timeout: 5000
+- assertVisible: 'Training finished'
+- assertVisible:
+    id: 'trainings-overview'
+- tapOn:
+    id: 'training-finished-undo'
+- extendedWaitUntil:
+    visible:
+      id: 'train-tab-finish-button-text'
+      text: '^Finish Training$'
+    timeout: 30000
+- assertNotVisible:
+    id: 'trainings-overview'
+- assertVisible:
+    id: '^training-exercise-completed-2$'
+    text: '1 set ✓'
+- assertVisible:
+    id: 'add-workout-set-weight-input-\d+'
+    text: '100'
+- assertVisible:
+    id: 'add-workout-set-reps-input-\d+'
+    text: '5'
+
+# ===== finish again: after the undo window it stays finished =====
+- tapOn:
+    id: 'train-tab-finish-button'
+- extendedWaitUntil:
+    visible:
+      id: 'trainings-overview'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: 'training-finished-snackbar'
+    timeout: 20000
+- tapOn:
+    id: 'subtab-train'
+- extendedWaitUntil:
+    notVisible:
+      id: 'train-action-bar'
+    timeout: 10000
+- back
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'last-training-card-pressable'
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- assertVisible:
+    id: 'last-training-card-pressable'
+    text: 'Last Training, Push squat, Meso 1 · M6 · D1 · today.*'
