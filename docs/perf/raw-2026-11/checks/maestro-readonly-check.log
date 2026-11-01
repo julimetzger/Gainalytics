@@ -1,0 +1,20 @@
+Picked up JAVA_TOOL_OPTIONS: -Duser.home=/home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/PERF-004/checks/maestro-java-home
+Picked up JAVA_TOOL_OPTIONS: -Duser.home=/home/jmetzger/projects/PowerliftingWorkoutPlanner/.codex-orchestrator/runs/PERF-004/checks/maestro-java-home
+
+Warning: Failed to parse current version
+ > Flow perf004-readonly-check
+Launch app "com.powerliftingworkoutplanner"... COMPLETED
+Assert that "Current micro" is visible... COMPLETED
+Assert that "Push pull" is visible... COMPLETED
+Assert that "Meso 1 · M6 · D1 · 0 exercises", id: next-training-slot is visible... COMPLETED
+Tap on "tab-analyse"... COMPLETED
+Assert that "Your Week at a Glance" is visible... COMPLETED
+Tap on id: analyse-drawer-toggle... COMPLETED
+Tap on "History"... COMPLETED
+Assert that "Sat, 28/02/26" is visible... COMPLETED
+Assert that "Hyperextension.*" is visible... COMPLETED
+Take screenshot ${OUT_DIR}/maestro-history-after... COMPLETED
+
+real	0m43.742s
+user	0m14.310s
+sys	0m3.372s

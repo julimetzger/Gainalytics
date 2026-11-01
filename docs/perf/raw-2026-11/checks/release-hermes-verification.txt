@@ -1,0 +1,15 @@
+# PERF-004 release/Hermes verification 2026-11-01T15:56:36+01:00
+master commit: 7b289e66bf53192cfa1c225a6dbf60798970d203 (= origin/master 7b289e66bf53192cfa1c225a6dbf60798970d203)
+node_modules: npm ci from package-lock (react-native-mmkv 4.3.2, nitro-modules 0.35.9)
+    versionCode=9 minSdk=26 targetSdk=36
+    versionName=0.182
+    lastUpdateTime=2026-11-01 15:56:35
+    pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+run-as: run-as: package not debuggable: com.powerliftingworkoutplanner
+device apk: /data/app/~~XZ-0EQQONGvGTFHZRGxHBA==/com.powerliftingworkoutplanner-Ss4oCmeyChW9jx8TAxcCcg==/base.apk
+device sha256: 1e9de275d1c52a113aae839ec888592207c730394e7a72336556edc98051ceb6
+local  sha256: 1e9de275d1c52a113aae839ec888592207c730394e7a72336556edc98051ceb6
+bundle magic (Hermes bytecode c61fbc03c103191f): c61fbc03c103191f
+   138680  1981-01-01 01:01   lib/arm64-v8a/libhermestooling.so
+  2460728  1981-01-01 01:01   lib/arm64-v8a/libhermesvm.so
+  5858560  1981-01-01 01:01   assets/index.android.bundle

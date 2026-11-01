@@ -1,0 +1,28 @@
+# PERF-004 read-only post-measurement check on the test device (Samsung SM-G986B).
+# NO clearState, NO import: launches the installed release build and asserts the real data is intact:
+# home shows the plan, the newest history entry is still "Sat, 28/02/26" with first card "Hyperextension",
+# and the measurement training (Micro 6 "Push squat") is gone again (Next Training card still "0 exercises").
+appId: com.powerliftingworkoutplanner
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- extendedWaitUntil:
+    visible: "Current micro"
+    timeout: 20000
+- assertVisible: "Push pull"
+- assertVisible:
+    id: "next-training-slot"
+    text: "Meso 1 · M6 · D1 · 0 exercises"
+- tapOn: "tab-analyse"            # bottom tabs expose the testID as content-desc
+- extendedWaitUntil:
+    visible: "Your Week at a Glance"
+    timeout: 15000
+- tapOn:
+    id: "analyse-drawer-toggle"
+- tapOn: "History"
+- extendedWaitUntil:
+    visible: "Sat, 28/02/26"
+    timeout: 15000
+- assertVisible: "Hyperextension.*"
+- takeScreenshot: ${OUT_DIR}/maestro-history-after

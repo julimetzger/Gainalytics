@@ -1,0 +1,13 @@
+2026-11-01T15:58:26+01:00
+  AC powered: false
+  USB powered: true
+  Wireless powered: false
+  status: 2
+  level: 17
+  temperature: 274
+0
+Thermal Status: 0
+    mActiveModeId=9
+Physical size: 1440x3200
+Override size: 720x1600
+samsung/y2sxeea/y2s:13/TP1A.220624.014/G986BXXSNHYB1:user/release-keys
