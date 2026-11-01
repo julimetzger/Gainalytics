@@ -1,7 +1,8 @@
-import React, {memo, useState} from 'react';
+import React, {memo, useCallback} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Card, IconButton, Text, useTheme} from 'react-native-paper';
 import OutsidePressHandler from 'react-native-outside-press';
+import {useRecyclingState} from '@shopify/flash-list';
 import AddWorkoutSet from '../add/AddWorkoutSet';
 import WorkoutSetView from './WorkoutSetView';
 import {dispatchDeleteSetFromWorkout} from '../../../redux/Workout/dispatch/dispatchDeleteSetFromWorkout';
@@ -34,8 +35,10 @@ interface WorkoutViewTileProps {
 const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps) => {
   const theme = useTheme();
   const navigation = useOptionalNavigation();
-  const [showEdit, setShowEdit] = useState(false);
-  const [linkVideoSet, setLinkVideoSet] = useState<WorkoutSet | undefined>(undefined);
+  // GH-672: the History FlashList recycles this tile for other workouts. Local UI state
+  // resets when the workout changes, so a recycled tile never shows another workout's edit mode.
+  const [showEdit, setShowEdit] = useRecyclingState(false, [workoutId]);
+  const [linkVideoSet, setLinkVideoSet] = useRecyclingState<WorkoutSet | undefined>(undefined, [workoutId]);
 
   const workout = useWorkoutById(workoutId);
   const userExercise = useExercise(workout?.exerciseId);
@@ -60,6 +63,9 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
       setShowEdit(shouldShow);
     }
   };
+  // Stable callback: OutsidePressHandler re-registers itself in the app-wide EventProvider
+  // (a state update there) whenever onOutsidePress changes.
+  const hideEdit = useCallback(() => setShowEdit(false), [setShowEdit]);
 
   const effectiveHighlightMode = highlightMode || (workout?.records && (Object.keys(workout.records).pop() as keyof typeof Metric));
 
@@ -75,9 +81,11 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
           onLinked={() => setLinkVideoSet(undefined)}
         />
       )}
+      {/* GH-672: no workout-dependent keys in this tree — they remounted the whole tile
+          (~20 native views per set) every time FlashList recycled the cell. */}
       {editable ? (
-        <OutsidePressHandler onOutsidePress={() => setShowEditWhenEditable(false)} key={workout.id}>
-          <Card mode="outlined" style={styles.card} onLongPress={() => setShowEditWhenEditable(true)} key={workout.id}>
+        <OutsidePressHandler onOutsidePress={hideEdit}>
+          <Card mode="outlined" style={styles.card} onLongPress={() => setShowEditWhenEditable(true)}>
             <View style={styles.exercise}>
               <Text style={[styles.title, {fontSize: theme.fonts.titleMedium.fontSize}]}>{userExercise.name}</Text>
               {showEdit && (
@@ -95,7 +103,7 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
             {showEdit && <AddWorkoutSet onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)} />}
 
             <WorkoutSetView
-              key={workout.id}
+              resetKey={workout.id}
               sets={workout.sets}
               onDelete={(workoutSet) => deleteSetFromWorkout(workoutSet, workout)}
               onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)}
@@ -108,7 +116,7 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
           </Card>
         </OutsidePressHandler>
       ) : (
-        <Card mode="outlined" style={styles.card} onLongPress={() => setShowEditWhenEditable(true)} key={workout.id}>
+        <Card mode="outlined" style={styles.card} onLongPress={() => setShowEditWhenEditable(true)}>
           <View style={styles.exercise}>
             <Text style={[styles.title, {fontSize: theme.fonts.titleMedium.fontSize}]}>{userExercise.name}</Text>
             {showEdit && (
@@ -126,7 +134,7 @@ const WorkoutView = ({workoutId, highlightMode, editable}: WorkoutViewTileProps)
           {showEdit && <AddWorkoutSet onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)} />}
 
           <WorkoutSetView
-            key={workout.id}
+            resetKey={workout.id}
             sets={workout.sets}
             onDelete={(workoutSet) => deleteSetFromWorkout(workoutSet, workout)}
             onSubmit={(workoutSet) => addOrUpdateSetInWorkout(workoutSet, workout)}

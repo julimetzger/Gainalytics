@@ -1,0 +1,1 @@
+  level: 24  temperature: 310

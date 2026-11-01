@@ -1,0 +1,1 @@
+{"frames_gfxinfo": 911, "janky": 3, "janky_pct": 0.33, "framestats_n": 120, "p50_ms": 7.947519, "p90_ms": 9.136321, "p95_ms": 9.624572, "p99_ms": 11.806265, "max_ms": 15.989393, "frames_gt16.7": 0, "frames_gt32": 0, "frames_gt100": 0, "gfx_50th": 7, "gfx_90th": 8, "gfx_95th": 8, "gfx_99th": 12}

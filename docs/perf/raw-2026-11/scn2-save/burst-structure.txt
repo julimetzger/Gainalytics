@@ -1,0 +1,13 @@
+IDLE window 9.7s JS busy 159 ms -> 16.4 ms/s (1.6% of one core)
+gesture 1 bursts (start_ms_after_tap, wall_ms, busy_ms): [(11, 475, 471), (575, 5, 5), (1389, 10, 10), (2402, 10, 10), (3415, 11, 10)]
+gesture 2 bursts (start_ms_after_tap, wall_ms, busy_ms): [(8, 520, 506), (1437, 9, 9), (2450, 10, 10), (3463, 10, 10)]
+gesture 3 bursts (start_ms_after_tap, wall_ms, busy_ms): [(13, 488, 485), (594, 5, 5), (1408, 10, 10), (2421, 18, 10), (3434, 10, 10)]
+gesture 4 bursts (start_ms_after_tap, wall_ms, busy_ms): [(4, 502, 499), (586, 5, 5), (1417, 10, 10), (2430, 10, 10), (3443, 10, 10)]
+gesture 5 bursts (start_ms_after_tap, wall_ms, busy_ms): [(5, 518, 514), (603, 6, 6), (1151, 5, 5), (1417, 10, 10), (2164, 6, 6), (2430, 10, 10), (3443, 10, 10)]
+gesture 6 bursts (start_ms_after_tap, wall_ms, busy_ms): [(7, 535, 531), (622, 5, 5), (1436, 10, 10), (2449, 10, 10), (3462, 10, 10)]
+gesture 7 bursts (start_ms_after_tap, wall_ms, busy_ms): [(16, 539, 537), (630, 5, 5), (1460, 10, 10), (1726, 5, 5), (2474, 10, 10), (2739, 5, 5), (3487, 10, 10), (3753, 5, 5)]
+gesture 8 bursts (start_ms_after_tap, wall_ms, busy_ms): [(15, 551, 546), (647, 5, 5), (1460, 10, 10), (1511, 5, 5), (2474, 10, 10), (3489, 10, 10)]
+gesture 9 bursts (start_ms_after_tap, wall_ms, busy_ms): [(3, 587, 569), (669, 5, 5), (1499, 10, 10), (2297, 5, 5), (2512, 10, 10), (3310, 5, 5), (3525, 10, 10)]
+gesture 10 bursts (start_ms_after_tap, wall_ms, busy_ms): [(10, 585, 577), (659, 5, 5), (1472, 10, 10), (2486, 10, 10), (3083, 5, 5), (3498, 10, 10), (4097, 5, 5)]
+gesture 11 bursts (start_ms_after_tap, wall_ms, busy_ms): [(13, 577, 576), (661, 5, 5), (1492, 10, 10), (1874, 5, 5), (2505, 10, 10), (2887, 5, 5), (3518, 10, 10), (3900, 5, 5)]
+gesture 12 bursts (start_ms_after_tap, wall_ms, busy_ms): [(6, 602, 597), (671, 6, 6), (1485, 11, 11), (1551, 5, 5), (2498, 11, 11), (3511, 11, 11), (3577, 5, 5), (4524, 11, 11), (4590, 5, 5)]

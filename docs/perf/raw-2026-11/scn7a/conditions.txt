@@ -1,0 +1,1 @@
+  level: 22  temperature: 305

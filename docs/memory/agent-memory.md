@@ -1014,3 +1014,42 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Cheap "every exercise done" state: `fixtures/gh486-only-exercise.gains` + "Suggest based on last Training" = a one-exercise training
 **Observation (GH-623):** on the baseline the next slot (M6 · D1 "Push squat") has 10 exercises; logging a set on each in Maestro is way over the 600 s tool cap (the ticking clock and rest ring slow every command). The GH-486 fixture (only "Squat", id 2) imported with `import_fixture.yaml` (`FIXTURE: gh486-only-exercise.gains`, push it to Downloads first) gives the same slot with one exercise: start, log, complete in ~2 min (`train_finish_all_completed.yaml`). For an 8 s snackbar, `takeScreenshot` inside the flow (in `<debug>/.maestro/tests/<ts>/<flow>/takeScreenshot/`) is the only reliable capture; an adb screencap after the flow ends is too late.
 **Apply when:** a ticket needs a training state at the END of a session (all exercises completed, summary, finish), or evidence of a short-lived snackbar.
+### The shared `node_modules` can lag `package.json` — a build from it crashes at JS load
+**Problem (PERF-004):** the worktree's `node_modules` symlink pointed at the main repo's install with `react-native-mmkv` 3.3.3 and no `react-native-nitro-modules`, while master (after the MMKV 4 bump) locks 4.3.2 + nitro 0.35.9. Debug-over-Metro and the release APK both died on start with `[runtime not ready]: TypeError: undefined is not a function` (module factory call), SIGABRT in `mqt_v_js`; Samsung shows its `AppErrorDialogActivity`.
+**Fix / Rule:** before any native build compare `node -p "require('./node_modules/<pkg>/package.json').version"` with `package-lock.json`. If they differ: `rm node_modules` (the symlink only) + `npm ci` inside the worktree (~30 s), then `rm -rf android/build android/app/build android/app/.cxx android/.gradle` — the autolinking cache `android/build/generated/autolinking/autolinking.json` is keyed on the package-lock SHA and keeps the OLD module list (nitro missing) otherwise. Check `grep -c nitro android/build/generated/autolinking/autolinking.json` after configure.
+**Apply when:** a build crashes at JS load right after a dependency bump landed on master, or before any release/perf build.
+
+### Perf runs: make an API-key-gated screen measurable without sending anything
+**Observation (PERF-004):** the AI chat renders no input without credentials. Settings → AI Configuration → save an invalid placeholder key (`sk-ant-…-dummy`) → input appears; type, never tap send; then clear the field and "Save Key" (empty = `deleteAnthropicApiKey`, toast "API key removed"). While a key is set, do NOT open training Analysis / Micro Overview: `useCoachInsight` fetches automatically. The red "Invalid API key" banner in the chat can be persisted `aiChat.error` from an earlier run, not a new request — compare the `aiChat` slice of exports before/after.
+**Apply when:** measuring or screenshotting the AI chat on the test phone.
+
+### Perf comparisons: report control scenarios to prove the device state is comparable
+**Observation (PERF-004):** battery was at 15 % (PERF-001: 89 %). Cold start, calendar, Exercises fling and set-field typing came out within ±2–8 % of the old run, which shows the CPU state is comparable, so the +61 % (set save) / +93 % (Metrics swipe) are app changes. Always list such unchanged series next to the regressions. Single-shot "open" values (n=1 in PERF-001) need 5 cold-start repeats — `measure.sh` series names with `/` need a flat device trace name (`tr / -`), or Perfetto writes nothing.
+**Apply when:** re-measuring performance against an older report.
+
+### Scripts copied from the run dir into `docs/` must keep one output root for writers and readers
+**Problem (PERF-004 round 2, Codex):** `measure.sh`/`scn1.sh`/`scn8.sh` derived their output dir as `$(dirname $(dirname tools))/raw/…`, which only matched the run-dir layout `runs/<T>/raw/tools`. From `docs/perf/raw-2026-11/tools` they wrote to `docs/perf/raw/`, while `aggregate.py` read `docs/perf/raw-2026-11/` and silently aggregated the old data.
+**Fix / Rule:** derive the root from the same anchor in every script (here the parent of `tools/`, with a `PERF004_RAW_DIR` override), and grep for each `dirname` chain before committing tools under a new path.
+**Apply when:** committing measurement or helper scripts out of `.codex-orchestrator/runs/`.
+
+### CI job: no python/node/awk/redirects on the host — run perf scripts and trace analysis ON the emulator
+**Problem (GH-672):** in the GitHub Actions agent job `python3`, `node`, `awk`, `bc`, `bash script.sh`, `>` redirects, `cp -r`/`rsync` and `$VAR` in compound commands all need approval; there is no `trace_processor` either, so the PERF-004 Perfetto tooling cannot run.
+**Fix / Rule:** write `sh` scripts with the Write tool, `adb push` them to `/data/local/tmp` and run `adb shell sh …` (device has `awk`, `atrace`, `unzip`, `seq`). `atrace --async_start -b 40960 -a <pkg> sched view gfx input …` / `--async_stop -o file` gives a text trace; `gestures.py`'s logic as awk: `docs/perf/raw-gh672/tools/gestures.awk`. Copy results back with one `adb pull <dir>` (build the export dir on the device). Long Gradle builds: background `tool.sh rebuild-release` + foreground `timeout 580 tail -f … | grep -m1 BUILD`.
+**Apply when:** any measurement/analysis in the CI agent job.
+
+### FlashList v2: data-dependent `key`s inside a cell defeat recycling; reset per-cell state with `useRecyclingState`
+**Problem (GH-672):** History was already flat with `getItemType`, yet every fling built ~820 native views: `key={workout.id}` on the card tree and value keys (`reps+weight+date`) on set rows remounted the whole cell on each recycle. An inline `onOutsidePress` also re-registered every tile in `react-native-outside-press`'s app-wide `EventProvider` (setState) on each render.
+**Fix / Rule:** no data keys below the cell root (position keys for stateless rows); `useRecyclingState(init, [itemId])` from `@shopify/flash-list` for per-item UI state (edit mode, open editor); stable callbacks into OutsidePressHandler. Views/fling 417 → 50, memory growth halved.
+**Apply when:** any FlashList cell that holds state or keyed children.
+
+### "Busy per fling" (`settle_ms`) ≈ momentum duration in FlashList — measure the floor with placeholder cells first
+**Observation (GH-672):** with every row replaced by a fixed-height empty View, flings still cost ~250 ms JS and `settle_ms` up to 836 ms on the CI emulator: FlashList v2 handles every scroll event in JS and renders bursts ≥ 10 ms < 150 ms apart, so the chain spans the whole momentum. Fixing the cells cut views and JS but not `settle_ms`. Emulator `input swipe` flings are bimodal (short drag vs ~1 s momentum) → use n ≥ 50 and compare means / heavy flings, not single runs.
+**Apply when:** a list-scroll perf ticket sets a `settle_ms` target — run the placeholder control before promising it.
+
+### Same-position before/after screenshots: zero-velocity drags + ffmpeg pixel diff
+**Fix / Rule (GH-672):** `input swipe` (even 1.5 s) leaves residual fling; `input motionevent DOWN/MOVE…/sleep 1/UP` does not (±4 px between runs). Prove "looks the same" with `ffmpeg -i a.png -i b.png -filter_complex "[0:v]crop=W:H:0:Y,format=gray[a];[1:v]crop=W:H:0:Y+off,format=gray[b];[a][b]blend=all_mode=difference,signalstats,metadata=print" -f null -` → `YMAX=0` means pixel-identical; crop below the status bar (clock). Release before/after without `git checkout`: re-apply the old hunks with Edit, check `git diff HEAD~1 -- app` is empty, and prove the installed bundle via `unzip -p <base.apk> assets/index.android.bundle | grep -c <new string>` on the device.
+**Apply when:** an AC says "looks the same / same scroll position" or a perf ticket needs before/after release builds.
+
+### Baseline exercise "Hyperextension " has a trailing blank — Maestro `text:` needs `'Hyperextension.*'`
+**Problem (GH-672):** `assertVisible {text: '13 reps', below: {text: 'Hyperextension'}}` failed although the card was on screen; uiautomator showed `text="Hyperextension "`. Text selectors are full-string regexes (known), so dump the hierarchy before trusting a visible label.
+**Apply when:** selecting History/exercise names from the baseline fixture.

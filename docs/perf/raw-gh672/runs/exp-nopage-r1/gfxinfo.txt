@@ -1,0 +1,67 @@
+Applications Graphics Acceleration Info:
+Uptime: 2034874 Realtime: 2034874
+
+** Graphics info for pid 10776 [com.powerliftingworkoutplanner] **
+
+Stats since: 1992049653449ns
+Total frames rendered: 534
+Janky frames: 501 (93.82%)
+Janky frames (legacy): 534 (100.00%)
+50th percentile: 89ms
+90th percentile: 121ms
+95th percentile: 150ms
+99th percentile: 150ms
+Number Missed Vsync: 375
+Number High input latency: 39
+Number Slow UI thread: 340
+Number Slow bitmap uploads: 168
+Number Slow issue draw commands: 501
+Number Frame deadline missed: 501
+Number Frame deadline missed (legacy): 528
+HISTOGRAM: 5ms=0 6ms=0 7ms=0 8ms=0 9ms=0 10ms=0 11ms=0 12ms=0 13ms=0 14ms=0 15ms=0 16ms=0 17ms=0 18ms=3 19ms=2 20ms=2 21ms=0 22ms=1 23ms=1 24ms=1 25ms=3 26ms=0 27ms=2 28ms=0 29ms=2 30ms=2 31ms=1 32ms=2 34ms=1 36ms=5 38ms=4 40ms=4 42ms=2 44ms=4 46ms=8 48ms=10 53ms=17 57ms=15 61ms=12 65ms=20 69ms=27 73ms=29 77ms=26 81ms=26 85ms=31 89ms=33 93ms=36 97ms=38 101ms=27 105ms=17 109ms=30 113ms=19 117ms=10 121ms=11 125ms=8 129ms=5 133ms=4 150ms=30 200ms=2 250ms=1 300ms=0 350ms=0 400ms=0 450ms=0 500ms=0 550ms=0 600ms=0 650ms=0 700ms=0 750ms=0 800ms=0 850ms=0 900ms=0 950ms=0 1000ms=0 1050ms=0 1100ms=0 1150ms=0 1200ms=0 1250ms=0 1300ms=0 1350ms=0 1400ms=0 1450ms=0 1500ms=0 1550ms=0 1600ms=0 1650ms=0 1700ms=0 1750ms=0 1800ms=0 1850ms=0 1900ms=0 1950ms=0 2000ms=0 2050ms=0 2100ms=0 2150ms=0 2200ms=0 2250ms=0 2300ms=0 2350ms=0 2400ms=0 2450ms=0 2500ms=0 2550ms=0 2600ms=0 2650ms=0 2700ms=0 2750ms=0 2800ms=0 2850ms=0 2900ms=0 2950ms=0 3000ms=0 3050ms=0 3100ms=0 3150ms=0 3200ms=0 3250ms=0 3300ms=0 3350ms=0 3400ms=0 3450ms=0 3500ms=0 3550ms=0 3600ms=0 3650ms=0 3700ms=0 3750ms=0 3800ms=0 3850ms=0 3900ms=0 3950ms=0 4000ms=0 4050ms=0 4100ms=0 4150ms=0 4200ms=0 4250ms=0 4300ms=0 4350ms=0 4400ms=0 4450ms=0 4500ms=0 4550ms=0 4600ms=0 4650ms=0 4700ms=0 4750ms=0 4800ms=0 4850ms=0 4900ms=0 4950ms=0
+50th gpu percentile: 4950ms
+90th gpu percentile: 4950ms
+95th gpu percentile: 4950ms
+99th gpu percentile: 4950ms
+GPU HISTOGRAM: 1ms=0 2ms=0 3ms=0 4ms=0 5ms=0 6ms=0 7ms=0 8ms=0 9ms=0 10ms=0 11ms=0 12ms=0 13ms=0 14ms=1 15ms=2 16ms=5 17ms=4 18ms=9 19ms=8 20ms=10 21ms=10 22ms=14 23ms=10 24ms=29 25ms=7 4950ms=425
+
+Pipeline=Skia (OpenGL)
+Memory policy:
+  Max surface area: 2592000
+  Max resource usage: 124.42MB (x48)
+  Background retention: 50% (altUiHidden = true)
+  GPU Context timeout: 10
+Contexts: 1 (stopped = 0)
+CPU Caches:
+  Glyph Cache: 360.11 KB (1 entry)
+  Shadows: 5.78 KB (1 entry)
+  Glyph Count: 65 
+Total CPU memory usage:
+  374666 bytes, 365.88 KB (0.00 bytes is purgeable)
+GPU Caches:
+  Other:
+    Other: 116.12 KB (1 entry)
+    Buffer Object: 2.50 KB (4 entries)
+    StencilAttachment: 4.00 KB (1 entry)
+  Image:
+    Texture: 2.86 MB (1 entry)
+  Scratch:
+    Texture: 4.90 MB (4 entries)
+    RenderTarget: 5.00 KB (1 entry)
+    Buffer Object: 174.00 KB (5 entries)
+Total GPU memory usage:
+  8446540 bytes, 8.06 MB (5.86 MB is purgeable)
+
+Profile data in ms:
+
+	com.powerliftingworkoutplanner/com.powerliftingworkoutplanner.MainActivity/android.view.ViewRootImpl@dbdf97d (visibility=0)
+View hierarchy:
+
+  com.powerliftingworkoutplanner/com.powerliftingworkoutplanner.MainActivity/android.view.ViewRootImpl@dbdf97d
+  753 views, 1529.05 kB of render nodes
+
+
+Total ViewRootImpl   : 1
+Total attached Views : 753
+Total RenderNode     : 1529.05 kB (used) / 4560.68 kB (capacity)
+

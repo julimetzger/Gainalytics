@@ -1,0 +1,103 @@
+Applications Graphics Acceleration Info:
+Uptime: 57269909 Realtime: 442148353
+
+** Graphics info for pid 31801 [com.powerliftingworkoutplanner] **
+
+Stats since: 57262228805655ns
+Total frames rendered: 7
+Janky frames: 2 (28.57%)
+Janky frames (legacy): 3 (42.86%)
+50th percentile: 14ms
+90th percentile: 73ms
+95th percentile: 73ms
+99th percentile: 73ms
+Number Missed Vsync: 0
+Number High input latency: 4
+Number Slow UI thread: 2
+Number Slow bitmap uploads: 0
+Number Slow issue draw commands: 1
+Number Frame deadline missed: 2
+Number Frame deadline missed (legacy): 2
+HISTOGRAM: 5ms=1 6ms=1 7ms=0 8ms=0 9ms=1 10ms=0 11ms=0 12ms=0 13ms=0 14ms=1 15ms=0 16ms=0 17ms=0 18ms=0 19ms=1 20ms=0 21ms=0 22ms=0 23ms=0 24ms=0 25ms=0 26ms=0 27ms=0 28ms=0 29ms=0 30ms=0 31ms=0 32ms=0 34ms=0 36ms=0 38ms=0 40ms=1 42ms=0 44ms=0 46ms=0 48ms=0 53ms=0 57ms=0 61ms=0 65ms=0 69ms=0 73ms=1 77ms=0 81ms=0 85ms=0 89ms=0 93ms=0 97ms=0 101ms=0 105ms=0 109ms=0 113ms=0 117ms=0 121ms=0 125ms=0 129ms=0 133ms=0 150ms=0 200ms=0 250ms=0 300ms=0 350ms=0 400ms=0 450ms=0 500ms=0 550ms=0 600ms=0 650ms=0 700ms=0 750ms=0 800ms=0 850ms=0 900ms=0 950ms=0 1000ms=0 1050ms=0 1100ms=0 1150ms=0 1200ms=0 1250ms=0 1300ms=0 1350ms=0 1400ms=0 1450ms=0 1500ms=0 1550ms=0 1600ms=0 1650ms=0 1700ms=0 1750ms=0 1800ms=0 1850ms=0 1900ms=0 1950ms=0 2000ms=0 2050ms=0 2100ms=0 2150ms=0 2200ms=0 2250ms=0 2300ms=0 2350ms=0 2400ms=0 2450ms=0 2500ms=0 2550ms=0 2600ms=0 2650ms=0 2700ms=0 2750ms=0 2800ms=0 2850ms=0 2900ms=0 2950ms=0 3000ms=0 3050ms=0 3100ms=0 3150ms=0 3200ms=0 3250ms=0 3300ms=0 3350ms=0 3400ms=0 3450ms=0 3500ms=0 3550ms=0 3600ms=0 3650ms=0 3700ms=0 3750ms=0 3800ms=0 3850ms=0 3900ms=0 3950ms=0 4000ms=0 4050ms=0 4100ms=0 4150ms=0 4200ms=0 4250ms=0 4300ms=0 4350ms=0 4400ms=0 4450ms=0 4500ms=0 4550ms=0 4600ms=0 4650ms=0 4700ms=0 4750ms=0 4800ms=0 4850ms=0 4900ms=0 4950ms=0
+50th gpu percentile: 2ms
+90th gpu percentile: 3ms
+95th gpu percentile: 3ms
+99th gpu percentile: 3ms
+GPU HISTOGRAM: 1ms=1 2ms=5 3ms=1 4ms=0 5ms=0 6ms=0 7ms=0 8ms=0 9ms=0 10ms=0 11ms=0 12ms=0 13ms=0 14ms=0 15ms=0 16ms=0 17ms=0 18ms=0 19ms=0 20ms=0 21ms=0 22ms=0 23ms=0 24ms=0 25ms=0 4950ms=0
+
+Pipeline=Skia (OpenGL)
+CPU Caches:
+  Glyph Cache: 223.65 KB (1 entry)
+  Shadows: 1.35 KB (1 entry)
+  Glyph Count: 81 
+Total CPU memory usage:
+  230393 bytes, 224.99 KB (0.00 bytes is purgeable)
+GPU Caches:
+  Other:
+    Other: 112.59 KB (1 entry)
+    Buffer Object: 2.50 KB (4 entries)
+    StencilAttachment: 2.00 KB (1 entry)
+  Image:
+    Texture: 3.15 MB (12 entries)
+  Scratch:
+    RenderTarget: 1.00 MB (4 entries)
+    Texture: 2.00 MB (3 entries)
+    Buffer Object: 78.00 KB (2 entries)
+Layer Info:
+    GlLayer size 515x910
+  Layers Total         1830.66 KB (numLayers = 1)
+Total GPU memory usage:
+  6646848 bytes, 6.34 MB (3.14 MB is purgeable)
+
+Profile data in ms:
+
+	com.powerliftingworkoutplanner/com.powerliftingworkoutplanner.MainActivity/android.view.ViewRootImpl@469944b (visibility=0)
+Window: com.powerliftingworkoutplanner/com.powerliftingworkoutplanner.MainActivity
+Stats since: 57262228805194ns
+Total frames rendered: 7
+Janky frames: 2 (28.57%)
+Janky frames (legacy): 3 (42.86%)
+50th percentile: 14ms
+90th percentile: 73ms
+95th percentile: 73ms
+99th percentile: 73ms
+Number Missed Vsync: 0
+Number High input latency: 4
+Number Slow UI thread: 2
+Number Slow bitmap uploads: 0
+Number Slow issue draw commands: 1
+Number Frame deadline missed: 2
+Number Frame deadline missed (legacy): 2
+HISTOGRAM: 5ms=1 6ms=1 7ms=0 8ms=0 9ms=1 10ms=0 11ms=0 12ms=0 13ms=0 14ms=1 15ms=0 16ms=0 17ms=0 18ms=0 19ms=1 20ms=0 21ms=0 22ms=0 23ms=0 24ms=0 25ms=0 26ms=0 27ms=0 28ms=0 29ms=0 30ms=0 31ms=0 32ms=0 34ms=0 36ms=0 38ms=0 40ms=1 42ms=0 44ms=0 46ms=0 48ms=0 53ms=0 57ms=0 61ms=0 65ms=0 69ms=0 73ms=1 77ms=0 81ms=0 85ms=0 89ms=0 93ms=0 97ms=0 101ms=0 105ms=0 109ms=0 113ms=0 117ms=0 121ms=0 125ms=0 129ms=0 133ms=0 150ms=0 200ms=0 250ms=0 300ms=0 350ms=0 400ms=0 450ms=0 500ms=0 550ms=0 600ms=0 650ms=0 700ms=0 750ms=0 800ms=0 850ms=0 900ms=0 950ms=0 1000ms=0 1050ms=0 1100ms=0 1150ms=0 1200ms=0 1250ms=0 1300ms=0 1350ms=0 1400ms=0 1450ms=0 1500ms=0 1550ms=0 1600ms=0 1650ms=0 1700ms=0 1750ms=0 1800ms=0 1850ms=0 1900ms=0 1950ms=0 2000ms=0 2050ms=0 2100ms=0 2150ms=0 2200ms=0 2250ms=0 2300ms=0 2350ms=0 2400ms=0 2450ms=0 2500ms=0 2550ms=0 2600ms=0 2650ms=0 2700ms=0 2750ms=0 2800ms=0 2850ms=0 2900ms=0 2950ms=0 3000ms=0 3050ms=0 3100ms=0 3150ms=0 3200ms=0 3250ms=0 3300ms=0 3350ms=0 3400ms=0 3450ms=0 3500ms=0 3550ms=0 3600ms=0 3650ms=0 3700ms=0 3750ms=0 3800ms=0 3850ms=0 3900ms=0 3950ms=0 4000ms=0 4050ms=0 4100ms=0 4150ms=0 4200ms=0 4250ms=0 4300ms=0 4350ms=0 4400ms=0 4450ms=0 4500ms=0 4550ms=0 4600ms=0 4650ms=0 4700ms=0 4750ms=0 4800ms=0 4850ms=0 4900ms=0 4950ms=0
+50th gpu percentile: 2ms
+90th gpu percentile: 3ms
+95th gpu percentile: 3ms
+99th gpu percentile: 3ms
+GPU HISTOGRAM: 1ms=1 2ms=5 3ms=1 4ms=0 5ms=0 6ms=0 7ms=0 8ms=0 9ms=0 10ms=0 11ms=0 12ms=0 13ms=0 14ms=0 15ms=0 16ms=0 17ms=0 18ms=0 19ms=0 20ms=0 21ms=0 22ms=0 23ms=0 24ms=0 25ms=0 4950ms=0
+
+
+
+---PROFILEDATA---
+Flags,FrameTimelineVsyncId,IntendedVsync,Vsync,InputEventId,HandleInputStart,AnimationStart,PerformTraversalsStart,DrawStart,FrameDeadline,FrameInterval,FrameStartTime,SyncQueued,SyncStart,IssueDrawCommandsStart,SwapBuffers,FrameCompleted,DequeueBufferDuration,QueueBufferDuration,GpuCompleted,SwapBuffersCompleted,DisplayPresentTime,CommandSubmissionCompleted,
+0,17084626,57265692803715,57265692803715,-233697168,57265693538076,57265693538884,57265710618768,57265711510653,57265709470381,57265693535884,16609820,57265716675576,57265716939884,57265718769653,57265731851076,57265733478884,82653,223347,57265733376884,57265733478884,57265758728268,57265731851076,
+0,17084633,57265709413535,57265709413535,0,57265720077730,57265720078307,57265721064730,57265721301307,57265742690021,57265720075268,16609820,57265721625499,57265733704768,57265733944615,57265734998153,57265735960153,24385,230231,57265735960153,57265735742115,57265775237691,57265734998153,
+0,17084852,57266207623591,57266207623591,0,57266208521922,57266208522460,57266269491614,57266269664460,57266224290257,57266208519960,16636337,57266274203345,57266274400576,57266276617691,57266280867306,57266282419922,85346,209153,57266282419922,57266282066037,57266306739076,57266280867306,
+0,17084859,57266274168939,57266274168939,0,57266289936691,57266289937230,57266290157268,57266290305191,57266307471942,57266289935037,16636337,57266290600422,57266290693383,57266290986537,57266292443653,57266293585806,25423,297923,57266293585806,57266293349345,57246576544513,57266292443653,
+0,17084924,57266422928809,57266422928809,0,57266423534806,57266423535383,57266424163037,57266424412576,57266439595475,57266423532076,16611851,57266424519806,57266426468845,57266427586152,57266431532537,57266434320922,79269,707692,57266433828306,57266434320922,57246593128436,57266431532537,
+0,17084932,57266439540660,57266439540660,0,57266440320883,57266440322037,57266440872576,57266441133768,57266456207326,57266440317422,16611851,57266441276383,57266441429229,57266441758845,57266443417999,57266444550114,63577,273808,57266444550114,57266444325076,57246609718474,57266443417999,
+0,17084947,57266472751423,57266472751423,0,57266473422037,57266473422729,57266473777883,57266474026114,57266489418089,57266473419576,16611456,57266475686114,57266475812037,57266476747191,57266478020576,57266479400152,35961,262654,57266479400152,57266478702306,57246626314897,57266478020576,
+---PROFILEDATA---
+
+
+View hierarchy:
+
+  com.powerliftingworkoutplanner/com.powerliftingworkoutplanner.MainActivity/android.view.ViewRootImpl@469944b
+  408 views, 746,58 kB of render nodes
+
+
+Total ViewRootImpl   : 1
+Total attached Views : 408
+Total RenderNode     : 746,58 kB (used) / 1775,80 kB (capacity)
+
+  ProcessConfig(#0)={1.0 262mcc1mnc [de_DE] ldltr sw411dp w411dp h838dp 280dpi nrml long hdr widecg port night finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 720, 1600) mAppBounds=Rect(0, 49 - 720, 1516) mMaxBounds=Rect(0, 0 - 720, 1600) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0 mPopOver=off mStageConfig=undefined mFreeformTaskPinningState=unpinned mFreeformStashState=undefined mDexTaskDockingState=undefined} s.622 fontWeightAdjustment=0 ff=0 bf=0 bts=0 desktop/d dm/n dc/d ?dcui themeSeq=0 nightDim=0}
+  Application ResourcesConfig={1.0 262mcc1mnc [de_DE] ldltr sw411dp w411dp h838dp 280dpi nrml long hdr widecg port night finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 720, 1600) mAppBounds=Rect(0, 49 - 720, 1516) mMaxBounds=Rect(0, 0 - 720, 1600) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0 mPopOver=off mStageConfig=undefined mFreeformTaskPinningState=unpinned mFreeformStashState=undefined mDexTaskDockingState=undefined} s.622 fontWeightAdjustment=0 ff=0 bf=0 bts=0 desktop/d dm/n dc/d ?dcui themeSeq=0 nightDim=0}

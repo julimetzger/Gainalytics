@@ -1,15 +1,17 @@
 import {TouchableOpacity, View} from 'react-native';
 import {DataTable, Divider, Icon, Text, useTheme} from 'react-native-paper';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
+import {useRecyclingState} from '@shopify/flash-list';
 import AddWorkoutSet from '../add/AddWorkoutSet';
 import {calculateMetricValue} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
 import {Metric} from "../../../models/Metric";
 import {formatPlanFieldValue} from '../../../utils/planRange';
 
-const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode, onLinkVideo, linkedAnalyses, onVideoPress}: WorkoutSetViewProps) => {
+const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMode, onLinkVideo, linkedAnalyses, onVideoPress, resetKey}: WorkoutSetViewProps) => {
   const theme = useTheme();
-  const [setToUpdate, setSetToUpdate] = useState<WorkoutSet>();
+  // GH-672: the set being edited resets when the (recycled) parent shows another workout.
+  const [setToUpdate, setSetToUpdate] = useRecyclingState<WorkoutSet | undefined>(undefined, [resetKey]);
   let indexOfSelectedWorkout = setToUpdate ? sets.indexOf(setToUpdate) : undefined;
   let workoutsBefore: WorkoutSet[] = [];
   let workoutsAfter: WorkoutSet[];
@@ -21,24 +23,18 @@ const WorkoutSetView = ({sets, onDelete, onSubmit, editable = true, highLightMod
   }
   useEffect(() => {}, [sets]);
   let highlightValue = (highLightMode && highLightMode !== Metric.FREQUENCY) ? calculateMetricValue(sets, highLightMode) : undefined;
-  function showSets(set: WorkoutSet) {
+  // GH-672: rows are keyed by position, not by their values. Value keys remounted every row
+  // (~20 native views each) whenever a recycled History cell showed another workout; the rows
+  // hold no state, so a re-render with the new set is enough (also for edited ranges, GH-63).
+  function showSets(set: WorkoutSet, position: number) {
     // Fix 3: prefer DONE analysis (has vlPercent/drift) over queued/failed for the same set
     const linkedEntry = linkedAnalyses?.find(la => la.setIndex === set.index && (la.vlPercent != null || la.drift != null))
       ?? linkedAnalyses?.find(la => la.setIndex === set.index);
     const hasVl = linkedEntry?.vlPercent != null;
     const hasDrift = linkedEntry?.drift != null;
     const hasMetrics = hasVl || hasDrift;
-    const rowKey =
-      set.index!! +
-      set.reps +
-      set.rir +
-      set.weight +
-      // GH-63: a planned set's range must be part of the key, otherwise editing
-      // only the upper bound leaves the row rendering the previous target.
-      `-${set.repsMax ?? ''}-${set.rirMax ?? ''}-${set.weightMax ?? ''}` +
-      (set.date ? new Date(set.date).getTime().toString() : '');
     return (
-      <React.Fragment key={rowKey}>
+      <React.Fragment key={position}>
         {/* Fix 1: suppress the row's own bottom border when metrics follow; Divider renders after metrics instead */}
         <DataTable.Row
           style={{minHeight: 35, ...(hasMetrics ? {borderBottomWidth: 0} : {})}}
@@ -150,6 +146,8 @@ interface WorkoutSetViewProps {
   onLinkVideo?: (set: WorkoutSet) => void;
   linkedAnalyses?: LinkedAnalysisEntry[];
   onVideoPress?: (analysisId: number) => void;
+  /** Identity of the shown workout; a change discards the open set editor (recycled list cells). */
+  resetKey?: number;
 }
 
 export default WorkoutSetView;

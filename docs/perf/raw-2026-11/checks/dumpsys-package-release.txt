@@ -1,0 +1,359 @@
+Activity Resolver Table:
+  Schemes:
+      gainalytics:
+        21cb76f com.powerliftingworkoutplanner/.MainActivity filter a3a1905
+          Action: "android.intent.action.VIEW"
+          Category: "android.intent.category.DEFAULT"
+          Category: "android.intent.category.BROWSABLE"
+          Scheme: "gainalytics"
+          Authority: "chatgpt-signin": -1
+
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        21cb76f com.powerliftingworkoutplanner/.MainActivity filter 4f81c7c
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+      androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE:
+        d3a5d5a com.powerliftingworkoutplanner/.healthconnect.HealthConnectRationaleActivity filter 7e75b8b
+          Action: "androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"
+      android.intent.action.VIEW_PERMISSION_USAGE:
+        3e88468 com.powerliftingworkoutplanner/.healthconnect.ViewPermissionUsageActivity filter 2c84081
+          Action: "android.intent.action.VIEW_PERMISSION_USAGE"
+          Category: "android.intent.category.HEALTH_PERMISSIONS"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      android.intent.action.BATTERY_OKAY:
+        cf57f14 com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryNotLowProxy filter eb763bd
+          Action: "android.intent.action.BATTERY_OKAY"
+          Action: "android.intent.action.BATTERY_LOW"
+      android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED:
+        d6ce0f3 com.powerliftingworkoutplanner/app.notifee.core.AlarmPermissionBroadcastReceiver filter 2d801b0
+          Action: "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"
+      android.intent.action.ACTION_POWER_DISCONNECTED:
+        7b0f526 com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryChargingProxy filter 26e2567
+          Action: "android.intent.action.ACTION_POWER_CONNECTED"
+          Action: "android.intent.action.ACTION_POWER_DISCONNECTED"
+      android.intent.action.QUICKBOOT_POWERON:
+        6edb62d com.powerliftingworkoutplanner/app.notifee.core.RebootBroadcastReceiver filter 4867762
+          Action: "android.intent.action.BOOT_COMPLETED"
+          Action: "android.intent.action.QUICKBOOT_POWERON"
+          Action: "com.htc.intent.action.QUICKBOOT_POWERON"
+        49c8829 com.powerliftingworkoutplanner/app.notifee.core.NotificationAlarmReceiver filter d8a7ae
+          Action: "android.intent.action.BOOT_COMPLETED"
+          Action: "android.intent.action.QUICKBOOT_POWERON"
+          Action: "com.htc.intent.action.QUICKBOOT_POWERON"
+      com.htc.intent.action.QUICKBOOT_POWERON:
+        6edb62d com.powerliftingworkoutplanner/app.notifee.core.RebootBroadcastReceiver filter 4867762
+          Action: "android.intent.action.BOOT_COMPLETED"
+          Action: "android.intent.action.QUICKBOOT_POWERON"
+          Action: "com.htc.intent.action.QUICKBOOT_POWERON"
+        49c8829 com.powerliftingworkoutplanner/app.notifee.core.NotificationAlarmReceiver filter d8a7ae
+          Action: "android.intent.action.BOOT_COMPLETED"
+          Action: "android.intent.action.QUICKBOOT_POWERON"
+          Action: "com.htc.intent.action.QUICKBOOT_POWERON"
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        d79d798 com.powerliftingworkoutplanner/androidx.profileinstaller.ProfileInstallReceiver filter db53657
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      android.intent.action.DEVICE_STORAGE_LOW:
+        5a73db2 com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.ConstraintProxy$StorageNotLowProxy filter 6adb103
+          Action: "android.intent.action.DEVICE_STORAGE_LOW"
+          Action: "android.intent.action.DEVICE_STORAGE_OK"
+      android.net.conn.CONNECTIVITY_CHANGE:
+        f357880 com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.ConstraintProxy$NetworkStateProxy filter 77b7eb9
+          Action: "android.net.conn.CONNECTIVITY_CHANGE"
+      android.intent.action.DEVICE_STORAGE_OK:
+        5a73db2 com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.ConstraintProxy$StorageNotLowProxy filter 6adb103
+          Action: "android.intent.action.DEVICE_STORAGE_LOW"
+          Action: "android.intent.action.DEVICE_STORAGE_OK"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        d79d798 com.powerliftingworkoutplanner/androidx.profileinstaller.ProfileInstallReceiver filter 4214bf1
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      android.app.action.APP_BLOCK_STATE_CHANGED:
+        dea994f com.powerliftingworkoutplanner/app.notifee.core.BlockStateBroadcastReceiver filter 9b388dc
+          Action: "android.app.action.APP_BLOCK_STATE_CHANGED"
+          Action: "android.app.action.NOTIFICATION_CHANNEL_BLOCK_STATE_CHANGED"
+          Action: "android.app.action.NOTIFICATION_CHANNEL_GROUP_BLOCK_STATE_CHANGED"
+      android.intent.action.BATTERY_LOW:
+        cf57f14 com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryNotLowProxy filter eb763bd
+          Action: "android.intent.action.BATTERY_OKAY"
+          Action: "android.intent.action.BATTERY_LOW"
+      android.intent.action.TIMEZONE_CHANGED:
+        c4782fe com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.RescheduleReceiver filter 2d05a5f
+          Action: "android.intent.action.BOOT_COMPLETED"
+          Action: "android.intent.action.TIME_SET"
+          Action: "android.intent.action.TIMEZONE_CHANGED"
+      android.intent.action.TIME_SET:
+        c4782fe com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.RescheduleReceiver filter 2d05a5f
+          Action: "android.intent.action.BOOT_COMPLETED"
+          Action: "android.intent.action.TIME_SET"
+          Action: "android.intent.action.TIMEZONE_CHANGED"
+      androidx.profileinstaller.action.SKIP_FILE:
+        d79d798 com.powerliftingworkoutplanner/androidx.profileinstaller.ProfileInstallReceiver filter 4b6f3d6
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        d79d798 com.powerliftingworkoutplanner/androidx.profileinstaller.ProfileInstallReceiver filter b00d544
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+      android.intent.action.BOOT_COMPLETED:
+        c4782fe com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.RescheduleReceiver filter 2d05a5f
+          Action: "android.intent.action.BOOT_COMPLETED"
+          Action: "android.intent.action.TIME_SET"
+          Action: "android.intent.action.TIMEZONE_CHANGED"
+        6edb62d com.powerliftingworkoutplanner/app.notifee.core.RebootBroadcastReceiver filter 4867762
+          Action: "android.intent.action.BOOT_COMPLETED"
+          Action: "android.intent.action.QUICKBOOT_POWERON"
+          Action: "com.htc.intent.action.QUICKBOOT_POWERON"
+        49c8829 com.powerliftingworkoutplanner/app.notifee.core.NotificationAlarmReceiver filter d8a7ae
+          Action: "android.intent.action.BOOT_COMPLETED"
+          Action: "android.intent.action.QUICKBOOT_POWERON"
+          Action: "com.htc.intent.action.QUICKBOOT_POWERON"
+      android.app.action.NOTIFICATION_CHANNEL_GROUP_BLOCK_STATE_CHANGED:
+        dea994f com.powerliftingworkoutplanner/app.notifee.core.BlockStateBroadcastReceiver filter 9b388dc
+          Action: "android.app.action.APP_BLOCK_STATE_CHANGED"
+          Action: "android.app.action.NOTIFICATION_CHANNEL_BLOCK_STATE_CHANGED"
+          Action: "android.app.action.NOTIFICATION_CHANNEL_GROUP_BLOCK_STATE_CHANGED"
+      android.intent.action.ACTION_POWER_CONNECTED:
+        7b0f526 com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryChargingProxy filter 26e2567
+          Action: "android.intent.action.ACTION_POWER_CONNECTED"
+          Action: "android.intent.action.ACTION_POWER_DISCONNECTED"
+      android.app.action.NOTIFICATION_CHANNEL_BLOCK_STATE_CHANGED:
+        dea994f com.powerliftingworkoutplanner/app.notifee.core.BlockStateBroadcastReceiver filter 9b388dc
+          Action: "android.app.action.APP_BLOCK_STATE_CHANGED"
+          Action: "android.app.action.NOTIFICATION_CHANNEL_BLOCK_STATE_CHANGED"
+          Action: "android.app.action.NOTIFICATION_CHANNEL_GROUP_BLOCK_STATE_CHANGED"
+      androidx.work.diagnostics.REQUEST_DIAGNOSTICS:
+        714d10a com.powerliftingworkoutplanner/androidx.work.impl.diagnostics.DiagnosticsReceiver filter 34a3d7b
+          Action: "androidx.work.diagnostics.REQUEST_DIAGNOSTICS"
+      androidx.work.impl.background.systemalarm.UpdateProxies:
+        2b99cac com.powerliftingworkoutplanner/androidx.work.impl.background.systemalarm.ConstraintProxyUpdateReceiver filter fcc4d75
+          Action: "androidx.work.impl.background.systemalarm.UpdateProxies"
+
+Service Resolver Table:
+  Non-Data Actions:
+      androidx.health.platform.client.ACTION_BIND_SDK_SERVICE:
+        20b90ba com.powerliftingworkoutplanner/androidx.health.platform.client.impl.sdkservice.HealthDataSdkService filter ee17b6b
+          Action: "androidx.health.platform.client.ACTION_BIND_SDK_SERVICE"
+
+Domain verification status:
+
+Permissions:
+  Permission [com.powerliftingworkoutplanner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (863157a):
+    sourcePackage=com.powerliftingworkoutplanner
+    uid=14724 gids=[] type=0 prot=signature
+    perm=PermissionInfo{917812b com.powerliftingworkoutplanner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+
+Registered ContentProviders:
+  com.powerliftingworkoutplanner/androidx.core.content.FileProvider:
+    Provider{569ef21 com.powerliftingworkoutplanner/androidx.core.content.FileProvider}
+  com.powerliftingworkoutplanner/androidx.startup.InitializationProvider:
+    Provider{9a37634 com.powerliftingworkoutplanner/androidx.startup.InitializationProvider}
+  com.powerliftingworkoutplanner/io.invertase.notifee.NotifeeInitProvider:
+    Provider{8d55c5d com.powerliftingworkoutplanner/io.invertase.notifee.NotifeeInitProvider}
+
+ContentProvider Authorities:
+  [com.powerliftingworkoutplanner.fileshare]:
+    Provider{569ef21 com.powerliftingworkoutplanner/androidx.core.content.FileProvider}
+      applicationInfo=ApplicationInfo{1ead9d2 com.powerliftingworkoutplanner}
+  [com.powerliftingworkoutplanner.notifee-init-provider]:
+    Provider{8d55c5d com.powerliftingworkoutplanner/io.invertase.notifee.NotifeeInitProvider}
+      applicationInfo=ApplicationInfo{9c8eaa3 com.powerliftingworkoutplanner}
+  [com.powerliftingworkoutplanner.androidx-startup]:
+    Provider{9a37634 com.powerliftingworkoutplanner/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{f1bc1a0 com.powerliftingworkoutplanner}
+
+Key Set Manager:
+  [com.powerliftingworkoutplanner]
+      Signing KeySets: 104
+
+Packages:
+  Package [com.powerliftingworkoutplanner] (5795b82):
+    userId=14724
+    pkg=Package{719c293 com.powerliftingworkoutplanner}
+    codePath=/data/app/~~XZ-0EQQONGvGTFHZRGxHBA==/com.powerliftingworkoutplanner-Ss4oCmeyChW9jx8TAxcCcg==
+    resourcePath=/data/app/~~XZ-0EQQONGvGTFHZRGxHBA==/com.powerliftingworkoutplanner-Ss4oCmeyChW9jx8TAxcCcg==
+    legacyNativeLibraryDir=/data/app/~~XZ-0EQQONGvGTFHZRGxHBA==/com.powerliftingworkoutplanner-Ss4oCmeyChW9jx8TAxcCcg==/lib
+    extractNativeLibs=false
+    primaryCpuAbi=arm64-v8a
+    secondaryCpuAbi=null
+    cpuAbiOverride=null
+    versionCode=9 minSdk=26 targetSdk=36
+    minExtensionVersions=[]
+    versionName=0.182
+    usesNonSdkApi=false
+    splits=[base]
+    apkSigningVersion=2
+    flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PARTIALLY_DIRECT_BOOT_AWARE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    queriesPackages=[com.google.android.apps.healthdata]
+    dataDir=/data/user/0/com.powerliftingworkoutplanner
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    usesOptionalNativeLibraries:
+      libOpenCL.so
+      libOpenCL-car.so
+      libOpenCL-pixel.so
+    usesLibraryFiles:
+      libOpenCL.so
+    timeStamp=2026-11-01 15:56:35
+    lastUpdateTime=2026-11-01 15:56:35
+    packageSource=0
+    signatures=PackageSignatures{69033be version:2, signatures:[51ed3f60], past signatures:[]}
+    installPermissionsFixed=true
+    pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    declared permissions:
+      com.powerliftingworkoutplanner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature, INSTALLED
+    requested permissions:
+      android.permission.INTERNET
+      android.permission.SCHEDULE_EXACT_ALARM
+      android.permission.POST_NOTIFICATIONS
+      android.permission.FOREGROUND_SERVICE
+      android.permission.FOREGROUND_SERVICE_DATA_SYNC
+      android.permission.health.READ_EXERCISE
+      android.permission.health.WRITE_EXERCISE
+      android.permission.health.READ_WEIGHT
+      android.permission.health.READ_HEALTH_DATA_HISTORY
+      android.permission.health.READ_SLEEP
+      android.permission.health.READ_STEPS
+      android.permission.USE_BIOMETRIC
+      android.permission.USE_FINGERPRINT
+      android.permission.WRITE_EXTERNAL_STORAGE
+      android.permission.ACCESS_NETWORK_STATE
+      android.permission.WAKE_LOCK
+      android.permission.RECEIVE_BOOT_COMPLETED
+      com.powerliftingworkoutplanner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+      android.permission.VIBRATE
+      android.permission.ACCESS_NOTIFICATION_POLICY
+      android.permission.READ_PHONE_STATE
+      android.permission.READ_EXTERNAL_STORAGE
+    install permissions:
+      android.permission.ACCESS_NOTIFICATION_POLICY: granted=true
+      android.permission.FOREGROUND_SERVICE: granted=true
+      android.permission.RECEIVE_BOOT_COMPLETED: granted=true
+      android.permission.INTERNET: granted=true
+      com.powerliftingworkoutplanner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+      android.permission.ACCESS_NETWORK_STATE: granted=true
+      android.permission.USE_FINGERPRINT: granted=true
+      android.permission.SCHEDULE_EXACT_ALARM: granted=true
+      android.permission.VIBRATE: granted=true
+      android.permission.USE_BIOMETRIC: granted=true
+      android.permission.WAKE_LOCK: granted=true
+    User 0: ceDataInode=1397693 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 instant=false virtual=false
+      installReason=0
+      firstInstallTime=2026-07-13 12:01:35
+      uninstallReason=0
+      overlay paths:
+        /product/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk
+      legacy overlay paths:
+        /product/overlay/NavigationBarMode3Button/NavigationBarMode3ButtonOverlay.apk
+      gids=[3003]
+      runtime permissions:
+        android.permission.POST_NOTIFICATIONS: granted=true, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.READ_EXTERNAL_STORAGE: granted=true, flags=[ REVOKE_WHEN_REQUESTED|USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED|RESTRICTION_INSTALLER_EXEMPT|RESTRICTION_UPGRADE_EXEMPT]
+        android.permission.READ_PHONE_STATE: granted=true, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.WRITE_EXTERNAL_STORAGE: granted=true, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED|RESTRICTION_INSTALLER_EXEMPT|RESTRICTION_UPGRADE_EXEMPT]
+      enabledComponents:
+        androidx.work.impl.background.systemjob.SystemJobService
+
+Queries:
+  system apps queryable: false
+  queries via forceQueryable:
+  queries via package name:
+    com.powerliftingworkoutplanner:
+      com.google.android.apps.healthdata
+  queries via component:
+    com.samsung.android.bixby.agent:
+      com.powerliftingworkoutplanner
+    com.samsung.android.app.ledbackcover:
+      com.powerliftingworkoutplanner
+    com.android.settings.intelligence:
+      com.powerliftingworkoutplanner
+    com.facebook.katana:
+      com.powerliftingworkoutplanner
+    com.google.android.as:
+      com.powerliftingworkoutplanner
+    com.microsoft.office.outlook:
+      com.powerliftingworkoutplanner
+    de.axelspringer.yana.zeropage:
+      com.powerliftingworkoutplanner
+    jp.co.canon.bsd.ad.pixmaprint:
+      com.powerliftingworkoutplanner
+    com.amazon.kindle:
+      com.powerliftingworkoutplanner
+    de.fiducia.smartphone.android.banking.vr:
+      com.powerliftingworkoutplanner
+    com.google.android.play.games:
+      com.powerliftingworkoutplanner
+    com.adobe.reader:
+      com.powerliftingworkoutplanner
+    com.kobil.dab:
+      com.powerliftingworkoutplanner
+    de.ard.audiothek:
+      com.powerliftingworkoutplanner
+    com.wireguard.android:
+      com.powerliftingworkoutplanner
+    com.fddb:
+      com.powerliftingworkoutplanner
+    com.instagram.android:
+      com.powerliftingworkoutplanner
+    com.sony.songpal.mdr:
+      com.powerliftingworkoutplanner
+    com.google.android.apps.healthdata:
+      com.powerliftingworkoutplanner
+  queryable via interaction:
+    User 0:
+      com.powerliftingworkoutplanner:
+        [com.android.providers.downloads,com.android.providers.downloads.ui,com.android.providers.media,com.android.mtp,com.samsung.android.secsoundpicker,com.samsung.android.mtp,com.samsung.android.providers.media]
+        com.google.android.providers.media.module
+  queryable via uses-library:
+
+Dexopt state:
+  [com.powerliftingworkoutplanner]
+    path: /data/app/~~XZ-0EQQONGvGTFHZRGxHBA==/com.powerliftingworkoutplanner-Ss4oCmeyChW9jx8TAxcCcg==/base.apk
+      arm64: [status=verify] [reason=install]
+  BgDexopt state:
+    enabled:true
+    mDexOptThread:null
+    mDexOptCancellingThread:null
+    mFinishedPostBootUpdate:true
+    mLastExecutionStatus:0
+    mLastExecutionStartTimeMs:32327385
+    mLastExecutionDurationIncludingSleepMs:130660
+    mLastExecutionStartUptimeMs:30495095
+    mLastExecutionDurationMs:130660
+    now:438096143
+    mLastCancelledPackages:
+    mFailedPackageNamesPrimary:
+    mFailedPackageNamesSecondary:
+
+Compiler stats:
+  [com.powerliftingworkoutplanner]
+     base.apk - 1114
+
+Historical install Logging info(9/10):
+  [com.google.android.youtube]
+    1793511736807: "Ver":"1561307650", "Session":"0", "Write":"6443", "Write":"248", "Write":"218", "Write":"1139", "Wri
+    te":"19867", "Verifing":"5885", "Verified":"633", "Commit":"0", "end":"7962"}, 
+  [com.google.android.googlequicksearchbox]
+    1793511626661: "Ver":"301827746", "Session":"0", "Write":"17198", "Write":"798", "Write":"1430", "Write":"4764", "Ve
+    rifing":"47165", "Verified":"2142", "Commit":"0", "end":"20176"}, 
+  [com.powerliftingworkoutplanner]
+    1793544994386: "Ver":"9", "Session":"0", "Write":"5", "Verifing":"1509", "Verified":"16", "Commit":"0", "end":"1798"
+    }, 
+  [com.google.android.apps.tachyon]
+    1793511784996: "Ver":"7746407", "Session":"0", "Write":"1939", "Write":"122", "Write":"122", "Write":"614", "Write":
+    "10147", "Verifing":"10811", "Verified":"524", "Commit":"0", "end":"5614"}, 
+  [com.microsoft.office.outlook]
+    1793511808753: "Ver":"72642122", "Session":"0", "Write":"2080", "Write":"701", "Write":"4700", "Write":"164", "Write
+    ":"137", "Verifing":"38036", "Verified":"1281", "Commit":"0", "end":"5314"}, 
+  [com.sennheiser.control]
+    1793511698027: "Ver":"175297", "Session":"0", "Write":"2570", "Write":"117", "Write":"1961", "Write":"18", "Write":"
+    8952", "Verifing":"25149", "Verified":"285", "Commit":"0", "end":"580"}, 
+  [com.android.chrome]
+    1793511770629: "Ver":"807807304", "Session":"0", "Write":"2323", "Write":"94", "Write":"24", "Write":"2111", "Write"
+    :"50", "Write":"1264", "Write":"28", "Verifing":"8825", "Verified":"656", "Commit":"0", "end":"1957"}, 
+  [com.google.android.apps.chromecast.app]
+    1793511715323: "Ver":"30588145", "Session":"0", "Write":"1603", "Write":"878", "Write":"83", "Write":"54", "Write":"
+    17191", "Verifing":"3374", "Verified":"1150", "Commit":"0", "end":"520"}, 
+
+HeimdAllFS state:
+  HeimdAllFS does not supported.
