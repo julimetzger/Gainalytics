@@ -22,9 +22,10 @@ themselves. Every file named below must be in `/sdcard/Download` —
 | F3 Planning | `plan_create_meso_template.yaml` | Plan new Training → edit mode, plan name required, Add Meso/Training, last meso not deletable, "From template" without duplicates | imports baseline |
 | | `plan_edit_sets.yaml` | "Edit plan" of a planned training: EDITING PLAN, Add Set carry-over, weight 100 → 105, decimal RIR, "+" opens the exercise search sheet directly ("Done · 11 selected", search filters/refills) | imports baseline; `goto_micro69_push.yaml` (MODE=edit) |
 | | `plan_overflow_actions.yaml` | ⋮ menu per state: Clear planned training, empty training not startable, older training without the option; GH-544 "Plan with AI" with a fixed answer (echo key `sk-ant-e2e-echo-answer`, no provider call): error keeps the slot unplanned, swap / set removed / set added / RIR −1 planned as returned | imports baseline; `set_dummy_api_key.yaml` (`API_KEY`) |
-| F4 Training execution | `train_start_log_finish.yaml` | Card → Train → Start → log set (100/5, RIR 0,5 → 125 kg / 1.5) → Finish; status labels; exercise switch clears input | imports baseline |
+| F4 Training execution | `train_start_log_finish.yaml` | Card → Train → Start → log set (100/5, RIR 0,5 → 125 kg / 1.5); status labels; exercise switch clears input; GH-623 action bar "Next: Stationary lunges" (no finish button mid-training, tile "1 set ✓"), finish via ⋮ → Undo → same sets → finish again | imports baseline |
 | | `train_rest_timer_1rm.yaml` | Rest timer "target 01:30" shown once, no restart on correcting a logged set, Title Case menu labels, ESTIMATED 1RM 127 kg | imports baseline; `goto_micro69_push.yaml`, `open_rest_menu.yaml` |
 | | `train_delete_exercise_running.yaml` | Crash fix GH-486: deleting an exercise of the running training; dialog counters; training continues and finishes | imports baseline |
+| | `train_finish_all_completed.yaml` | GH-623: one-exercise training — "Complete exercise" disabled until a set is logged, then "Finish Training" with "1 of 1 exercises · 1 set · Nmin"; finish → snackbar Undo → still running → finish → stays finished (Last Training card) | imports `gh486-only-exercise.gains` (`import_fixture.yaml`) |
 | F5 Training analysis & edit | `training_analysis_compare.yaml` | FINISHED training opens (GH-117/119); vs Plan / vs last / vs Micro / plan position values; scroll keeps the duration; GH-645: single-training Coach Insight notice without a key (none on Plan), link opens Settings → AI Configuration, dummy key offline → card with "Network error" | baseline, read-only, no key stored (saves a dummy key in airplane mode and removes it again); `goto_micro2_push.yaml` |
 | | `micro_overview_compare.yaml` | Micro swipe keeps the sub-tab; Micro 2 Overview Total/Plan compare values, English labels; GH-527: Micro 1 plan without removed exercises (41 sets, Back 12, Chest 0.8 in map + Muscle Overview), 1RM/intensity per muscle (Micro 1 Total vs Plan), "–" for muscles without sets (Micro 4 · Pull); GH-644: Micro 6 Total vs Plan Trainings counter equals the Home counter (1/4, "3 open · 3 not planned"); GH-645: Coach Insight notice without a key | baseline, read-only (sets and restores the Muscle Overview columns) |
 | | `training_edit_delete.yaml` | FINISHED training in edit mode (times card, Add Workout, records modal); deleting lands on the Plan tab | imports baseline |
@@ -64,7 +65,7 @@ and a fresh emulator/app start against system ANRs at the end of long runs.
 |---|---|---|
 | 1 | `00_import_baseline`, `home_dashboard`, `settings_general`, `training_analysis_compare`, `micro_overview_compare`, `analyse_dashboard_drilldown`, `analyse_graphics_metrics`, `analyse_drawer_screens`, `video_import_playback`, `video_list_filters_vl`, `video_compare` | 27 |
 | 2 | `start_existing_data`, `home_new_plan_current`, `plan_create_meso_template`, `plan_edit_sets`, `plan_overflow_actions`, `train_start_log_finish`, `body_weight` | 27 |
-| 3 | `train_rest_timer_1rm`, `train_delete_exercise_running`, `training_edit_delete`, `exercises_list_detail`, `exercise_edit_alternatives_delete`, `muscles_manage`, `muscles_exercise_editor` | 27 |
+| 3 | `train_rest_timer_1rm`, `train_delete_exercise_running`, `train_finish_all_completed` (GH-623, ~4 min; still to be added to `maestro-nightly.yml`), `training_edit_delete`, `exercises_list_detail`, `exercise_edit_alternatives_delete`, `muscles_manage`, `muscles_exercise_editor` | 31 |
 | 4 | `settings_appearance`, `data_strong_export_roundtrip`, `data_strong_import_records`, `ai_settings_provider`, `ai_chat_context`, `ai_chat_errors_history`, `start_onboarding_template` (clearState, last) | 27 |
 
 Per-flow timeout: 15 min (longest green run 7 min; `video_compare` waits up to 2 × 10 min for its
@@ -120,10 +121,11 @@ counted as target flows.
 - `fixtures/gh393-compare-labels.gains` (video_compare), `fixtures/gh415-workout-linked-analysis.gains`
   + `fixtures/gh415-result.json` (video_list_filters_vl).
 - `fixtures/gh496/` — 4 Strong CSVs + README (data_strong_*).
+- `fixtures/gh486-only-exercise.gains` — the baseline reduced to "Squat" (train_finish_all_completed).
 - `__tests__/testdata/gh391_planned_fixture.gains`, `gh391_newplan_fixture.gains`,
   `gh508_chat_fixture.gains` — AI chat fixtures.
 - Currently unused by any flow: `fixtures/gh322-unplanned-evidence.gains`,
-  `fixtures/gh486-only-exercise.gains`, `fixtures/gh486-legacy-no-exercises.gains`,
+  `fixtures/gh486-legacy-no-exercises.gains`,
   `fixtures/gh526-unnamed-training.gains`, `fixtures/legacy-nameless-plan.gains`.
 
 ## Rules for new flows

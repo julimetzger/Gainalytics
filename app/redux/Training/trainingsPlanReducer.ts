@@ -248,12 +248,13 @@ const trainingsPlanReducer = (state: NormalizedState<TrainingsPlan> = initialSta
     // training has been finished in between, which then stays the last one.
     case 'REOPEN_TRAINING': {
       if (!trainingsPlan || trainingsPlan.lastTraining !== action.trainingsId) return state;
-      const {lastTraining, ...reopenedPlan} = trainingsPlan;
+      const reopenedPlan: TrainingsPlan = {...trainingsPlan, lastTraining: action.previousLastTraining};
+      if (action.previousLastTraining === undefined) delete reopenedPlan.lastTraining;
       return {
         ...state,
         byId: {
           ...state.byId,
-          [action.trainingsPlanId]: action.previousLastTraining !== undefined ? {...reopenedPlan, lastTraining: action.previousLastTraining} : reopenedPlan,
+          [action.trainingsPlanId]: reopenedPlan,
         },
       };
     }

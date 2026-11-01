@@ -41,6 +41,7 @@ appId: com.powerliftingworkoutplanner
 - runFlow: train_start_log_finish.yaml
 - runFlow: train_rest_timer_1rm.yaml
 - runFlow: train_delete_exercise_running.yaml
+- runFlow: train_finish_all_completed.yaml
 
 # F5 training edit
 - runFlow: training_edit_delete.yaml
