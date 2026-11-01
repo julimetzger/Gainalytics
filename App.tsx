@@ -10,9 +10,7 @@ import HealthConnectLifecycle from './app/components/healthConnect/HealthConnect
 import {toastConfig} from './app/components/common/toastConfig';
 import {EventProvider} from 'react-native-outside-press';
 import {registerTranslation} from 'react-native-paper-dates';
-import {useSettings} from './app/redux/settings/use/useSettings';
-import {useThemeMode} from './app/redux/settings/use/useThemeMode';
-import {buildThemes} from './app/theme/buildThemes';
+import {useAppTheme} from './app/redux/settings/use/useAppTheme';
 import Toast from 'react-native-toast-message';
 import {AppState, LogBox, StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
@@ -67,10 +65,8 @@ const {store, persistor} = configureStore();
 
 
 const AppWithPersist = () => {
-  let appSettings = useSettings();
-  const {scheme} = useThemeMode();
-  const {DarkTheme, LightThemeCombined} = buildThemes(appSettings?.palette);
-  let paperThemes = scheme === 'light' ? LightThemeCombined : DarkTheme;
+  // GH-674: stable across unrelated settings changes — a new theme object re-renders every mounted screen.
+  const {scheme, theme: paperThemes} = useAppTheme();
 
   // Register foreground event handler for notification taps while the app is active.
   useEffect(() => {

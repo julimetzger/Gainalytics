@@ -8,7 +8,8 @@ import {useTrainings} from '../redux/Training/use/useTrainings';
 import {TrainingsState} from '../models/TrainingsState';
 import useExerciseRecord from '../redux/Effects/useExerciseRecord';
 import Toast from 'react-native-toast-message';
-import {useSettings} from '../redux/settings/use/useSettings';
+import {useSelector} from 'react-redux';
+import {GlobalState} from '../redux/rootReducer';
 import {useExercise} from '../redux/Exercises/use/useExercise';
 import {useNavigation} from '@react-navigation/native';
 
@@ -16,14 +17,15 @@ const Tab = createMaterialBottomTabNavigator();
 
 export const BottomTabs = () => {
   const navigation = useNavigation();
-  const settings = useSettings();
+  // GH-674: only the toast toggle — the whole settings slice re-rendered the tab navigator on every settings change.
+  const disableToasts = useSelector((state: GlobalState) => state.settings?.toggles?.disableToasts);
   const allTrainings = useTrainings();
   let useExerciseRecord1 = useExerciseRecord();
   let exercise = useExercise(useExerciseRecord1?.exerciseId);
   let isTrainingStarted = allTrainings.some((A) => A.state === TrainingsState.STARTED);
 
   React.useEffect(() => {
-    if (useExerciseRecord1 && exercise && !settings.toggles?.disableToasts) {
+    if (useExerciseRecord1 && exercise && !disableToasts) {
       Toast.show({
         type: 'success',
         text1: 'New Record!',
@@ -41,7 +43,7 @@ export const BottomTabs = () => {
         },
       });
     }
-  }, [useExerciseRecord1, exercise, navigation, settings.toggles?.disableToasts]);
+  }, [useExerciseRecord1, exercise, navigation, disableToasts]);
 
   return (
     <Tab.Navigator initialRouteName="Training" shifting={true} backBehavior="history">
