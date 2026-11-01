@@ -1,6 +1,7 @@
 import trainingsReducer from '../../../app/redux/Training/trainingsReducer';
 import trainingsPlanReducer from '../../../app/redux/Training/trainingsPlanReducer';
 import {planHealthConnectSync} from '../../../app/utils/healthConnect/healthConnectSync';
+import {HealthConnectSessionInput, healthConnectFingerprint} from '../../../app/utils/healthConnect/healthConnectMapping';
 import {NormalizedState} from '../../../app/redux/normalizedState';
 import {Training} from '../../../app/models/entities/Training';
 import {TrainingsPlan} from '../../../app/models/entities/TrainingsPlan';
@@ -90,9 +91,18 @@ describe('GH-623 Health Connect across finish → undo → finish', () => {
   it('writes once, deletes on undo and rewrites the same record — never a second entry', () => {
     const running = trainings();
     const finished = trainingsReducer(running, finish);
-    const [firstWrite] = planHealthConnectSync(build(running, {}), build(finished, {}), finish, NOW);
-    expect(firstWrite.kind).toBe('write');
-    const written = {3: firstWrite.kind === 'write' ? firstWrite.fingerprint : ''};
+    const session = {
+      clientRecordId: 'gainalytics-training-3',
+      clientRecordVersion: NOW,
+      title: 'Gainalytics: Squat',
+      notes: 'Squat: 5 × 100 kg @ RIR 2',
+      startMs: START,
+      endMs: END,
+      segments: [{startMs: START, endMs: END, segmentType: 'SQUAT', repetitions: 5, exerciseName: 'Squat'}],
+    } satisfies HealthConnectSessionInput;
+    const firstWrite = {kind: 'write', trainingId: 3, session, fingerprint: healthConnectFingerprint(session)};
+    expect(planHealthConnectSync(build(running, {}), build(finished, {}), finish, NOW)).toEqual([firstWrite]);
+    const written = {3: firstWrite.fingerprint};
 
     const reopened = trainingsReducer(finished, reopen(2));
     expect(planHealthConnectSync(build(finished, written), build(reopened, written), reopen(2), NOW)).toEqual([
