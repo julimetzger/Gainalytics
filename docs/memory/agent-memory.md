@@ -1043,3 +1043,17 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Jest:** RN's `jest/mocks/AppState` makes `addEventListener` a `jest.fn` whose `remove()` does nothing, so `mock.calls` also holds listeners of effects that were already cleaned up. Calling all of them double-counts reads. Call only the newest `'change'` listener with `'active'`, inside `act` (see `AIChatTabRecoveryContext.spec.tsx`).
 **Device:** any app-owned activity started over MainActivity (e.g. `am start -W -n <pkg>/.healthconnect.HealthConnectTestDataActivity …`) pauses it, so RN fires `background`, then `active` when the activity `finish()`es. Run a Maestro flow WITHOUT `launchApp` afterwards to prove the mounted screen reloaded (GH-619: chat preview went from 20113 to 25000 steps).
 **Apply when:** data from a provider can change while the app is in the background and a mounted screen caches it.
+
+### Re-encoding `screenrecord` output: add `-enc_time_base -1`, or the frames stutter
+**Problem (GH-665):** `ffmpeg -i rec.mp4 -vsync passthrough -c:v libx264 …` rounds screenrecord's VFR timestamps to 1/<guessed rate> (49/6): 750 frames had only 218 distinct times, so a 30 fps render showed ~6 fps. All GH-485 captures had it.
+**Fix / Rule:** add `-enc_time_base -1` (keep the input time base). Check with `ffprobe -show_entries packet=pts_time`: distinct ≈ total. Also, a static screen produces no frames, so an input-side `-ss` into such a pause jumps to the next change. Seek output-side after `-vf fps=30`.
+**Apply when:** turning device recordings into evidence or video footage.
+
+### Health Connect on the test phone: "Rate limited request quota has been exceeded" that doesn't recover
+**Observation (GH-665):** after an evening of HC seeding/reads, every app read (sleep, steps, weight) was rejected. Neither an HC force-stop, an app reinstall (new uid), 20 idle min, nor midnight helped (`logcat | grep HC_QuotaBucketRateLimit`; the package is REDACTED). The debug helper's reads were rejected too. Keep HC calls per run minimal (seed once per day, open the chat once) and expect the quota to be shared by every worker using the phone that day.
+**Apply when:** a ticket needs live HC reads on the real phone.
+
+### Shared `node_modules` behind master after the mmkv 4 bump: app crashes "undefined is not a function" at start
+**Problem (GH-665):** the repo-root `node_modules` (worktree symlink) still had react-native-mmkv 3.3.3, but master needs ^4.3.2 (`createMMKV`). Both the APK and Metro used it, and the app showed a RedBox `[runtime not ready]`.
+**Fix / Rule:** `rm node_modules` (the symlink) and `npm ci` in the worktree (22 s). Delete `android/build/generated/autolinking` + `android/app/build/generated/autolinking` (else "project ':react-native-nitro-modules' could not be found"), rebuild, restart Metro on the worktree. Don't delete dirs Metro watches while it runs (ENOENT crash).
+**Apply when:** a red screen with `createMMKV` / nitro errors right after a master merge.
