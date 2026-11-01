@@ -77,6 +77,7 @@ imports the baseline itself (needs `tool.sh push-baseline` first, replaces the a
 - `logcat <label>` — dump logcat to `.agent-run/logcat/<label>.txt`
 - `metro-start` — start Metro on :8081
 - `rebuild` — Gradle debug build (x86_64) + install
+- `rebuild-release` — release build (x86_64, Hermes, no Metro, not debuggable, debug-key signed) + `install -r`, for performance measurements; `run-as` does not work on it
 
 ## Live AI calls (real test key)
 

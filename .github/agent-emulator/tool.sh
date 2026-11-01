@@ -13,6 +13,7 @@
 #   tool.sh logcat [label]         dump logcat to .agent-run/logcat/<label>.txt
 #   tool.sh metro-start            start Metro on :8081 (the emulator reaches it via 10.0.2.2)
 #   tool.sh rebuild                assembleDebug (x86_64 only) + install
+#   tool.sh rebuild-release        assembleRelease (x86_64, debug-key signed, Hermes, no Metro) + install -r
 #   tool.sh setup-status           background setup state (building/booting/installing/ready/failed:*)
 #   tool.sh wait-ready [timeout_s] block until the background setup is ready (APK built, emulator
 #                                  booted, app installed); exit 1 + log tail if it failed, exit 3 if
@@ -187,6 +188,16 @@ case "${cmd}" in
     (cd "${ROOT}/android" && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --console=plain && ./gradlew --stop)
     "$0" install
     ;;
+  rebuild-release)
+    # Release build (Hermes bytecode, no Metro, not debuggable) for performance measurements,
+    # signed with the DEBUG key via the env vars build.gradle reads (same key as the debug build,
+    # so `install -r` over it keeps the app data). Never a store-signed build: no secrets here.
+    "$0" wait-ready 3000
+    (cd "${ROOT}/android" && ANDROID_RELEASE_STORE_FILE=debug.keystore ANDROID_RELEASE_PASSWORD=android \
+      ANDROID_RELEASE_KEY_ALIAS=androiddebugkey ANDROID_RELEASE_KEY_PASSWORD=android \
+      ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --console=plain && ./gradlew --stop)
+    "$0" install "${ROOT}/android/app/build/outputs/apk/release/app-release.apk"
+    ;;
   push-baseline)
     fixture="$(realpath "${1:-${ROOT}/__tests__/e2e/maestro/fixtures/baseline.gains}")"
     S="$(serial)"
@@ -213,7 +224,7 @@ case "${cmd}" in
     echo "Imported $(basename "${fixture}")"
     ;;
   *)
-    sed -n '2,27p' "$0"
+    sed -n '2,28p' "$0"
     exit 2
     ;;
 esac
