@@ -1,13 +1,19 @@
 import React from 'react';
-import {render} from '@testing-library/react-native';
+import {fireEvent, render} from '@testing-library/react-native';
 import WorkoutSetView from '../../../../app/components/Workout/show/WorkoutSetView';
 import {WorkoutSet} from '../../../../app/models/entities/WorkoutSet';
+
+const mockRowMounted = jest.fn();
 
 jest.mock('react-native-paper', () => {
   const React = require('react');
   const {Text: RNText, TouchableOpacity, View} = require('react-native');
 
   function DataTableRow({children, onPress, style}: any) {
+    // GH-672: counts mounts, so tests can prove rows are re-used instead of rebuilt.
+    React.useEffect(() => {
+      mockRowMounted();
+    }, []);
     return (
       <TouchableOpacity testID="dt-row" onPress={onPress} style={style}>
         <View style={{flexDirection: 'row'}}>{children}</View>
@@ -212,5 +218,62 @@ describe('WorkoutSetView', () => {
         weight: '100 kg',
       });
     });
+
+    it('shows an edited upper bound although the row is not remounted', () => {
+      const {rerender, getByTestId} = render(<WorkoutSetView sets={[rangedSet]} editable={false} />);
+      mockRowMounted.mockClear();
+
+      rerender(<WorkoutSetView sets={[{...rangedSet, repsMax: 15}]} editable={false} />);
+
+      expect(collectRowText(getByTestId('dt-row'))).toEqual('8-15 reps1-3 RIR100-110 kg');
+      expect(mockRowMounted).not.toHaveBeenCalled();
+    });
+  });
+
+  // GH-672: the History FlashList recycles a workout tile for another workout.
+  describe('recycled for another workout', () => {
+    const otherWorkoutSets: WorkoutSet[] = [
+      {index: 1, reps: 3, rir: 0, weight: 140},
+      {index: 2, reps: 3, rir: 1, weight: 135},
+      {index: 3, reps: 4, rir: 1, weight: 130},
+    ];
+
+    beforeEach(() => mockRowMounted.mockClear());
+
+    it('re-uses the existing rows and only mounts the additional ones', () => {
+      const {rerender, getAllByTestId} = render(<WorkoutSetView sets={[set1, set2]} resetKey={10} />);
+      expect(mockRowMounted).toHaveBeenCalledTimes(2);
+      mockRowMounted.mockClear();
+
+      rerender(<WorkoutSetView sets={otherWorkoutSets} resetKey={11} />);
+
+      expect(mockRowMounted).toHaveBeenCalledTimes(1);
+      const rowTexts = getAllByTestId('dt-row').map((row) => collectRowText(row));
+      expect(rowTexts).toEqual(['3 reps0 RIR140 kg', '3 reps1 RIR135 kg', '4 reps1 RIR130 kg']);
+    });
+
+    it('closes the open set editor when resetKey changes', () => {
+      const {rerender, getAllByTestId, queryByTestId} = render(<WorkoutSetView sets={[set1, set2]} resetKey={10} />);
+      fireEvent.press(getAllByTestId('dt-row')[1]);
+      expect(queryByTestId('add-workout-set')).toBeTruthy();
+
+      rerender(<WorkoutSetView sets={otherWorkoutSets} resetKey={11} />);
+
+      expect(queryByTestId('add-workout-set')).toBeNull();
+      expect(getAllByTestId('dt-row')).toHaveLength(3);
+    });
+
+    it('keeps the open set editor while resetKey stays the same', () => {
+      const {rerender, getAllByTestId, queryByTestId} = render(<WorkoutSetView sets={[set1, set2]} resetKey={10} />);
+      fireEvent.press(getAllByTestId('dt-row')[1]);
+
+      rerender(<WorkoutSetView sets={[set1, set2]} resetKey={10} />);
+
+      expect(queryByTestId('add-workout-set')).toBeTruthy();
+      expect(getAllByTestId('dt-row')).toHaveLength(1);
+    });
   });
 });
+
+const collectRowText = (node: any): string =>
+  (node.children ?? []).map((child: any) => (typeof child === 'string' ? child : collectRowText(child))).join('');

@@ -12,6 +12,7 @@ import {Workout} from '../../../../app/models/entities/Workout';
 const mockDeleteWorkoutSpy = jest.fn();
 const mockDeleteSetSpy = jest.fn();
 const mockAddOrUpdateSetSpy = jest.fn();
+const mockOutsidePressHandlers: Array<() => void> = [];
 
 jest.mock('../../../../app/redux/Workout/use/useWorkoutById', () => ({
   useWorkoutById: jest.fn(),
@@ -93,14 +94,17 @@ jest.mock('react-native-outside-press', () => {
   const React = require('react');
   const {TouchableOpacity, View, Text} = require('react-native');
 
-  return ({children, onOutsidePress}: {children: React.ReactNode; onOutsidePress: () => void}) => (
-    <View>
-      <TouchableOpacity testID="outside-press" onPress={onOutsidePress}>
-        <Text>Outside</Text>
-      </TouchableOpacity>
-      {children}
-    </View>
-  );
+  return ({children, onOutsidePress}: {children: React.ReactNode; onOutsidePress: () => void}) => {
+    mockOutsidePressHandlers.push(onOutsidePress);
+    return (
+      <View>
+        <TouchableOpacity testID="outside-press" onPress={onOutsidePress}>
+          <Text>Outside</Text>
+        </TouchableOpacity>
+        {children}
+      </View>
+    );
+  };
 });
 
 jest.mock('react-native-paper', () => {
@@ -179,6 +183,34 @@ describe('WorkoutView', () => {
 
     expect(mockAddOrUpdateSetSpy).toHaveBeenNthCalledWith(1, {index: 99, reps: 8, rir: 2, weight: 85}, workout);
     expect(mockAddOrUpdateSetSpy).toHaveBeenNthCalledWith(2, {index: 1, reps: 5, rir: 1, weight: 100}, workout);
+  });
+
+  // GH-672: the History FlashList recycles the tile for another workout instead of remounting it.
+  it('leaves edit mode when the tile is recycled for another workout', () => {
+    const otherWorkout: Workout = {...workout, id: 11, sets: [{index: 1, reps: 3, rir: 0, weight: 140}]};
+    mockedUseWorkoutById.mockImplementation((id) => (id === 11 ? otherWorkout : workout));
+    const {getByTestId, queryByTestId, rerender} = render(<WorkoutView workoutId={10} editable />);
+    fireEvent(getByTestId('workout-card'), 'longPress');
+    expect(getByTestId('icon-button-delete')).toBeTruthy();
+
+    rerender(<WorkoutView workoutId={11} editable />);
+
+    expect(queryByTestId('icon-button-delete')).toBeNull();
+    expect(queryByTestId('add-workout-set-submit')).toBeNull();
+    fireEvent(getByTestId('workout-card'), 'longPress');
+    fireEvent.press(getByTestId('icon-button-delete'));
+    expect(mockDeleteWorkoutSpy).toHaveBeenCalledWith(otherWorkout);
+  });
+
+  // OutsidePressHandler re-registers in the app-wide EventProvider whenever the callback changes.
+  it('passes the same outside-press callback on every render', () => {
+    mockOutsidePressHandlers.length = 0;
+    const {getByTestId, rerender} = render(<WorkoutView workoutId={10} editable />);
+    fireEvent(getByTestId('workout-card'), 'longPress');
+    rerender(<WorkoutView workoutId={11} editable />);
+
+    expect(mockOutsidePressHandlers.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(mockOutsidePressHandlers).size).toBe(1);
   });
 
   it('does not enter edit mode when editable is false', () => {
