@@ -60,7 +60,7 @@ jest.mock('../../../app/redux/Training/dispatch/execute/dispatchFinishTraining',
   dispatchFinishTraining: () => mockFinishTraining,
 }));
 jest.mock('../../../app/redux/Training/dispatch/execute/dispatchReopenTraining', () => ({
-  dispatchReopenTraining: () => mockReopenTraining,
+  useReopenTraining: () => mockReopenTraining,
 }));
 jest.mock('../../../app/redux/Workout/dispatch/dispatchFinalizeWorkout', () => ({
   dispatchFinalizeWorkout: () => mockFinalizeWorkout,
@@ -986,15 +986,16 @@ describe('TrainingsPlanNode — GH-623 action bar and finish undo', () => {
   it('"Next" completes the selected exercise like the former "Add Workout" and moves on', () => {
     useWorkoutById.mockImplementation((id?: number) => (id === 100 ? {id: 100, exerciseId: 1, sets: [{index: 1}]} : undefined));
     useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.STARTED), doneWorkoutIds: {1: 100}});
+    jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
     const {getByTestId} = render(<TrainingsPlanNode {...defaultProps} />);
 
     fireEvent.press(getByTestId('train-tab-next-button'));
 
-    expect(mockFinalizeWorkout).toHaveBeenCalledTimes(1);
-    expect(mockFinalizeWorkout.mock.calls[0][1]).toBe(100);
+    expect(mockFinalizeWorkout.mock.calls).toEqual([[new Date(1_000_000), 100]]);
     expect(getByTestId('train-action-bar-progress').props.children).toBe('Exercise 2 of 2');
     expect(getByTestId('train-tab-next-button-text').props.children).toBe('Next: Squat');
     expect(mockScheduleFinishNotification).toHaveBeenCalledTimes(1);
+    (Date.now as jest.Mock).mockRestore();
   });
 
   it('"Next" on an exercise without logged sets only moves on and finalizes nothing', () => {
@@ -1053,5 +1054,18 @@ describe('TrainingsPlanNode — GH-623 action bar and finish undo', () => {
     expect(mockReopenTraining).toHaveBeenCalledWith(10, 1, undefined);
     expect(mockSchedulePauseNotification).not.toHaveBeenCalled();
     (Date.now as jest.Mock).mockRestore();
+  });
+
+  it('swiping to another micro ends the undo window instead of reopening a training off screen', () => {
+    useTrainingInTrainingsPlan.mockReturnValue(mkTraining(TrainingsState.STARTED));
+    const {getByTestId, queryByTestId, rerender} = render(<TrainingsPlanNode {...defaultProps} overflowVisible={true} />);
+    fireEvent.press(getByTestId('overflow-finish'));
+    expect(getByTestId('training-finished-snackbar')).toBeTruthy();
+
+    useTrainingInTrainingsPlan.mockReturnValue({...mkTraining(TrainingsState.FINISHED), end: 1_000_000});
+    rerender(<TrainingsPlanNode {...defaultProps} isCurrent={false} />);
+
+    expect(queryByTestId('training-finished-snackbar')).toBeNull();
+    expect(mockReopenTraining).not.toHaveBeenCalled();
   });
 });

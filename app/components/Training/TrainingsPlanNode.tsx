@@ -26,7 +26,7 @@ import {useExerciseByIds} from '../../redux/Exercises/use/useExerciseByIds';
 import {TrainingsPlan} from '../../models/entities/TrainingsPlan';
 import {dispatchModifyExercisesInTraining} from '../../redux/Training/dispatch/general/dispatchModifyExercisesInTraining';
 import {dispatchFinishTraining} from '../../redux/Training/dispatch/execute/dispatchFinishTraining';
-import {dispatchReopenTraining} from '../../redux/Training/dispatch/execute/dispatchReopenTraining';
+import {useReopenTraining} from '../../redux/Training/dispatch/execute/dispatchReopenTraining';
 import {dispatchFinalizeWorkout} from '../../redux/Workout/dispatch/dispatchFinalizeWorkout';
 import TrainingActionBar from './execute/TrainingActionBar';
 import Toast from 'react-native-toast-message';
@@ -171,10 +171,15 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   }, shallowEqual);
   let modifyExercisesInTraining = dispatchModifyExercisesInTraining();
   let finishTraining = dispatchFinishTraining();
-  const reopenTraining = dispatchReopenTraining();
+  const reopenTraining = useReopenTraining();
   const finalizeWorkout = dispatchFinalizeWorkout();
   // GH-623: what "Undo" needs to put the just-finished training back.
   const [finishUndo, setFinishUndo] = useState<{trainingsId: number; previousLastTraining?: number}>();
+  // The snackbar lives in a Portal, so it stays visible after a swipe to another micro. Undo would then
+  // silently reopen a training that is no longer on screen: leaving the pane ends the undo window.
+  useEffect(() => {
+    if (!isCurrent) setFinishUndo(undefined);
+  }, [isCurrent]);
   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
   let appSettings = useSettings();
@@ -362,7 +367,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   function handleUndoFinish() {
     const undo = finishUndo;
     setFinishUndo(undefined);
-    if (undo === undefined || trainingsPlan.id === undefined) return;
+    if (undo === undefined || trainingsPlan.id === undefined || !isCurrent) return;
     reopenTraining(undo.trainingsId, trainingsPlan.id, undo.previousLastTraining);
     changeSubTab('train');
     setTimeInWorkout(new Date(Date.now()));
