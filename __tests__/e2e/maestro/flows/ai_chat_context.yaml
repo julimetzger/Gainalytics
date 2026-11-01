@@ -10,6 +10,8 @@ appId: com.powerliftingworkoutplanner
 #     part of the context, ranges stay ranges, the plan can be switched off, and
 #     one planned or finished training can be picked as the subject of the chat.
 #   - GH-391 review: a newly created, never trained plan reaches the chat.
+#   - GH-619: the "Include sleep and steps" switch is off (or, without Health
+#     Connect, replaced by a hint) and the context carries no recovery section.
 #
 # Offline: no request is ever sent. A dummy key (set_dummy_api_key.yaml) is only
 # needed so the chat screen renders instead of the "add your key" hint.
@@ -92,6 +94,43 @@ appId: com.powerliftingworkoutplanner
 - copyTextFrom:
     id: 'chat-context-info'
 - assertTrue: "${maestro.copiedText.indexOf('AI has access to 0 trainings (') === 0}"
+# GH-619: sleep and steps from Health Connect need their own opt-in. With "Read
+# sleep"/"Read steps" granted the switch is offered (off unless the user turned
+# it on - normalised here, aiChat survives FULL_IMPORT); without them a hint says
+# why. The real read is covered by health_connect_recovery_context.yaml.
+- runFlow:
+    when:
+      visible:
+        id: 'chat-recovery-switch'
+        checked: true
+    commands:
+      - tapOn:
+          id: 'chat-recovery-switch'
+      - waitForAnimationToEnd
+- evalScript: "${output.recovery = ''}"
+- runFlow:
+    when:
+      visible:
+        id: 'chat-recovery-info'
+    commands:
+      - assertVisible:
+          id: 'chat-recovery-switch'
+          checked: false
+      - copyTextFrom:
+          id: 'chat-recovery-info'
+      - evalScript: "${output.recovery = maestro.copiedText}"
+- runFlow:
+    when:
+      visible:
+        id: 'chat-recovery-hint'
+    commands:
+      - assertNotVisible:
+          id: 'chat-recovery-switch'
+      - copyTextFrom:
+          id: 'chat-recovery-hint'
+      - evalScript: "${output.recovery = maestro.copiedText}"
+- assertTrue: "${['Sleep and steps from Health Connect are not sent.', 'Sleep and steps: Health Connect is not installed.', 'Sleep and steps: Health Connect is not available on this device.', 'Sleep and steps: connect Health Connect in Settings to include them.', 'Sleep and steps: allow \"Read sleep\" or \"Read steps\" in Settings → Health Connect.'].indexOf(output.recovery) >= 0}"
+- takeScreenshot: gh619_chat_recovery_option
 - tapOn:
     id: 'chat-filter-toggle'
 - waitForAnimationToEnd
@@ -123,6 +162,12 @@ appId: com.powerliftingworkoutplanner
 # No finished training in the 7-day window, so no finished section either.
 - assertNotVisible:
     id: 'chat-context-preview-finished'
+# GH-619: without the opt-in no recovery section.
+- assertNotVisible:
+    id: 'chat-context-preview-recovery'
+- copyTextFrom:
+    id: 'chat-context-preview-size'
+- assertTrue: "${maestro.copiedText.indexOf('1 section · ') === 0}"
 - tapOn:
     id: 'chat-context-preview-close'
 - waitForAnimationToEnd

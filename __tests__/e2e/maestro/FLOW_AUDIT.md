@@ -39,8 +39,8 @@ themselves. Every file named below must be in `/sdcard/Download` —
 | F9 Import/Export | `data_strong_export_roundtrip.yaml` | Strong CSV export (5768 sets / 387 workouts), empty-store export, invalid CSVs rejected with line number, round trip | imports baseline; `gh496_invalid.csv`, `gh496_invalid_weight.csv` |
 | | `data_strong_import_records.yaml` | CSV on top of the baseline → one new record 240 kg (+15 kg); real Strong export (1153 sets, 17 new exercises) | imports baseline; `gh496_new_record.csv`, `strong_sample_export.csv` |
 | F10 Settings | `settings_appearance.yaml` | Appearance rows "Theme"/"Color", Blue → Purple → Custom #E91E63, Light mode, persistence | imports baseline; `set_appearance.yaml` |
-| | `settings_general.yaml` | General switches (no "Plus-Button left"), timer values, app version as a pattern | baseline, read-only |
-| F11 AI coach (offline, dummy key) | `ai_chat_context.yaml` | Chat opens (GH-514); planned sessions / picked training in the context preview | imports `gh391_planned_fixture.gains`, `gh391_newplan_fixture.gains` |
+| | `settings_general.yaml` | General switches (no "Plus-Button left"), timer values, Health Connect "asks for" list incl. sleep and steps (GH-619, device without Health Connect), app version as a pattern | baseline, read-only |
+| F11 AI coach (offline, dummy key) | `ai_chat_context.yaml` | Chat opens (GH-514); planned sessions / picked training in the context preview; no sleep/steps switch and no recovery section without Health Connect (GH-619) | imports `gh391_planned_fixture.gains`, `gh391_newplan_fixture.gains` |
 | | `ai_chat_errors_history.yaml` | Failed send leaves the chat usable, header actions, history archive/search/resume/delete, key removal | imports `gh508_chat_fixture.gains` |
 | | `ai_settings_provider.yaml` | Default provider, provider switch, save/remove key, model field | imports baseline |
 | F12 Body weight | `body_weight.yaml` | Manual entries: empty state, validation, KPIs, list, edit, delete | imports baseline |
@@ -72,6 +72,9 @@ analyses on a slow emulator).
 
 Not yet consolidated:
 - `gh528_*.yaml` (15 files) — Health Connect (GH-528), not part of the GH-584 run.
+- `health_connect_recovery_context.yaml` — GH-619: sleep and steps seeded via `HealthConnectTestDataActivity`
+  reach the AI chat's "Recovery" section only with the opt-in on (exact JSON asserted). Needs adb seeding, so
+  not in a shard; Health Connect itself works on the CI emulator (API 34).
 - `gh542_added_exercise_on_training_date.yaml` — decision pending.
 
 GH-533 "current micro" (former T2.3) is covered by the unit test `__tests__/utils/currentMicro.spec.ts`

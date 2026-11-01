@@ -13,12 +13,21 @@ export const HC_PERMISSION = {
   WRITE_EXERCISE: 'android.permission.health.WRITE_EXERCISE',
   READ_WEIGHT: 'android.permission.health.READ_WEIGHT',
   READ_HISTORY: 'android.permission.health.READ_HEALTH_DATA_HISTORY',
+  // GH-619: recovery context for the AI chat.
+  READ_SLEEP: 'android.permission.health.READ_SLEEP',
+  READ_STEPS: 'android.permission.health.READ_STEPS',
 } as const;
 
 export type HealthConnectPermission = (typeof HC_PERMISSION)[keyof typeof HC_PERMISSION];
 
 /** What "Connect" asks for. The history permission is asked separately, by the body weight screen. */
-export const CONNECT_PERMISSIONS: HealthConnectPermission[] = [HC_PERMISSION.READ_EXERCISE, HC_PERMISSION.WRITE_EXERCISE, HC_PERMISSION.READ_WEIGHT];
+export const CONNECT_PERMISSIONS: HealthConnectPermission[] = [
+  HC_PERMISSION.READ_EXERCISE,
+  HC_PERMISSION.WRITE_EXERCISE,
+  HC_PERMISSION.READ_WEIGHT,
+  HC_PERMISSION.READ_SLEEP,
+  HC_PERMISSION.READ_STEPS,
+];
 
 export interface HealthConnectWeight {
   kg: number;
@@ -30,6 +39,23 @@ export interface HealthConnectWeight {
   originLabel: string;
 }
 
+/** GH-619: SleepSessionRecord.STAGE_TYPE_* as keys, see HealthConnectModule.sleepStageKey. */
+export type HealthConnectSleepStageType = 'AWAKE' | 'SLEEPING' | 'OUT_OF_BED' | 'LIGHT' | 'DEEP' | 'REM' | 'AWAKE_IN_BED' | 'UNKNOWN';
+
+/** GH-619: one SleepSessionRecord; `stages` is empty when the writing app recorded none. */
+export interface HealthConnectSleepSession {
+  startMs: number;
+  endMs: number;
+  stages: {startMs: number; endMs: number; stage: HealthConnectSleepStageType}[];
+}
+
+/** GH-619: total steps of one local calendar day (Health Connect aggregate, deduplicated across apps). */
+export interface HealthConnectDailySteps {
+  /** Local date, YYYY-MM-DD. */
+  date: string;
+  steps: number;
+}
+
 interface HealthConnectNativeModule {
   getSdkStatus(): Promise<HealthConnectSdkStatus>;
   isProvidedBySystem(): Promise<boolean>;
@@ -37,6 +63,10 @@ interface HealthConnectNativeModule {
   requestPermissions(permissions: string[]): Promise<string[]>;
   isHistoryReadAvailable(): Promise<boolean>;
   readWeights(startMs: number, endMs: number): Promise<HealthConnectWeight[]>;
+  /** Sleep sessions that end in [startMs, endMs), oldest first. */
+  readSleepSessions(startMs: number, endMs: number): Promise<HealthConnectSleepSession[]>;
+  /** Steps per local day for the days from startMs to endMs; days without steps are left out. */
+  readDailySteps(startMs: number, endMs: number): Promise<HealthConnectDailySteps[]>;
   writeStrengthSession(session: HealthConnectSessionInput): Promise<string[]>;
   deleteStrengthSession(clientRecordId: string): Promise<boolean>;
   openHealthConnect(): Promise<boolean>;

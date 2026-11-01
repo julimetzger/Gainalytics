@@ -1,0 +1,132 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-619: sleep and steps read from Health Connect become the "Recovery" section of
+# the AI chat context - only after the user switches "Include sleep and steps" on.
+#
+# Needs Health Connect (like the gh528_* flows, so not part of the nightly shards):
+# connected with "Read sleep" and "Read steps", and seeded by the debug-only helper:
+#   adb shell am start -n com.powerliftingworkoutplanner/.healthconnect.HealthConnectTestDataActivity \
+#     --ez clear true --es sleep "7.5@1@staged,5@2" --es steps "20113@2,8000@3"
+# = 3 days ago 8000 steps; 2 days ago a 5 h night and 20113 steps; 1 day ago a
+# 7.5 h night (first quarter deep, last quarter REM). Any store; offline (dummy key).
+# The helper needs the debug-only WRITE_SLEEP/WRITE_STEPS: `adb shell pm grant` them first
+# (its own dialog starts with Health Connect's onboarding). Note: `launchApp` grants every
+# declared permission, READ_SLEEP/READ_STEPS included - this flow relies on that; a revoke
+# test must start the app via adb instead (verified on the CI emulator, API 34, in GH-619).
+- launchApp:
+    clearState: false
+- runFlow: set_dummy_api_key.yaml
+- runFlow: open_ai_chat.yaml
+
+- tapOn:
+    id: 'chat-filter-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-recovery-switch'
+    timeout: 15000
+- tapOn:
+    id: 'chat-preset-7d'
+- waitForAnimationToEnd
+# Start from the default: switched off.
+- runFlow:
+    when:
+      visible:
+        id: 'chat-recovery-switch'
+        checked: true
+    commands:
+      - tapOn:
+          id: 'chat-recovery-switch'
+      - waitForAnimationToEnd
+- assertVisible:
+    id: 'chat-recovery-switch'
+    checked: false
+- copyTextFrom:
+    id: 'chat-recovery-info'
+- assertTrue: "${maestro.copiedText === 'Sleep and steps from Health Connect are not sent.'}"
+
+# ── Off: nothing from Health Connect in the context ──────────────────────────
+# "View context" is the last chip of the horizontal context bar - drag it into view.
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-size'
+    timeout: 15000
+- assertNotVisible:
+    id: 'chat-context-preview-recovery'
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
+
+# ── On: one line per day, oldest first, missing values left out ──────────────
+- tapOn:
+    id: 'chat-recovery-switch'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-recovery-info'
+      text: 'Sleep and steps attached: 3 days'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-recovery-switch'
+    checked: true
+- takeScreenshot: gh619_recovery_switch_on
+- evalScript: "${var f = function (n) { var d = new Date(Date.now() - n * 86400000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') }; output.expected = '[\\n{\"date\":\"' + f(3) + '\",\"steps\":8000},\\n{\"date\":\"' + f(2) + '\",\"sleep_h\":5,\"steps\":20113},\\n{\"date\":\"' + f(1) + '\",\"sleep_h\":7.5,\"deep_pct\":25,\"rem_pct\":25}\\n]'}"
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-recovery'
+    timeout: 15000
+- assertVisible:
+    id: 'chat-context-preview-title-recovery'
+    text: 'Recovery \(sleep and steps per day, JSON; sleep_h = the night ending on that date; a missing value means no data\)'
+- copyTextFrom:
+    id: 'chat-context-preview-recovery'
+- assertTrue: "${maestro.copiedText === output.expected}"
+- takeScreenshot: gh619_recovery_preview
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd
+
+# ── Off again: the section is gone ───────────────────────────────────────────
+- tapOn:
+    id: 'chat-recovery-switch'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'chat-recovery-switch'
+    checked: false
+- swipe:
+    start: 90%, 15%
+    end: 10%, 15%
+- waitForAnimationToEnd
+- tapOn:
+    id: 'chat-context-inspect'
+- extendedWaitUntil:
+    visible:
+      id: 'chat-context-preview-size'
+    timeout: 15000
+- assertNotVisible:
+    id: 'chat-context-preview-recovery'
+- tapOn:
+    id: 'chat-context-preview-close'
+- waitForAnimationToEnd
+- swipe:
+    start: 10%, 15%
+    end: 90%, 15%
+- waitForAnimationToEnd

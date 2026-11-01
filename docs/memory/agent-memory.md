@@ -977,3 +977,16 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-636):** train_rest_timer_1rm waited for `01:(2[0-9]|30)` after Reset (a 10 s window). On the ticking rest screen a `tapOn` spends ~11 s waiting for a settled hierarchy before tapping, so a loaded nightly emulator missed the window.
 **Fix / Rule:** `evalScript: "${output.t0 = Date.now()}"` right before the tap (Maestro's JS has `Date.now()`), then `copyTextFrom` the ring, parse it into elapsed seconds and require `!over && elapsed <= ceil((Date.now()-t0)/1000)+1`. Re-read in a `repeat: {times: 8, while: {true: "${output.v != 'PASS'}"}}` loop for late taps. Negative control (Reset tap removed) failed as expected.
 **Apply when:** asserting any countdown/elapsed display after a tap.
+
+### Health Connect WORKS on the CI agent emulator — check before trusting "HC is not installed" in a task note
+**Observation (GH-619):** the task said HC is not installed on CI; the API-34 emulator showed Settings → Health Connect "Connected" with every declared permission (Maestro `launchApp` grants them). So nightly flows (ai_chat_context, settings_general) run WITH Health Connect connected: HC-dependent assertions there must accept both states (`runFlow when visible` per branch → `output.x` → one strict `assertTrue` over the allowed exact values). Real reads can be seeded with the debug `HealthConnectTestDataActivity` (`pm grant` its WRITE_* first — its own dialog opens HC onboarding). A `pm revoke` kills the app; restart it with `monkey -p <pkg> 1`, not `launchApp`.
+**Apply when:** a Health Connect ticket on the CI emulator.
+
+### Waiting for a backgrounded `tool.sh rebuild` in the foreground: `timeout 540 tail -n 3 -f <task output>`
+**Observation (GH-619):** `until …; do sleep; done` and `bash -c` loops need approval here and ending the turn ends the job. A single `timeout 540 tail -f` on the background task's output file blocks ≤ 9 min and needs no approval (exit 124 is expected); repeat until "BUILD SUCCESSFUL"/"Success". Use the wait for jest runs or flow writing. The first rebuild in the checkout took 7m47s, an incremental one 1m35s.
+**Apply when:** a native change needs `tool.sh rebuild` (> 10 min tool cap).
+
+### Test an "on return to the foreground" reload: the RN AppState mock in Jest, a debug activity on the device
+**Jest:** RN's `jest/mocks/AppState` makes `addEventListener` a `jest.fn` whose `remove()` does nothing, so `mock.calls` also holds listeners of effects that were already cleaned up. Calling all of them double-counts reads. Call only the newest `'change'` listener with `'active'`, inside `act` (see `AIChatTabRecoveryContext.spec.tsx`).
+**Device:** any app-owned activity started over MainActivity (e.g. `am start -W -n <pkg>/.healthconnect.HealthConnectTestDataActivity …`) pauses it, so RN fires `background`, then `active` when the activity `finish()`es. Run a Maestro flow WITHOUT `launchApp` afterwards to prove the mounted screen reloaded (GH-619: chat preview went from 20113 to 25000 steps).
+**Apply when:** data from a provider can change while the app is in the background and a mounted screen caches it.

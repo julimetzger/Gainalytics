@@ -1,6 +1,7 @@
 /**
  * GH-528: all Health Connect side effects. Reducers stay pure; this middleware
- * - executes the HEALTH_CONNECT_* commands (refresh status, connect, load body weights),
+ * - executes the HEALTH_CONNECT_* commands (refresh status, connect, load body weights, load
+ *   sleep and steps for the AI chat),
  * - writes/deletes trainings as planned by planHealthConnectSync after each action.
  *
  * Sync ops belong to the dataset generation they were planned in. A FULL_IMPORT replaces the
@@ -15,7 +16,13 @@ import {Dispatch, isAction, Middleware} from 'redux';
 import Toast from 'react-native-toast-message';
 import {GlobalState} from '../rootReducer';
 import {HEALTH_CONNECT_ACTIONS, HealthConnectStatus, HealthConnectSyncEvent} from './healthConnectReducer';
-import {CONNECT_PERMISSIONS, getHealthConnect, HC_PERMISSION} from '../../utils/healthConnect/healthConnectNative';
+import {
+  CONNECT_PERMISSIONS,
+  getHealthConnect,
+  HC_PERMISSION,
+  HealthConnectDailySteps,
+  HealthConnectSleepSession,
+} from '../../utils/healthConnect/healthConnectNative';
 import {HealthConnectSyncOp, planHealthConnectSync} from '../../utils/healthConnect/healthConnectSync';
 
 type HealthConnectModule = NonNullable<ReturnType<typeof getHealthConnect>>;
@@ -32,6 +39,15 @@ const defaultNewNamespace = () => `${Date.now().toString(36)}${Math.random().toS
 
 /** How far back body weights are read; Health Connect itself cuts this to 30 days without the history permission. */
 export const BODY_WEIGHT_LOOKBACK_MS = 5 * 365 * 24 * 60 * 60 * 1000;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Start of the local day after the day of [ms] — the range's last day counts as a whole day. */
+const startOfNextLocalDay = (ms: number) => {
+  const date = new Date(ms);
+  date.setHours(24, 0, 0, 0);
+  return date.getTime();
+};
 
 const defaultDeps: HealthConnectMiddlewareDeps = {
   getModule: getHealthConnect,
@@ -110,6 +126,40 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
     }
   };
 
+  /**
+   * GH-619: sleep and steps of [startMs, endMs] for the AI chat. Each part is read only with its
+   * own permission; a failing part leaves the other one intact. Sleep is read from one day earlier
+   * so the night that ends on the first day of the range is complete, and through the end of the
+   * last local day (a custom range ends at its midnight), like the native steps reader.
+   */
+  const loadRecovery = async (dispatch: Dispatch, startMs: number, endMs: number) => {
+    const loadedAt = deps.now();
+    const errors: string[] = [];
+    let sleep: HealthConnectSleepSession[] | undefined;
+    let steps: HealthConnectDailySteps[] | undefined;
+    try {
+      const hc = deps.getModule();
+      if (!hc) throw new HealthConnectUnusable('Health Connect is not supported on this device.');
+      if ((await hc.getSdkStatus()) !== 'AVAILABLE') throw new HealthConnectUnusable('Health Connect is not available.');
+      const granted = await hc.getGrantedPermissions();
+      if (granted.includes(HC_PERMISSION.READ_SLEEP)) {
+        sleep = await hc.readSleepSessions(startMs - DAY_MS, startOfNextLocalDay(endMs)).catch((error: unknown) => {
+          errors.push(`Sleep: ${errorMessage(error)}`);
+          return undefined;
+        });
+      }
+      if (granted.includes(HC_PERMISSION.READ_STEPS)) {
+        steps = await hc.readDailySteps(startMs, endMs).catch((error: unknown) => {
+          errors.push(`Steps: ${errorMessage(error)}`);
+          return undefined;
+        });
+      }
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+    dispatch({type: HEALTH_CONNECT_ACTIONS.RECOVERY_LOADED, sleep, steps, startMs, endMs, error: errors.length > 0 ? errors.join(' ') : undefined, loadedAt});
+  };
+
   // opPending: the pending map of the generation the op was planned in (a FULL_IMPORT starts a new one).
   const runOp = async (op: HealthConnectSyncOp, opGeneration: number, opPending: Map<number, string>, dispatch: Dispatch, getState: () => GlobalState) => {
     const release = () => {
@@ -182,6 +232,12 @@ export const createHealthConnectMiddleware = (deps: HealthConnectMiddlewareDeps 
         return result;
       case HEALTH_CONNECT_ACTIONS.LOAD_WEIGHTS:
         enqueue(() => loadWeights(api.dispatch));
+        return result;
+      case HEALTH_CONNECT_ACTIONS.LOAD_RECOVERY:
+        if ('startMs' in action && 'endMs' in action && typeof action.startMs === 'number' && typeof action.endMs === 'number') {
+          const {startMs, endMs} = action;
+          enqueue(() => loadRecovery(api.dispatch, startMs, endMs));
+        }
         return result;
     }
 

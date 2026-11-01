@@ -6,7 +6,7 @@ appId: com.powerliftingworkoutplanner
 - runFlow: gh528_open_health_connect_settings.yaml
 - assertVisible:
     id: 'health-connect-permissions'
-    text: 'Allowed: Read trainings, Write trainings'
+    text: 'Allowed: Read trainings, Write trainings, Read sleep, Read steps'
 - assertVisible:
     id: 'health-connect-connect'
     text: 'Allow missing permissions'
@@ -41,5 +41,5 @@ appId: com.powerliftingworkoutplanner
 - extendedWaitUntil:
     visible:
       id: 'health-connect-permissions'
-      text: 'Allowed: Read trainings, Write trainings, Read body weight'
+      text: 'Allowed: Read trainings, Write trainings, Read body weight, Read sleep, Read steps'
     timeout: 20000
