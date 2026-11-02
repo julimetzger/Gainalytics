@@ -168,7 +168,7 @@ export const createIncrementalStorage = (store: KeyValueStore) => {
     return {writes, removals};
   };
 
-  const setItem = (key: string, staged: StagedState): Promise<void> => {
+  const writeItem = (key: string, staged: StagedState): void => {
     const previous = manifests.get(key);
     const previousParts = previous?.parts ?? {};
     const slices = slicesOf(key);
@@ -198,7 +198,7 @@ export const createIncrementalStorage = (store: KeyValueStore) => {
       });
       writtenWorkouts.delete(key);
     }
-    if (writes.length === 0 && removals.length === 0 && previous !== undefined) return Promise.resolve();
+    if (writes.length === 0 && removals.length === 0 && previous !== undefined) return;
 
     const gen = (previous?.gen ?? 0) + 1;
     const parts = {...previousParts};
@@ -219,7 +219,23 @@ export const createIncrementalStorage = (store: KeyValueStore) => {
     manifests.set(key, manifest);
     superseded.forEach((storageKey) => store.remove(storageKey));
     if (legacyPending.delete(key)) store.remove(key);
-    return Promise.resolve();
+  };
+
+  const setItem = (key: string, staged: StagedState): Promise<void> => {
+    // The reference caches are updated while the write is prepared. If a part or the manifest write
+    // throws, the previous manifest is still the committed one, so the caches go back to what it holds;
+    // otherwise later writes would treat the failed snapshot as saved and skip it.
+    const slicesBefore = new Map(slicesOf(key));
+    const workoutsBefore = writtenWorkouts.has(key) ? new Map(workoutsOf(key)) : undefined;
+    try {
+      writeItem(key, staged);
+      return Promise.resolve();
+    } catch (error) {
+      writtenSlices.set(key, slicesBefore);
+      if (workoutsBefore === undefined) writtenWorkouts.delete(key);
+      else writtenWorkouts.set(key, workoutsBefore);
+      return Promise.reject(error);
+    }
   };
 
   const removeItem = (key: string): Promise<void> => {

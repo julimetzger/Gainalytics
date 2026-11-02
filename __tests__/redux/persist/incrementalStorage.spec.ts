@@ -120,7 +120,7 @@ describe('incremental redux-persist storage (GH-671)', () => {
       originalSet(key, value);
     };
     const next = {...state, workouts: {...state.workouts, byId: {...state.workouts.byId, 7: workout(7, 12)}, allIds: [...state.workouts.allIds]}};
-    expect(() => dying.setItem(KEY, next)).toThrow('killed');
+    await expect(dying.setItem(KEY, next)).rejects.toThrow('killed');
     store.set = originalSet;
     const keysAfterCrash = store.map.size;
 
@@ -129,6 +129,33 @@ describe('incremental redux-persist storage (GH-671)', () => {
     // The orphaned parts of the interrupted write were cleaned up on start.
     expect(store.map.size).toBeLessThan(keysAfterCrash);
     expect([...store.map.keys()].every((key) => key === manifestKeyOf(KEY) || Object.values(JSON.parse(store.map.get(manifestKeyOf(KEY))!).parts).includes(key))).toBe(true);
+  });
+
+  it('a failed write is not taken as saved: the next write still persists the changes it carried', async () => {
+    const store = memoryStore();
+    const storage = createIncrementalStorage(store);
+    const state = stagedState([1, 2]);
+    await storage.setItem(KEY, state);
+
+    const changedWorkout = {...state.workouts.byId[2], notes: 'changed'};
+    const next = {
+      ...state,
+      settings: {...state.settings, palette: 'red'},
+      workouts: {...state.workouts, byId: {...state.workouts.byId, 2: changedWorkout}},
+    };
+    const set = store.set;
+    store.set = (key, value) => {
+      if (key === manifestKeyOf(KEY)) throw new Error('storage full');
+      set(key, value);
+    };
+    await expect(storage.setItem(KEY, next)).rejects.toThrow('storage full');
+    store.set = set;
+
+    // A later write of an unrelated change must still carry the failed snapshot's settings and workout.
+    const later = {...next, trainings: {...state.trainings, allIds: [1]}};
+    await storage.setItem(KEY, later);
+
+    expect(await createIncrementalStorage(store).getItem(KEY)).toEqual(later);
   });
 
   it('writes nothing when no persisted slice changed', async () => {
