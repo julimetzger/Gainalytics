@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {memo} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {Button, Card, Text} from 'react-native-paper';
 import {VideoAnalysis, VideoAnalysisStatus} from '../../models/entities/VideoAnalysis';
@@ -88,4 +88,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default VideoAnalysisDetailsCard;
+export default memo(VideoAnalysisDetailsCard);

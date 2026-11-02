@@ -1,5 +1,6 @@
 import React from 'react';
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native';
+import {ReactTestRendererJSON} from 'react-test-renderer';
 import VideoAnalysisDetailTab from '../../../app/tabs/Analyse/VideoAnalysisDetailTab';
 import {BarTrackingResult, VideoAnalysis, VideoAnalysisStatus} from '../../../app/models/entities/VideoAnalysis';
 import {useVideoAnalysis} from '../../../app/redux/VideoAnalysis/use/useVideoAnalysis';
@@ -63,37 +64,47 @@ const createAnalysis = (overrides?: Partial<VideoAnalysis>): VideoAnalysis => ({
 });
 
 const result = {
+  analysisId: 2,
+  units: 'px/s',
+  barPathSeries: [],
+  confidenceSeries: [],
+  repSegments: [],
+  qualityFlags: [],
   repMetrics: [{repIndex: 0, repTimeMs: 1500, concentricTimeMs: 700, averageConcentricSpeedPxPerS: 250, lowestConcentricSpeedPxPerS: 120}],
   analysisMeta: {sourceFps: 30, analyzedFps: 30, frameCount: 90, averageConfidence: 0.9},
-} satisfies Partial<BarTrackingResult>;
+} satisfies BarTrackingResult;
 
 /** testIDs in the order they are rendered on the screen (top -> bottom). */
 const renderedTestIdOrder = (): string[] => {
   const ids: string[] = [];
-  const visit = (node: unknown) => {
-    if (node == null || typeof node !== 'object') {
+  const visit = (node: ReactTestRendererJSON | ReactTestRendererJSON[] | string | null) => {
+    if (node == null || typeof node === 'string') {
       return;
     }
     if (Array.isArray(node)) {
       node.forEach(visit);
       return;
     }
-    const element = node as {props?: {testID?: string}; children?: unknown};
-    if (element.props?.testID) {
-      ids.push(element.props.testID);
+    if (typeof node.props.testID === 'string') {
+      ids.push(node.props.testID);
     }
-    visit(element.children);
+    node.children?.forEach(visit);
   };
   visit(screen.toJSON());
   return ids;
 };
 
-const renderDetail = () =>
-  render(<VideoAnalysisDetailTab route={{key: 'detail', name: 'VideoAnalysisDetail', params: {analysisId: 2}} as any} navigation={{} as any} />);
+const route = {
+  key: 'detail',
+  name: 'VideoAnalysisDetail',
+  params: {analysisId: 2},
+} satisfies React.ComponentProps<typeof VideoAnalysisDetailTab>['route'];
+
+const renderDetail = () => render(<VideoAnalysisDetailTab route={route} />);
 
 describe('VideoAnalysisDetailTab layout (GH-681)', () => {
   beforeEach(() => {
-    mockedReadResult.mockResolvedValue(result as BarTrackingResult);
+    mockedReadResult.mockResolvedValue(result);
   });
 
   it('renders heading, then the video, and the details/actions and VL reference at the very bottom', async () => {

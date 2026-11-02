@@ -1064,3 +1064,8 @@ With the short header, the readout's rep line (`video-analysis-playback-current-
 **Problem (GH-681):** `assertVisible {text: 'Unlinked analysis', childOf: {id: 'video-analysis-detail-header'}}` failed although the title was on screen. The uiautomator dump shows `<testID>` as a self-closing ViewGroup (the card background) and the Card.Title text as its SIBLING; both sit inside `<testID>-container` (same bounds).
 **Fix / Rule:** for "text inside this card" use `childOf: {id: '<testID>-container'}`; `below:`/`visible:` on the bare `<testID>` still work (same bounds).
 **Apply when:** scoping a text assertion to a Paper `Card` (seen in GH-681).
+
+### Screen tests without `as any` for route/navigation props
+**Problem:** Codex review flags `route={… as any} navigation={{} as any}` in screen tests (AGENTS.md: no `as`, use `satisfies`). A full `NativeStackNavigationProp` fake is impractical.
+**Fix / Rule:** if the screen only reads `route` (navigation via `useNavigation()`), type its props as `Pick<NativeStackScreenProps<RootStackParamList, 'X'>, 'route'>` and in the test write `const route = {key, name, params} satisfies React.ComponentProps<typeof Screen>['route']`. Mocked readers get complete entity fixtures checked with `satisfies Entity`, not `Partial<…>` plus a cast. Walk `screen.toJSON()` typed as `ReactTestRendererJSON` from `react-test-renderer`.
+**Apply when:** writing component or screen specs (seen in GH-681 Codex round).

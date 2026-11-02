@@ -36,7 +36,8 @@ import {calibrateFromSeed} from '../../utils/video-analysis-import';
 import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 import Toast from 'react-native-toast-message';
 
-interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
+// Only the route is used; navigation comes from useNavigation().
+type Props = Pick<NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'>, 'route'>;
 
 interface PreviewDimensions {
   width: number;
