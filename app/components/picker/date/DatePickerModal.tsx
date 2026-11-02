@@ -66,13 +66,18 @@ function singleMarkedDates(date: Date, workoutDates: string[], colors: Colors): 
   return {[selectedDay]: {selectedColor: colors.primary, selected: true}, ...trainingDays};
 }
 
+/** Training days get a dot from 2 months before to 2 months after the month at the top of the list. */
+const workoutWindowAround = (monthTimestamp: number) => new Range(subtractMonths(2, getFirstDayOfMonth(new Date(monthTimestamp))), subtractMonths(-2, getEndOfMonth(new Date(monthTimestamp))));
+
 export const DatePickerModal = <T extends DateOrRange>({date, onChange}: DatePickerModalProps<T>) => {
   const {colors} = useTheme();
-  const [rangeForWorkouts, setRangeForWorkouts] = useState(() =>
-    date instanceof NullableRange
-      ? new Range(subtractMonths(4, date.startDate ? getFirstDayOfMonth(date.startDate) : new Date()), getEndOfMonth(date.endDate ? date.endDate : new Date()))
-      : new Range(subtractMonths(4, getFirstDayOfMonth(date)), getEndOfMonth(date)),
-  );
+  // GH-673: the list always opens on today's month. Passing it as `current` lets CalendarList draw
+  // the months around it on the first render (without it, every month first renders as a
+  // placeholder and is re-rendered once the list reports its visible month). The dot window starts
+  // where that first visible-month report used to put it (its timestamp is UTC midnight of the day).
+  const [today] = useState(() => new Date());
+  const initialMonth = getYYYYMMDDFormat(today);
+  const [rangeForWorkouts, setRangeForWorkouts] = useState(() => workoutWindowAround(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())));
   const workoutsDone = useWorkoutsIn(rangeForWorkouts);
   const workoutDates = useMemo(() => workoutsDone.map((workout) => getYYYYMMDDFormat(workout.start!!)), [workoutsDone]);
 
@@ -110,11 +115,10 @@ export const DatePickerModal = <T extends DateOrRange>({date, onChange}: DatePic
     [isRange, startTime, endTime, onChange],
   );
 
-  const onVisibleMonthsChange = useCallback(
-    (months: DateData[]) =>
-      setRangeForWorkouts(new Range(subtractMonths(2, getFirstDayOfMonth(new Date(months[0].timestamp))), subtractMonths(-2, getEndOfMonth(new Date(months[0].timestamp))))),
-    [],
-  );
+  const onVisibleMonthsChange = useCallback((months: DateData[]) => {
+    const next = workoutWindowAround(months[0].timestamp);
+    setRangeForWorkouts((prev) => (prev.startDate.getTime() === next.startDate.getTime() && prev.endDate.getTime() === next.endDate.getTime() ? prev : next));
+  }, []);
 
   const theme = useMemo(
     () => ({
@@ -134,7 +138,7 @@ export const DatePickerModal = <T extends DateOrRange>({date, onChange}: DatePic
     [colors],
   );
 
-  return <CalendarList markingType={'period'} theme={theme} onDayPress={onDayPress} markedDates={markedDates} enableSwipeMonths={true} onVisibleMonthsChange={onVisibleMonthsChange} />;
+  return <CalendarList current={initialMonth} markingType={'period'} theme={theme} onDayPress={onDayPress} markedDates={markedDates} enableSwipeMonths={true} onVisibleMonthsChange={onVisibleMonthsChange} />;
 };
 
 export default DatePickerModal;
