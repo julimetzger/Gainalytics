@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-calendars/src/calendar-list/index.js b/node_modules/react-native-calendars/src/calendar-list/index.js
-index 6cf1b71..4129edb 100644
+index 6cf1b71..6e29813 100644
 --- a/node_modules/react-native-calendars/src/calendar-list/index.js
 +++ b/node_modules/react-native-calendars/src/calendar-list/index.js
 @@ -133,15 +133,15 @@ const CalendarList = (props, ref) => {
@@ -25,3 +25,106 @@ index 6cf1b71..4129edb 100644
      const getItemLayout = useCallback((_, index) => {
          return {
              length: calendarSize,
+@@ -202,8 +202,11 @@ const CalendarList = (props, ref) => {
+             onViewableItemsChanged
+         }
+     ]);
++    // Gainalytics GH-673: windowSize 5 (2 screens above and below) instead of FlatList's 21. Full months are
++    // drawn only within `range` months of the visible one anyway; the default window rendered ~40 extra
++    // placeholder months in batches after every open and kept the JS thread busy for up to 0.5 s.
+     return (<View style={style.current.flatListContainer} testID={testID}>
+-      <FlatList ref={list} windowSize={shouldFixRTL ? pastScrollRange + futureScrollRange + 1 : undefined} style={listStyle} showsVerticalScrollIndicator={showScrollIndicator} showsHorizontalScrollIndicator={showScrollIndicator} data={items} renderItem={renderItem} getItemLayout={getItemLayout} initialNumToRender={range.current} initialScrollIndex={initialDateIndex} viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current} testID={`${testID}.list`} onLayout={onLayout} removeClippedSubviews={removeClippedSubviews} pagingEnabled={pagingEnabled} scrollEnabled={scrollEnabled} scrollsToTop={scrollsToTop} horizontal={horizontal} keyboardShouldPersistTaps={keyboardShouldPersistTaps} keyExtractor={keyExtractor} onEndReachedThreshold={onEndReachedThreshold} onEndReached={onEndReached} nestedScrollEnabled={nestedScrollEnabled} onMomentumScrollBegin={onMomentumScrollBegin} onMomentumScrollEnd={onMomentumScrollEnd} onScrollBeginDrag={onScrollBeginDrag} onScrollEndDrag={onScrollEndDrag} contentContainerStyle={contentContainerStyle}/>
++      <FlatList ref={list} windowSize={shouldFixRTL ? pastScrollRange + futureScrollRange + 1 : 5} style={listStyle} showsVerticalScrollIndicator={showScrollIndicator} showsHorizontalScrollIndicator={showScrollIndicator} data={items} renderItem={renderItem} getItemLayout={getItemLayout} initialNumToRender={range.current} initialScrollIndex={initialDateIndex} viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current} testID={`${testID}.list`} onLayout={onLayout} removeClippedSubviews={removeClippedSubviews} pagingEnabled={pagingEnabled} scrollEnabled={scrollEnabled} scrollsToTop={scrollsToTop} horizontal={horizontal} keyboardShouldPersistTaps={keyboardShouldPersistTaps} keyExtractor={keyExtractor} onEndReachedThreshold={onEndReachedThreshold} onEndReached={onEndReached} nestedScrollEnabled={nestedScrollEnabled} onMomentumScrollBegin={onMomentumScrollBegin} onMomentumScrollEnd={onMomentumScrollEnd} onScrollBeginDrag={onScrollBeginDrag} onScrollEndDrag={onScrollEndDrag} contentContainerStyle={contentContainerStyle}/>
+       {renderStaticHeader()}
+     </View>);
+ };
+diff --git a/node_modules/react-native-calendars/src/calendar-list/item.js b/node_modules/react-native-calendars/src/calendar-list/item.js
+index 0e5be76..c3a0779 100644
+--- a/node_modules/react-native-calendars/src/calendar-list/item.js
++++ b/node_modules/react-native-calendars/src/calendar-list/item.js
+@@ -6,7 +6,9 @@ import styleConstructor from './style';
+ import Calendar from '../calendar';
+ const CalendarListItem = React.memo((props) => {
+     const { item, theme, scrollToMonth, horizontal, calendarHeight, calendarWidth, style: propsStyle, headerStyle, onPressArrowLeft, onPressArrowRight, visible } = props;
+-    const style = useRef(styleConstructor(theme));
++    // Gainalytics GH-673: build the styles once — useRef(styleConstructor(theme)) rebuilt them on every render.
++    const style = useRef(null);
++    if (style.current === null) style.current = styleConstructor(theme);
+     const calendarProps = extractCalendarProps(props);
+     const dateString = toMarkingFormat(item);
+     const calendarStyle = useMemo(() => {
+diff --git a/node_modules/react-native-calendars/src/calendar/day/dot/index.js b/node_modules/react-native-calendars/src/calendar/day/dot/index.js
+index f8082d8..225a9b7 100644
+--- a/node_modules/react-native-calendars/src/calendar/day/dot/index.js
++++ b/node_modules/react-native-calendars/src/calendar/day/dot/index.js
+@@ -2,7 +2,9 @@ import React, { useRef } from 'react';
+ import { View } from 'react-native';
+ import styleConstructor from './style';
+ const Dot = ({ theme, marked, disabled, inactive, color, today, selected }) => {
+-    const style = useRef(styleConstructor(theme));
++    // Gainalytics GH-673: build the styles once — useRef(styleConstructor(theme)) rebuilt them on every render.
++    const style = useRef(null);
++    if (style.current === null) style.current = styleConstructor(theme);
+     const dotStyle = [style.current.dot];
+     if (marked) {
+         dotStyle.push(style.current.visibleDot);
+diff --git a/node_modules/react-native-calendars/src/calendar/day/marking/index.js b/node_modules/react-native-calendars/src/calendar/day/marking/index.js
+index 338c1e5..8cf0d70 100644
+--- a/node_modules/react-native-calendars/src/calendar/day/marking/index.js
++++ b/node_modules/react-native-calendars/src/calendar/day/marking/index.js
+@@ -14,7 +14,9 @@ export var Markings;
+ })(Markings || (Markings = {}));
+ const Marking = (props) => {
+     const { theme, type, dots, periods, selected, dotColor } = props;
+-    const style = useRef(styleConstructor(theme));
++    // Gainalytics GH-673: build the styles once — useRef(styleConstructor(theme)) rebuilt them on every render.
++    const style = useRef(null);
++    if (style.current === null) style.current = styleConstructor(theme);
+     const getItems = (items) => {
+         if (items && Array.isArray(items) && items.length > 0) {
+             // Filter out items so that we process only those which have color property
+diff --git a/node_modules/react-native-calendars/src/calendar/day/period/index.js b/node_modules/react-native-calendars/src/calendar/day/period/index.js
+index 30695ca..ae38fba 100644
+--- a/node_modules/react-native-calendars/src/calendar/day/period/index.js
++++ b/node_modules/react-native-calendars/src/calendar/day/period/index.js
+@@ -7,7 +7,9 @@ import styleConstructor from './style';
+ const PeriodDay = (props) => {
+     const { theme, date, onPress, onLongPress, marking, state, disableAllTouchEventsForDisabledDays, disableAllTouchEventsForInactiveDays, accessibilityLabel, children, testID } = props;
+     const dateData = date ? xdateToData(date) : undefined;
+-    const style = useRef(styleConstructor(theme));
++    // Gainalytics GH-673: build the styles once — useRef(styleConstructor(theme)) rebuilt them on every render.
++    const style = useRef(null);
++    if (style.current === null) style.current = styleConstructor(theme);
+     const isDisabled = typeof marking?.disabled !== 'undefined' ? marking.disabled : state === 'disabled';
+     const isInactive = typeof marking?.inactive !== 'undefined' ? marking.inactive : state === 'inactive';
+     const isToday = typeof marking?.today !== 'undefined' ? marking.today : state === 'today';
+diff --git a/node_modules/react-native-calendars/src/calendar/header/index.js b/node_modules/react-native-calendars/src/calendar/header/index.js
+index c09389a..4b3a61b 100644
+--- a/node_modules/react-native-calendars/src/calendar/header/index.js
++++ b/node_modules/react-native-calendars/src/calendar/header/index.js
+@@ -13,7 +13,9 @@ const CalendarHeader = forwardRef((props, ref) => {
+     const numberOfDaysCondition = useMemo(() => {
+         return numberOfDays && numberOfDays > 1;
+     }, [numberOfDays]);
+-    const style = useRef(styleConstructor(theme));
++    // Gainalytics GH-673: build the styles once — useRef(styleConstructor(theme)) rebuilt them on every render.
++    const style = useRef(null);
++    if (style.current === null) style.current = styleConstructor(theme);
+     const headerStyle = useMemo(() => {
+         return [style.current.header, numberOfDaysCondition ? style.current.partialHeader : undefined];
+     }, [numberOfDaysCondition]);
+diff --git a/node_modules/react-native-calendars/src/calendar/index.js b/node_modules/react-native-calendars/src/calendar/index.js
+index da4b7a2..5a2e920 100644
+--- a/node_modules/react-native-calendars/src/calendar/index.js
++++ b/node_modules/react-native-calendars/src/calendar/index.js
+@@ -23,7 +23,9 @@ import BasicDay from './day/basic';
+ const Calendar = (props) => {
+     const { initialDate, current, theme, markedDates, minDate, maxDate, allowSelectionOutOfRange, onDayPress, onDayLongPress, onMonthChange, onVisibleMonthsChange, disableMonthChange, enableSwipeMonths, hideExtraDays, firstDay, showSixWeeks, displayLoadingIndicator, customHeader, headerStyle, accessibilityElementsHidden, importantForAccessibility, testID, style: propsStyle } = props;
+     const [currentMonth, setCurrentMonth] = useState(current || initialDate ? parseDate(current || initialDate) : new XDate());
+-    const style = useRef(styleConstructor(theme));
++    // Gainalytics GH-673: build the styles once — useRef(styleConstructor(theme)) rebuilt them on every render.
++    const style = useRef(null);
++    if (style.current === null) style.current = styleConstructor(theme);
+     const header = useRef();
+     const weekNumberMarking = useRef({ disabled: true, disableTouchEvent: true });
+     useEffect(() => {
