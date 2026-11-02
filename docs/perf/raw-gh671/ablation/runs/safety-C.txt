@@ -1,0 +1,16 @@
+GH-671 ablation, data safety of variant C (release apk-C, render + persistence), 2026-11-02, CI emulator
+pm clear + install + baseline import, cold start, gh671_prep_set_add.yaml (Bankdruecken, 5 / 0 / 20)
+
+adb shell "input tap 944 744; sleep 3; input tap 944 744; sleep 3; input tap 944 744; sleep 3;
+           sh /data/local/tmp/forcestop-after-add.sh 944 744 0.3"
+  variant=C magic=c61fbc03c103191f render=1 persist=1 probe=0  pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+  tap -> force-stop returned after 506 ms (delay 0.3 s)
+  process gone
+  Status: ok
+  TotalTime: 859
+
+tool.sh flow docs/perf/raw-gh671/ablation/tools/gh671_check_after_kill.yaml
+  1/1 Flow Passed in 27s
+  (asserts after the cold start: next input row "Set 5", logged row 4 visible, no logged row 5,
+   i.e. all 4 sets incl. the one killed ~0.3 s after its "Add" are stored; screen also showed
+   "Bankdrücken 4 sets ✓" and the rest timer still running)

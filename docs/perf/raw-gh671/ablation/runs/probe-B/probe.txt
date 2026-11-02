@@ -1,0 +1,12 @@
+11-02 18:50:47.741 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 25.9 h:submit | 25.9 0.0 handler-end | 207.5 13.5 persist:setItem
+11-02 18:50:51.774 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 16.4 h:submit | 16.4 0.0 handler-end | 149.3 22.5 persist:setItem
+11-02 18:50:55.791 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 17.5 h:submit | 17.5 0.0 handler-end | 103.4 18.1 persist:setItem
+11-02 18:50:59.808 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 20.4 h:submit | 20.4 0.0 handler-end | 156.1 16.0 persist:setItem
+11-02 18:51:03.841 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 21.2 h:submit | 21.2 0.0 handler-end | 114.2 18.8 persist:setItem
+11-02 18:51:07.874 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 16.2 h:submit | 16.2 0.0 handler-end | 105.5 27.4 persist:setItem
+11-02 18:51:11.891 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 19.2 h:submit | 19.2 0.0 handler-end | 132.7 11.8 persist:setItem
+11-02 18:51:15.924 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 16.1 h:submit | 16.2 0.0 handler-end | 160.7 14.1 persist:setItem
+11-02 18:51:19.941 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 18.5 h:submit | 18.5 0.0 handler-end | 116.2 12.5 persist:setItem
+11-02 18:51:23.958 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 20.2 h:submit | 20.2 0.0 handler-end | 109.8 17.5 persist:setItem
+11-02 18:51:28.008 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 25.8 h:submit | 25.9 0.0 handler-end | 205.3 13.2 persist:setItem
+11-02 18:51:32.024 24366 24391 I ReactNativeJS: GH671P 0.0 0.0 tap:Add | 0.0 37.3 h:submit | 37.3 0.0 handler-end | 192.2 7.9 persist:setItem

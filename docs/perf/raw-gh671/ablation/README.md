@@ -8,3 +8,7 @@ branch by reverse-applying these patches:
   `configureStore.ts` and `workoutReducer.ts`. `incremental-storage.ts` stays in place but is no longer imported.
 - **A, master:** B, plus `git apply -R docs/perf/raw-gh671/ablation/render-code.patch`. This patch covers the
   app code of #683 only; the tests are left as they are.
+
+In the CI agent job `git apply`/`patch` need approval, so the hunks were reversed with the editor and checked with
+`git diff -R` against the patches (identical apart from the header lines). Results: `../../gh671-ablation.md`, raw
+data in `runs/`, helper scripts (run on the device / Maestro) in `tools/`.

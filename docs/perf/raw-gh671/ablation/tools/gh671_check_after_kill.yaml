@@ -1,0 +1,34 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-671 ablation, data safety of variant C: after 3 normal "Add" taps and a 4th "Add" followed by
+# `am force-stop` ~0.3 s later (forcestop-after-add.sh), a cold start must show all 4 sets:
+# the next input row is "Set 5" and the logged rows 1..4 exist.
+- launchApp:
+    stopApp: false
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-status-label'
+    text: 'Training running'
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: '^add-workout-set-reps-input$'
+    timeout: 60000
+- assertVisible:
+    id: 'add-workout-set-number'
+    text: '.*Set 5'
+- assertVisible:
+    id: '^add-workout-set-logged-4$'
+- assertNotVisible:
+    id: '^add-workout-set-logged-5$'
