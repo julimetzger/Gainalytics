@@ -1,0 +1,27 @@
+diff --git a/node_modules/react-native-calendars/src/calendar-list/index.js b/node_modules/react-native-calendars/src/calendar-list/index.js
+index 6cf1b71..4129edb 100644
+--- a/node_modules/react-native-calendars/src/calendar-list/index.js
++++ b/node_modules/react-native-calendars/src/calendar-list/index.js
+@@ -133,15 +133,15 @@ const CalendarList = (props, ref) => {
+         scrollToMonth(day);
+         setCurrentMonth(day);
+     }, [currentMonth, scrollToMonth]);
++    // Gainalytics GH-673: the months that hold a marking, built once per markedDates. The original
++    // scanned every key with two XDate parses for each rendered month (O(keys x months) per render).
++    // Keys are 'yyyy-MM-dd' (parsed as local dates), so the 'yyyy-MM' prefix equals sameMonth.
++    const markedMonths = useMemo(() => new Set(Object.keys(markedDates || {}).map((key) => key.slice(0, 7))), [markedDates]);
+     const getMarkedDatesForItem = useCallback((item) => {
+-        if (markedDates && item) {
+-            for (const [key, _] of Object.entries(markedDates)) {
+-                if (sameMonth(new XDate(key), new XDate(item))) {
+-                    return markedDates;
+-                }
+-            }
++        if (markedDates && item && markedMonths.has(toMarkingFormat(item).slice(0, 7))) {
++            return markedDates;
+         }
+-    }, [markedDates]);
++    }, [markedDates, markedMonths]);
+     const getItemLayout = useCallback((_, index) => {
+         return {
+             length: calendarSize,
