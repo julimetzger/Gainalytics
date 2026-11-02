@@ -58,12 +58,13 @@ const createAnalysis = (overrides?: Partial<VideoAnalysis>): VideoAnalysis => ({
   resultPath: '/mock/documents/result-2.json',
   createdAt: new Date('2026-11-01T19:19:39.000Z'),
   status: VideoAnalysisStatus.DONE,
+  videoMeta: {durationMs: 5000, fps: 30, width: 1920, height: 1080},
   ...overrides,
 });
 
 const result = {
-  repMetrics: [{repIndex: 0}],
-  analysisMeta: {analyzedFps: 30},
+  repMetrics: [{repIndex: 0, repTimeMs: 1500, concentricTimeMs: 700, averageConcentricSpeedPxPerS: 250, lowestConcentricSpeedPxPerS: 120}],
+  analysisMeta: {sourceFps: 30, analyzedFps: 30, frameCount: 90, averageConfidence: 0.9},
 } satisfies Partial<BarTrackingResult>;
 
 /** testIDs in the order they are rendered on the screen (top -> bottom). */
