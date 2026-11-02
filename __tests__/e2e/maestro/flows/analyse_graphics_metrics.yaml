@@ -19,6 +19,8 @@ appId: com.powerliftingworkoutplanner
 #     3 most-trained exercises in 3 taps, muscle grid + Clear, the search sheet,
 #     Custom opens the date dialog (Save keeps the range).
 #   * GH-225: Metrics Overview opens from the drawer with its filter panel.
+#   * GH-673 (part 4): a typed start date marks the calendar (period end,
+#     training dot, plain day in February 2026) and Save applies the period.
 #
 # Data basis: READ-ONLY on the baseline import (fixtures/baseline.gains, last
 #   training Sat 28/02/26; Front squat last trained Fri 27/02/26; Mmkv has no
@@ -618,5 +620,125 @@ appId: com.powerliftingworkoutplanner
     timeout: 30000
 - assertNotVisible:
     id: 'filter-groupby-summary'
+- assertNotVisible:
+    id: 'analyse-error-boundary'
+
+# =============================================================================
+# Part 4 - GH-673: the Custom dialog after its performance rework (memoized
+# markings, patched react-native-calendars list). A typed start reaches the
+# calendar - period end, training dot and plain day on the right February 2026
+# days, read from the day cells' accessibility labels "<Weekday> <d> <Month>
+# <yyyy> <marking>" - and Save applies the period to the charts.
+# =============================================================================
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible:
+        id: 'analyse-chart-jump-to-last'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+      - runFlow:
+          when:
+            notVisible: 'Close drawer'
+          commands:
+            - tapOn:
+                id: 'analyse-drawer-toggle'
+      - extendedWaitUntil:
+          visible: 'Close drawer'
+          timeout: 15000
+      - tapOn:
+          text: '^Analysis$'
+          below:
+            id: 'analyse-drawer-toggle'
+          retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-jump-to-last'
+    timeout: 60000
+- tapOn:
+    id: 'analyse-chart-jump-to-last'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-range-label'
+      text: '2[78] Nov 2025 – 28 Feb 2026'
+    timeout: 30000
+- tapOn:
+    id: 'filter-panel-card'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-panel-collapse'
+    timeout: 10000
+- tapOn:
+    id: 'filter-range-preset-custom'
+- extendedWaitUntil:
+    visible: '^Save$'
+    timeout: 15000
+- tapOn:
+    id: 'date-range-start-input'
+- waitForAnimationToEnd:
+    timeout: 5000
+# Typing recipe of data_strong_import_records.yaml: tap the right end of the
+# masked start field, Backspace, one digit per command (the mask adds slashes).
+- repeat:
+    times: 3
+    while:
+      notVisible: '01/01/2025'
+    commands:
+      - tapOn:
+          point: '31%, 16%'
+      - repeat:
+          times: 12
+          commands:
+            - pressKey: Backspace
+      - inputText: '0'
+      - inputText: '1'
+      - inputText: '0'
+      - inputText: '1'
+      - inputText: '2'
+      - inputText: '0'
+      - inputText: '2'
+      - inputText: '5'
+- assertVisible: '01/01/2025'
+# A tap on the first month title closes the keyboard (the calendar list does not
+# pass taps through while it is up) without picking a day; back would close the dialog.
+- tapOn:
+    point: '50%, 23%'
+- scrollUntilVisible:
+    element:
+      text: 'February 2026'
+    direction: UP
+    centerElement: true
+    visibilityPercentage: 100
+    timeout: 60000
+# 28/02 ends the period (it is also a training day; the end marking has no dot),
+# 27/02 is a training day inside the period, 26/02 is a plain day in it.
+- assertVisible: '.*Saturday 28 February 2026 period end.*'
+- assertVisible: '.*Friday 27 February 2026 You have entries for this day.*'
+- assertVisible: '\s*Thursday 26 February 2026\s*'
+- tapOn: '^Save$'
+- extendedWaitUntil:
+    notVisible: '^Save$'
+    timeout: 15000
+- assertVisible:
+    id: 'filter-range-label'
+    text: '1 Jan 2025 – 28 Feb 2026'
+# The first chart sits right under the still expanded panel.
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-chart-Volume'
+    timeout: 30000
+- assertNotVisible:
+    id: 'analyse-chart-empty-range'
 - assertNotVisible:
     id: 'analyse-error-boundary'
