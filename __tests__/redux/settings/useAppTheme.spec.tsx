@@ -8,6 +8,7 @@ import {act, renderHook} from '@testing-library/react-native';
 import {Provider} from 'react-redux';
 import {configureStore} from '@reduxjs/toolkit';
 import rootReducer from '../../../app/redux/rootReducer';
+import {AppSettings} from '../../../app/redux/settings/settingsReducer';
 import {useAppTheme} from '../../../app/redux/settings/use/useAppTheme';
 import {buildThemes} from '../../../app/theme/buildThemes';
 
@@ -15,7 +16,7 @@ import {buildThemes} from '../../../app/theme/buildThemes';
 jest.mock('react-redux', () => jest.requireActual('react-redux'));
 
 const renderAppTheme = () => {
-  const store = configureStore({reducer: rootReducer as any, middleware: () => [] as any});
+  const store = configureStore({reducer: rootReducer});
   store.dispatch({type: 'SET_THEME_MODE', themeMode: 'dark'});
   store.dispatch({type: 'SET_PALETTE', palette: 'blue'});
   const wrapper = ({children}: {children: React.ReactNode}) => <Provider store={store}>{children}</Provider>;
@@ -40,7 +41,15 @@ describe('useAppTheme (GH-674)', () => {
       store.dispatch({type: 'SET_ANTHROPIC_MODEL', model: 'claude-test'});
     });
 
-    expect(store.getState().settings.toggles.disableToasts).toBe(true);
+    expect(store.getState().settings).toEqual({
+      mode: 'dark',
+      themeMode: 'dark',
+      palette: 'blue',
+      videoAnalysisFiltersExpanded: false,
+      localNotification: {exactAlarmPermission: true},
+      toggles: {disableToasts: true},
+      anthropicModel: 'claude-test',
+    } satisfies AppSettings);
     expect(result.current.theme).toBe(before);
   });
 
