@@ -1,0 +1,58 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-673: untraced preparation of PERF-004 scenario 5b on the CI emulator (same state as
+# docs/perf/raw-2026-11/tools/scenarios.sh prep5b + pick_bankdr): Analyse -> drawer ->
+# Analysis, expand the filter panel, metric 1RM, exercise "Bankdrücken" via Search all.
+# Ends with the EXPANDED filter panel and the default period (3 months up to this week).
+# Start the app with `am start` first (cold start under Maestro can crash on the CI emulator),
+# then run this flow; it keeps the app running (stopApp: false).
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Analysis$'
+    below:
+      id: 'analyse-drawer-toggle'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'filter-panel-card'
+    timeout: 30000
+- tapOn:
+    id: 'filter-panel-card'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-panel-collapse'
+    timeout: 10000
+- tapOn:
+    id: 'filter-metric-1RM'
+- assertVisible:
+    id: 'filter-metric-1RM'
+    selected: true
+- runFlow:
+    file: ../../../../__tests__/e2e/maestro/flows/pick_exercise_in_search_sheet.yaml
+    env:
+      NAME: 'Bankdrücken'
+- assertVisible:
+    id: 'filter-exercise-section-title'
+    text: 'Exercises \(1\)'
+- assertVisible:
+    id: 'filter-range-preset-custom'

@@ -1069,3 +1069,19 @@ With the short header, the readout's rep line (`video-analysis-playback-current-
 **Problem:** Codex review flags `route={… as any} navigation={{} as any}` in screen tests (AGENTS.md: no `as`, use `satisfies`). A full `NativeStackNavigationProp` fake is impractical.
 **Fix / Rule:** if the screen only reads `route` (navigation via `useNavigation()`), type its props as `Pick<NativeStackScreenProps<RootStackParamList, 'X'>, 'route'>` and in the test write `const route = {key, name, params} satisfies React.ComponentProps<typeof Screen>['route']`. Mocked readers get complete entity fixtures checked with `satisfies Entity`, not `Partial<…>` plus a cast. Walk `screen.toJSON()` typed as `ReactTestRendererJSON` from `react-test-renderer`.
 **Apply when:** writing component or screen specs (seen in GH-681 Codex round).
+### Attribute release-build JS time with a throwaway probe build: `performance.now()` + `console.log` → logcat
+**Observation (GH-673):** a release APK still logs `console.log` under `ReactNativeJS` (`adb logcat -d -s ReactNativeJS:V`). Accumulate `performance.now()` deltas in a `global.__x` object (also inside `node_modules` files), print once via `setTimeout` after the gesture. After a JS-only change `tool.sh rebuild-release` took ~1 min (incremental), so probe → fix → measure cycles are cheap. Revert probes with Edit (`git restore` needs approval) and check `git status` before committing.
+**Apply when:** a perf ticket must show *where* the time goes, not only the total.
+
+### `react-native-calendars` CalendarList: O(marked days × months) per render, inline theme re-renders every day cell
+**Problem (GH-673):** `getMarkedDatesForItem` scanned all `markedDates` keys with two `XDate` parses for each of ~46 rendered months. A range dialog marking every day (1 400 keys) cost 400 ms per open/typed date/Save. An inline `theme` object or handler re-renders all ~210 memoized `Day`s. `useRef(styleConstructor(theme))` rebuilds styles every render.
+**Fix / Rule:** patched in `patches/react-native-calendars+1.1314.0.patch` (month Set, `windowSize` 5, styles once). Pass stable `theme`/`markedDates`/callbacks (memo on date *values*). Day cells expose `"<Weekday> <d> <Month> <yyyy> period end | You have entries for this day"` as accessibility text, so markings are Maestro-assertable.
+**Apply when:** touching any `CalendarList`/`Calendar` usage (date pickers, training calendar).
+
+### Host blocks `npx patch-package`, `git apply`, `patch`, redirects — write the patch by hand, verify it with toybox `patch` on the emulator
+**Fix / Rule (GH-673):** back up pristine package files into `.agent-run/orig/` before editing, `git diff --no-index <orig> node_modules/<pkg>/<file>` → copy the hunks into `patches/<pkg>+<ver>.patch` with `a/node_modules/...` headers (Write tool). Verify: push pristine files + patch + patched files to `/data/local/tmp`, `patch -p1 -i` there, `cmp` each file (`docs/perf/raw-gh673/tools/verify-calendars-patch.sh`).
+**Apply when:** a CI emulator run needs a new or changed patch-package patch.
+
+### `settle_ms` counts every ≥ 10 ms JS burst < 150 ms apart — FlatList window batches stretch it
+**Observation (GH-673):** opening a dialog with a `FlatList` (default `windowSize` 21) kept the chain going for ~0.5 s with only ~250 ms of real JS: placeholder batches of 10–30 ms every 30–60 ms. `docs/perf/raw-gh673/tools/bursts.awk` lists the bursts after one gesture; compare with a build that leaves the component out (`expA`) to get the floor. The atrace ring buffer (`-b 40960`) can drop the FIRST gesture of a long run — check the gesture count before indexing by `i % n`.
+**Apply when:** a perf AC uses `settle_ms` on a screen that mounts a list.
