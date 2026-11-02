@@ -44,14 +44,6 @@ jest.mock('../../../../app/redux/settings/use/useSettings', () => {
   return {useSettings, useSettingsSelector: (select: (settings: any) => unknown) => select(useSettings())};
 });
 
-// TrainingsPlanNode reads the rest timer via useStore at Undo time (GH-671); no Provider here.
-jest.mock('react-redux', () => ({
-  ...jest.requireActual('react-redux'),
-  useSelector: jest.fn(() => []),
-  useDispatch: jest.fn(() => jest.fn()),
-  useStore: () => ({getState: () => ({settings: {toggles: {disableTimer: false}}})}),
-}));
-
 jest.mock('../../../../app/redux/Training/dispatch/plan/dispatchStartTraining', () => ({
   dispatchStartTraining: () => jest.fn(),
 }));
