@@ -77,10 +77,29 @@ appId: com.powerliftingworkoutplanner
     id: 'video-analysis-row-2'
 - extendedWaitUntil:
     visible:
-      id: 'video-analysis-compare-button'
+      id: 'video-analysis-detail-header'
     timeout: 30000
-- assertVisible: 'Squat · Set 1 · 175 kg @ 2 RIR'
+- assertVisible:
+    text: 'Squat · Set 1 · 175 kg @ 2 RIR'
+    childOf:
+      id: 'video-analysis-detail-header'
 - assertNotVisible: '.*Analysis #[0-9]+.*'
+# GH-681: "Compare" moved to the bottom card, below the playback section.
+- repeat:
+    times: 8
+    while:
+      notVisible:
+        id: 'video-analysis-compare-button'
+    commands:
+      - swipe:
+          start: '97%, 80%'
+          end: '97%, 35%'
+          duration: 1500
+- assertVisible:
+    id: 'video-analysis-compare-button'
+    text: 'Compare'
+    below:
+      id: 'video-analysis-detail-status'
 
 # ------------------------------- GH-393 2.-4. compare picker row titles
 - tapOn:
@@ -134,9 +153,23 @@ appId: com.powerliftingworkoutplanner
     id: 'video-analysis-row-1'
 - extendedWaitUntil:
     visible:
-      id: 'video-analysis-compare-button'
+      id: 'video-analysis-detail-screen'
     timeout: 30000
-- assertVisible: 'Squat · No linked set'
+# The detail screen can reopen scrolled down: back to the header.
+- repeat:
+    times: 8
+    while:
+      notVisible:
+        id: 'video-analysis-detail-header'
+    commands:
+      - swipe:
+          start: '97%, 35%'
+          end: '97%, 80%'
+          duration: 1500
+- assertVisible:
+    text: 'Squat · No linked set'
+    childOf:
+      id: 'video-analysis-detail-header'
 - assertNotVisible: '.*Analysis #[0-9]+.*'
 - back
 - extendedWaitUntil:
@@ -206,13 +239,13 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'video-analysis-lift-count'
     text: '5 lifts'
-# Wait for both analyses (the detail status is live).
+# Wait for both analyses (the detail is live; the player only renders for a
+# DONE result, directly below the header - GH-681).
 - tapOn:
     id: 'video-analysis-row-5'
 - extendedWaitUntil:
     visible:
-      id: 'video-analysis-detail-status'
-      text: 'Status: done'
+      id: 'video-analysis-playback-player'
     timeout: 600000
 - back
 - extendedWaitUntil:
@@ -223,10 +256,26 @@ appId: com.powerliftingworkoutplanner
     id: 'video-analysis-row-4'
 - extendedWaitUntil:
     visible:
-      id: 'video-analysis-detail-status'
-      text: 'Status: done'
+      id: 'video-analysis-playback-player'
     timeout: 600000
-- assertVisible: 'Unlinked analysis'
+- assertVisible:
+    text: 'Unlinked analysis'
+    childOf:
+      id: 'video-analysis-detail-header'
+# Compare sits at the very bottom (edge swipes: the player / chart eat centred gestures).
+- repeat:
+    times: 12
+    while:
+      notVisible:
+        id: 'video-analysis-compare-button'
+    commands:
+      - swipe:
+          start: '97%, 80%'
+          end: '97%, 35%'
+          duration: 1500
+- assertVisible:
+    id: 'video-analysis-detail-status'
+    text: 'Status: done'
 - tapOn:
     id: 'video-analysis-compare-button'
 - extendedWaitUntil:

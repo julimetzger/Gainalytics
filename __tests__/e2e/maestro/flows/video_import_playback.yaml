@@ -11,6 +11,8 @@ appId: com.powerliftingworkoutplanner
 #     with exactly N rep rows (N is detector/ABI dependent: 2 on the x86_64 emulator).
 #   * GH-321: a picker-imported video is gallery-backed ("Secure video in app");
 #     securing it switches to "Video secured in app" and it still plays.
+#   * GH-681: the detail header shows only the set heading, the video follows;
+#     details, "Secure video in app", "Compare" and the VL reference are at the bottom.
 #   * GH-439 / GH-177: rep + velocity readout follow continuous playback (values
 #     sampled and asserted to CHANGE, never pinned to a device value).
 #   * GH-351: a tap on the speed chart seeks and re-binds the velocity readout.
@@ -176,27 +178,71 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'video-analysis-detail-screen'
     timeout: 30000
-# The analysis must finish (not FAILED by a restart, not stuck in seed selection).
+# The analysis must finish (not FAILED by a restart, not stuck in seed selection):
+# the player only renders once a DONE result is loaded.
 - extendedWaitUntil:
     visible:
-      id: 'video-analysis-detail-status'
-      text: 'Status: done'
+      id: 'video-analysis-playback-player'
     timeout: 600000
+- assertNotVisible: 'Error: .*'
+- assertNotVisible: '.*App was closed while import or analysis was running.*'
+# GH-681: the header shows only the set heading, the video follows directly.
+# The clip is not linked to a set -> the detail header falls back to this label.
+- assertVisible:
+    text: 'Unlinked analysis'
+    childOf:
+      id: 'video-analysis-detail-header'
+- assertVisible:
+    id: 'video-analysis-playback-player'
+    below:
+      id: 'video-analysis-detail-header'
+- assertNotVisible:
+    id: 'video-analysis-detail-status'
+- assertNotVisible:
+    id: 'video-analysis-secure-video-button'
+- assertNotVisible:
+    id: 'video-analysis-compare-button'
+
+# GH-681: details, "Secure video in app", "Compare" and the VL reference sit at
+# the very bottom (edge swipes: the player / speed chart eat centred gestures).
+- repeat:
+    times: 12
+    while:
+      notVisible:
+        id: 'vl-reference-set-button'
+    commands:
+      - swipe:
+          start: '97%, 80%'
+          end: '97%, 35%'
+          duration: 1500
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'video-analysis-detail-status'
+    commands:
+      - swipe:
+          start: '97%, 35%'
+          end: '97%, 55%'
+          duration: 1500
 - assertVisible:
     id: 'video-analysis-detail-status'
     text: 'Status: done'
-- assertNotVisible: 'Error: .*'
-- assertNotVisible: '.*App was closed while import or analysis was running.*'
 # GH-621: the result was made with the chosen rate (analysisMeta.analyzedFps).
-- extendedWaitUntil:
-    visible:
-      id: 'video-analysis-detail-analyzed-fps'
-    timeout: 30000
 - assertVisible:
     id: 'video-analysis-detail-analyzed-fps'
     text: 'Analysed at ${FPS || "15"} fps'
-# The clip is not linked to a set -> the detail header falls back to this label.
-- assertVisible: 'Unlinked analysis'
+- assertVisible:
+    id: 'video-analysis-compare-button'
+    text: 'Compare'
+    below:
+      id: 'video-analysis-secure-video-button'
+- assertVisible:
+    id: 'vl-reference-card'
+    below:
+      id: 'video-analysis-compare-button'
+- assertNotVisible:
+    id: 'video-analysis-playback-player'
 
 # ------------------------------- GH-321: gallery-backed -> secured in the app
 - assertVisible:
@@ -217,6 +263,17 @@ appId: com.powerliftingworkoutplanner
     text: 'This video is stored in the app and will be kept, even if you delete it from the gallery.'
 - assertNotVisible:
     id: 'video-analysis-source-unavailable'
+# Back to the header (the playback part below starts from the top).
+- repeat:
+    times: 12
+    while:
+      notVisible:
+        id: 'video-analysis-detail-header'
+    commands:
+      - swipe:
+          start: '97%, 35%'
+          end: '97%, 80%'
+          duration: 1500
 
 # ------------------------------------------- GH-312: Rep Summary (N reps)
 # Edge swipes: centred gestures are eaten by the player / speed chart.

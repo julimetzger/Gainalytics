@@ -229,11 +229,21 @@ appId: com.powerliftingworkoutplanner
       id: 'video-analysis-detail-screen'
     timeout: 30000
 - assertVisible: 'Bankdrücken · Set 1 · 115 kg @ 1 RIR'
-- scrollUntilVisible:
-    element:
-      id: 'vl-reference-set-button'
-    direction: DOWN
-    timeout: 30000
+# GH-681: the VL reference card sits at the very bottom, below the video,
+# the chart and the details card (edge swipes: the video/chart eat swipes).
+- repeat:
+    times: 12
+    while:
+      notVisible:
+        id: 'vl-reference-set-button'
+    commands:
+      - swipe:
+          start: '6%, 79%'
+          end: '6%, 25%'
+- assertVisible:
+    id: 'vl-reference-card'
+    below:
+      id: 'video-analysis-compare-button'
 - assertVisible:
     id: 'vl-reference-vl-percent'
     text: '14\.3% VL'
@@ -245,16 +255,16 @@ appId: com.powerliftingworkoutplanner
     text: 'Bankdrücken uses the global VL curve\.'
 - assertNotVisible:
     id: 'vl-reference-badge'
-# Playback overlay (needs gh415-result.json): same global value.
+# Playback overlay (needs gh415-result.json), above the VL card: same global value.
 - repeat:
-    times: 6
+    times: 8
     while:
       notVisible:
         id: 'video-analysis-rir-estimate'
     commands:
       - swipe:
-          start: '6%, 79%'
-          end: '6%, 25%'
+          start: '6%, 25%'
+          end: '6%, 79%'
 - assertVisible:
     id: 'video-analysis-rir-estimate'
     text: 'RIR=3-4'
@@ -263,14 +273,14 @@ appId: com.powerliftingworkoutplanner
 
 # ------------------------------------------ anchor this set at RIR 1
 - repeat:
-    times: 6
+    times: 8
     while:
       notVisible:
         id: 'vl-reference-set-button'
     commands:
       - swipe:
-          start: '6%, 25%'
-          end: '6%, 79%'
+          start: '6%, 79%'
+          end: '6%, 25%'
 - assertVisible:
     id: 'vl-reference-set-button'
     text: 'Set as VL reference'
@@ -318,14 +328,14 @@ appId: com.powerliftingworkoutplanner
     id: 'vl-reference-set-button'
     text: 'Replace reference'
 - repeat:
-    times: 6
+    times: 8
     while:
       notVisible:
         id: 'video-analysis-vl-reference-label'
     commands:
       - swipe:
-          start: '6%, 79%'
-          end: '6%, 25%'
+          start: '6%, 25%'
+          end: '6%, 79%'
 - assertVisible:
     id: 'video-analysis-rir-estimate'
     text: 'RIR=1-2'
@@ -362,11 +372,15 @@ appId: com.powerliftingworkoutplanner
           start: '6%, 25%'
           end: '6%, 79%'
 - assertVisible: 'Squat · No linked set'
-- scrollUntilVisible:
-    element:
-      id: 'vl-reference-set-button'
-    direction: DOWN
-    timeout: 30000
+- repeat:
+    times: 12
+    while:
+      notVisible:
+        id: 'vl-reference-set-button'
+    commands:
+      - swipe:
+          start: '6%, 79%'
+          end: '6%, 25%'
 - assertVisible:
     id: 'vl-reference-global-hint'
     text: 'Squat uses the global VL curve\.'
@@ -398,14 +412,14 @@ appId: com.powerliftingworkoutplanner
           end: '6%, 79%'
 - assertVisible: 'Bankdrücken · Set 1 · 115 kg @ 1 RIR'
 - repeat:
-    times: 6
+    times: 12
     while:
       notVisible:
         id: 'vl-reference-remove-button'
     commands:
       - swipe:
-          start: '6%, 25%'
-          end: '6%, 79%'
+          start: '6%, 79%'
+          end: '6%, 25%'
 - tapOn:
     id: 'vl-reference-remove-button'
 - extendedWaitUntil:

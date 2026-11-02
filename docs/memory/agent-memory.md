@@ -1053,3 +1053,8 @@ Workers append NEW learnings here (and only here), after checking the table of c
 ### Baseline exercise "Hyperextension " has a trailing blank — Maestro `text:` needs `'Hyperextension.*'`
 **Problem (GH-672):** `assertVisible {text: '13 reps', below: {text: 'Hyperextension'}}` failed although the card was on screen; uiautomator showed `text="Hyperextension "`. Text selectors are full-string regexes (known), so dump the hierarchy before trusting a visible label.
 **Apply when:** selecting History/exercise names from the baseline fixture.
+
+### Video analysis detail: status, secure, Compare and VL reference are at the BOTTOM since GH-681
+**Problem (GH-681):** the detail screen now shows `video-analysis-detail-header` (set heading + date only), then the video. `video-analysis-detail-status`, `-analyzed-fps`, `-secure-video-button`, `-compare-button` (card `video-analysis-details-card`) and `vl-reference-card` come after the overlay and rep chart. An `extendedWaitUntil` on "Status: done" therefore fails as soon as the video pushes the card off screen.
+**Fix / Rule:** wait for DONE with `extendedWaitUntil: {visible: {id: 'video-analysis-playback-player'}}` (it only renders with a loaded result). Reach the bottom with edge-swipe `repeat … while notVisible` (the player/chart eat centred `scrollUntilVisible` swipes). Unverified on a device in GH-681 (setup failed).
+**Apply when:** writing or fixing video detail flows (video_import_playback / video_compare / video_list_filters_vl).
