@@ -51,9 +51,10 @@ jest.mock('../../../../app/redux/Workout/dispatch/dispatchSuggest', () => ({
   dispatchSuggest: jest.fn(() => jest.fn()),
 }));
 
-jest.mock('../../../../app/redux/settings/use/useSettings', () => ({
-  useSettings: jest.fn(() => ({toggles: {disable1RMButton: true, disableToasts: true}})),
-}));
+jest.mock('../../../../app/redux/settings/use/useSettings', () => {
+  const useSettings = jest.fn(() => ({toggles: {disable1RMButton: true, disableToasts: true}}));
+  return {useSettings, useSettingsSelector: (select: (settings: any) => unknown) => select(useSettings())};
+});
 
 jest.mock('react-redux', () => ({
   useSelector: jest.fn(() => []),

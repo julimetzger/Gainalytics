@@ -48,6 +48,16 @@ jest.mock('../../../app/redux/Workout/use/useWorkoutById', () => ({
 
 jest.mock('../../../app/redux/settings/use/useSettings', () => ({
   useSettings: () => mockSettings,
+  useSettingsSelector: (select: (settings: any) => unknown) => select(mockSettings),
+}));
+
+// Same as the global mock in jest.setup.js, plus useStore: the finish undo reads the rest timer from
+// the store at press time (GH-671) instead of subscribing to the settings slice.
+jest.mock('react-redux', () => ({
+  ...jest.requireActual('react-redux'),
+  useSelector: jest.fn(() => []),
+  useDispatch: jest.fn(() => jest.fn()),
+  useStore: () => ({getState: () => ({settings: mockSettings})}),
 }));
 
 jest.mock('../../../app/redux/Training/dispatch/plan/dispatchStartTraining', () => ({

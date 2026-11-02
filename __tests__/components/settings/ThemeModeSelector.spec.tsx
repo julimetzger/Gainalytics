@@ -16,9 +16,10 @@ import {dispatchSetThemeMode} from '../../../app/redux/settings/dispatch/dispatc
 
 const mockSetThemeMode = jest.fn();
 
-jest.mock('../../../app/redux/settings/use/useSettings', () => ({
-  useSettings: jest.fn(),
-}));
+jest.mock('../../../app/redux/settings/use/useSettings', () => {
+  const useSettings = jest.fn();
+  return {useSettings, useSettingsSelector: (select: (settings: any) => unknown) => select(useSettings() ?? {})};
+});
 
 jest.mock('../../../app/redux/settings/dispatch/dispatchSetThemeMode', () => ({
   dispatchSetThemeMode: jest.fn(() => mockSetThemeMode),

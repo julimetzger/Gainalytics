@@ -33,11 +33,11 @@ import Toast from 'react-native-toast-message';
 import {useTrainingInTrainingsPlan} from '../../redux/Training/use/useTrainingInTrainingsPlan';
 import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
-import {useSettings} from '../../redux/settings/use/useSettings';
+import {useSettingsSelector} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
 import {getLocalMicro, getMesoForMicro} from '../../redux/Training/trainingsPlanReducer';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
-import {shallowEqual, useSelector} from 'react-redux';
+import {shallowEqual, useSelector, useStore} from 'react-redux';
 import {GlobalState} from '../../redux/rootReducer';
 import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
 import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
@@ -182,7 +182,10 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   }, [isCurrent]);
   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
-  let appSettings = useSettings();
+  // GH-671: only the toggle; reading the whole settings slice re-rendered every swiper pane on each
+  // rest-timer start (= every logged set). The rest timer is read from the store when Undo needs it.
+  const disableToasts = useSettingsSelector((settings) => settings.toggles?.disableToasts);
+  const store = useStore<GlobalState>();
   const [showPicker, setShowPicker] = useState(false);
   // GH-483: a pulled-down carousel tile has to draw over the execute/edit view below it.
   const [exerciseStripRaised, setExerciseStripRaised] = useState(false);
@@ -338,7 +341,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       return;
     }
     startTraining();
-    if (!appSettings.toggles?.disableToasts) {
+    if (!disableToasts) {
       Toast.show({
         type: 'info',
         text1: 'Training started!',
@@ -373,7 +376,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     setTimeInWorkout(new Date(Date.now()));
     scheduleFinisTraining();
     // The rest timer itself kept running in the settings slice — only its notification was cancelled.
-    const activeRest = appSettings.restTimer?.active;
+    const activeRest = store.getState().settings.restTimer?.active;
     if (activeRest?.startedAt !== undefined && activeRest.targetSeconds !== undefined) {
       const remainingSeconds = Math.round((activeRest.startedAt + activeRest.targetSeconds * 1000 - Date.now()) / 1000);
       if (remainingSeconds > 0) schedulePauseDoneNotification(remainingSeconds);
