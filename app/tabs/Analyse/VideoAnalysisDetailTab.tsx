@@ -37,7 +37,7 @@ import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 import Toast from 'react-native-toast-message';
 
 // Only the route is used; navigation comes from useNavigation().
-type Props = Pick<NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'>, 'route'>;
+interface Props extends Pick<NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'>, 'route'> {}
 
 interface PreviewDimensions {
   width: number;
