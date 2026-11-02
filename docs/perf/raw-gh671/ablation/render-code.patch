@@ -1,0 +1,275 @@
+diff --git a/App.tsx b/App.tsx
+index 4f655e7a..9f8b8360 100644
+--- a/App.tsx
++++ b/App.tsx
+@@ -1,4 +1,4 @@
+-import React, {useEffect} from 'react';
++import React, {useEffect, useMemo} from 'react';
+ import {PersistGate} from 'redux-persist/integration/react';
+ import {Provider} from 'react-redux';
+ import configureStore from './configureStore';
+@@ -10,7 +10,7 @@ import HealthConnectLifecycle from './app/components/healthConnect/HealthConnect
+ import {toastConfig} from './app/components/common/toastConfig';
+ import {EventProvider} from 'react-native-outside-press';
+ import {registerTranslation} from 'react-native-paper-dates';
+-import {useSettings} from './app/redux/settings/use/useSettings';
++import {useSettingsSelector} from './app/redux/settings/use/useSettings';
+ import {useThemeMode} from './app/redux/settings/use/useThemeMode';
+ import {buildThemes} from './app/theme/buildThemes';
+ import Toast from 'react-native-toast-message';
+@@ -67,9 +67,12 @@ const {store, persistor} = configureStore();
+ 
+ 
+ const AppWithPersist = () => {
+-  let appSettings = useSettings();
++  // GH-671: only the palette, and the themes are built once per palette. The rest timer lives in
++  // the settings, so a whole-settings subscription plus a fresh theme object per render
++  // re-rendered every themed component of the app on each logged set.
++  const palette = useSettingsSelector((settings) => settings?.palette);
+   const {scheme} = useThemeMode();
+-  const {DarkTheme, LightThemeCombined} = buildThemes(appSettings?.palette);
++  const {DarkTheme, LightThemeCombined} = useMemo(() => buildThemes(palette), [palette]);
+   let paperThemes = scheme === 'light' ? LightThemeCombined : DarkTheme;
+ 
+   // Register foreground event handler for notification taps while the app is active.
+diff --git a/app/components/Training/TrainingsPlanNode.tsx b/app/components/Training/TrainingsPlanNode.tsx
+index 973a635b..55a7346e 100644
+--- a/app/components/Training/TrainingsPlanNode.tsx
++++ b/app/components/Training/TrainingsPlanNode.tsx
+@@ -33,11 +33,11 @@ import Toast from 'react-native-toast-message';
+ import {useTrainingInTrainingsPlan} from '../../redux/Training/use/useTrainingInTrainingsPlan';
+ import {PauseDoneNotification} from './execute/PauseDoneNotification';
+ import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
+-import {useSettings} from '../../redux/settings/use/useSettings';
++import {useSettingsSelector} from '../../redux/settings/use/useSettings';
+ import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
+ import {getLocalMicro, getMesoForMicro} from '../../redux/Training/trainingsPlanReducer';
+ import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
+-import {shallowEqual, useSelector} from 'react-redux';
++import {shallowEqual, useSelector, useStore} from 'react-redux';
+ import {GlobalState} from '../../redux/rootReducer';
+ import {dispatchReplaceExerciseInTraining} from '../../redux/Training/dispatch/general/dispatchReplaceExerciseInTraining';
+ import ExerciseAlternativesDialog from './ExerciseAlternativesDialog';
+@@ -182,7 +182,10 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
+   }, [isCurrent]);
+   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
+   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
+-  let appSettings = useSettings();
++  // GH-671: only the toggle; reading the whole settings slice re-rendered every swiper pane on each
++  // rest-timer start (= every logged set). The rest timer is read from the store when Undo needs it.
++  const disableToasts = useSettingsSelector((settings) => settings.toggles?.disableToasts);
++  const store = useStore<GlobalState>();
+   const [showPicker, setShowPicker] = useState(false);
+   // GH-483: a pulled-down carousel tile has to draw over the execute/edit view below it.
+   const [exerciseStripRaised, setExerciseStripRaised] = useState(false);
+@@ -338,7 +341,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
+       return;
+     }
+     startTraining();
+-    if (!appSettings.toggles?.disableToasts) {
++    if (!disableToasts) {
+       Toast.show({
+         type: 'info',
+         text1: 'Training started!',
+@@ -373,7 +376,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
+     setTimeInWorkout(new Date(Date.now()));
+     scheduleFinisTraining();
+     // The rest timer itself kept running in the settings slice — only its notification was cancelled.
+-    const activeRest = appSettings.restTimer?.active;
++    const activeRest = store.getState().settings.restTimer?.active;
+     if (activeRest?.startedAt !== undefined && activeRest.targetSeconds !== undefined) {
+       const remainingSeconds = Math.round((activeRest.startedAt + activeRest.targetSeconds * 1000 - Date.now()) / 1000);
+       if (remainingSeconds > 0) schedulePauseDoneNotification(remainingSeconds);
+diff --git a/app/components/Training/execute/FinishTrainingNotification.ts b/app/components/Training/execute/FinishTrainingNotification.ts
+index 7e63b9f2..f849287e 100644
+--- a/app/components/Training/execute/FinishTrainingNotification.ts
++++ b/app/components/Training/execute/FinishTrainingNotification.ts
+@@ -1,7 +1,7 @@
+ import {useEffect, useRef, useCallback} from 'react';
+ import {Platform} from 'react-native';
+ import notifee, {AlarmType, AndroidImportance, TimestampTrigger, TriggerType} from '@notifee/react-native';
+-import {useSettings} from '../../../redux/settings/use/useSettings';
++import {useSettingsSelector} from '../../../redux/settings/use/useSettings';
+ import {canScheduleExactAlarms} from '../../../utils/NotificationUtils';
+ 
+ function createChannel() {
+@@ -13,9 +13,9 @@ function createChannel() {
+ }
+ 
+ export const FinishTrainingNotification = () => {
+-  let appSettings = useSettings();
+-  const finishTrainingTimerInSeconds = appSettings.localNotification?.finishTrainingTimerInSeconds ?? 0;
+-  const useExact = appSettings.localNotification?.exactAlarmPermission ?? false;
++  // GH-671: two values, not the whole settings (which change on every rest-timer start).
++  const finishTrainingTimerInSeconds = useSettingsSelector((settings) => settings.localNotification?.finishTrainingTimerInSeconds) ?? 0;
++  const useExact = useSettingsSelector((settings) => settings.localNotification?.exactAlarmPermission) ?? false;
+ 
+   const channelIdRef = useRef<string>();
+   const notificationIdRef = useRef<string>('training_done'); // stable id
+diff --git a/app/components/Training/execute/PauseDoneNotification.ts b/app/components/Training/execute/PauseDoneNotification.ts
+index 1601b16a..68112bca 100644
+--- a/app/components/Training/execute/PauseDoneNotification.ts
++++ b/app/components/Training/execute/PauseDoneNotification.ts
+@@ -1,7 +1,7 @@
+ import {useEffect, useRef, useCallback} from 'react';
+ import {Platform} from 'react-native';
+ import notifee, {AlarmType, AndroidImportance, TimestampTrigger, TriggerType} from '@notifee/react-native';
+-import {useSettings} from '../../../redux/settings/use/useSettings';
++import {useSettingsSelector} from '../../../redux/settings/use/useSettings';
+ import {canScheduleExactAlarms} from '../../../utils/NotificationUtils';
+ 
+ function createChannel() {
+@@ -13,8 +13,8 @@ function createChannel() {
+ }
+ 
+ export const PauseDoneNotification = () => {
+-  let appSettings = useSettings();
+-  const useExact = appSettings.localNotification?.exactAlarmPermission ?? false;
++  // GH-671: one value, not the whole settings (which change on every rest-timer start).
++  const useExact = useSettingsSelector((settings) => settings.localNotification?.exactAlarmPermission) ?? false;
+   const channelIdRef = useRef<string>();
+   const notificationIdRef = useRef<string>('pause_done'); // stable id
+ 
+diff --git a/app/components/Workout/add/AddWorkoutSet.tsx b/app/components/Workout/add/AddWorkoutSet.tsx
+index 5ca33598..61d06038 100644
+--- a/app/components/Workout/add/AddWorkoutSet.tsx
++++ b/app/components/Workout/add/AddWorkoutSet.tsx
+@@ -4,7 +4,7 @@ import React, {useEffect, useState} from 'react';
+ import Toast from 'react-native-toast-message';
+ import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
+ import {WorkoutSet} from '../../../models/entities/WorkoutSet';
+-import {useSettings} from '../../../redux/settings/use/useSettings';
++import {useSettingsSelector} from '../../../redux/settings/use/useSettings';
+ import {convertToNumber, ensureFormat} from '../../../utils/numberInput';
+ import {parseRirInput, RIR_RULE_TOAST} from '../../../utils/rirInput';
+ 
+@@ -25,8 +25,11 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
+   const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
+   const [reps, setReps] = useState(workoutSet?.reps?.toString() ?? '');
+   const [editing, setEditing] = useState(hasToSaveManually);
+-  let appSettings = useSettings();
+-  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(appSettings.toggles?.disable1RMButton);
++  // GH-671: only the two toggles. Every logged set starts the rest timer, which lives in the
++  // settings — a whole-settings subscription re-rendered every set row on each "Add".
++  const disable1RMButton = useSettingsSelector((settings) => settings.toggles?.disable1RMButton);
++  const disableToasts = useSettingsSelector((settings) => settings.toggles?.disableToasts);
++  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(disable1RMButton);
+   const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
+   const [weightEmpty, setWeightEmpty] = useState(false);
+   const [rirEmpty, setRirEmpty] = useState(false);
+@@ -141,7 +144,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
+       reps: repsNumber,
+       rir: rirNumber,
+     } as WorkoutSet);
+-    if (repsNumber > 20 && !appSettings.toggles?.disableToasts) {
++    if (repsNumber > 20 && !disableToasts) {
+       Toast.show({
+         type: 'error',
+         text1: 'WARNING: Cardio detected!',
+diff --git a/app/redux/Training/use/useTrainings.ts b/app/redux/Training/use/useTrainings.ts
+index cb077f51..a0f7fd51 100644
+--- a/app/redux/Training/use/useTrainings.ts
++++ b/app/redux/Training/use/useTrainings.ts
+@@ -1,4 +1,9 @@
+ import {useSelector} from 'react-redux';
+ import {GlobalState} from '../../rootReducer';
++import {TrainingsState} from '../../../models/TrainingsState';
+ 
+ export const useTrainings = () => useSelector((state: GlobalState) => state.trainings.allIds.map((value: number) => state.trainings.byId[value]));
++
++/** GH-671: a boolean for the tab badge — unlike `useTrainings()` it does not change on every dispatch. */
++export const selectIsAnyTrainingStarted = (state: GlobalState) =>
++  state.trainings.allIds.some((id: number) => state.trainings.byId[id]?.state === TrainingsState.STARTED);
+diff --git a/app/redux/settings/use/useSettings.ts b/app/redux/settings/use/useSettings.ts
+index b0ded469..4a4b4653 100644
+--- a/app/redux/settings/use/useSettings.ts
++++ b/app/redux/settings/use/useSettings.ts
+@@ -1,4 +1,14 @@
+ import {useSelector} from 'react-redux';
+ import {GlobalState} from '../../rootReducer';
++import {AppSettings} from '../settingsReducer';
+ 
+ export const useSettings = () => useSelector((state: GlobalState) => state.settings);
++
++/**
++ * GH-671: one value out of the settings. The running rest timer lives in the
++ * settings too (`restTimer.active`), so every logged set replaces the whole
++ * settings object — a component on `useSettings()` re-renders on each "Add"
++ * even when it only reads a toggle. [select] must return a primitive or an
++ * object of the settings itself (no new object per call).
++ */
++export const useSettingsSelector = <T>(select: (settings: AppSettings) => T): T => useSelector((state: GlobalState) => select(state.settings));
+diff --git a/app/redux/settings/use/useThemeMode.ts b/app/redux/settings/use/useThemeMode.ts
+index 75c323db..b76ec885 100644
+--- a/app/redux/settings/use/useThemeMode.ts
++++ b/app/redux/settings/use/useThemeMode.ts
+@@ -1,5 +1,5 @@
+ import {useColorScheme} from 'react-native';
+-import {useSettings} from './useSettings';
++import {useSettingsSelector} from './useSettings';
+ import {ColorScheme, resolveColorScheme, resolveThemeModeSetting, ThemeModeSetting} from '../../../theme/themeMode';
+ 
+ export interface ThemeModeState {
+@@ -16,9 +16,12 @@ export interface ThemeModeState {
+  * dark mode while the app is open flips the theme without a restart.
+  */
+ export const useThemeMode = (): ThemeModeState => {
+-  const settings = useSettings();
++  // GH-671: only the two theme fields — App.tsx sits on this hook, and a whole-settings
++  // subscription re-rendered the app root on every rest-timer start.
++  const themeMode = useSettingsSelector((settings) => settings.themeMode);
++  const mode = useSettingsSelector((settings) => settings.mode);
+   const systemScheme = useColorScheme();
+-  const setting = resolveThemeModeSetting(settings);
++  const setting = resolveThemeModeSetting({themeMode, mode});
+ 
+   return {setting, scheme: resolveColorScheme(setting, systemScheme)};
+ };
+diff --git a/app/routing/bottomNavigator.tsx b/app/routing/bottomNavigator.tsx
+index 4759ca9a..9e498882 100644
+--- a/app/routing/bottomNavigator.tsx
++++ b/app/routing/bottomNavigator.tsx
+@@ -4,11 +4,11 @@ import AnalyseRouter from './AnalyseRouter';
+ import SettingsRouter from './SettingsRouter';
+ import {createMaterialBottomTabNavigator} from 'react-native-paper/react-navigation';
+ import TrainingRouter from './TrainingRouter';
+-import {useTrainings} from '../redux/Training/use/useTrainings';
+-import {TrainingsState} from '../models/TrainingsState';
++import {useSelector} from 'react-redux';
++import {selectIsAnyTrainingStarted} from '../redux/Training/use/useTrainings';
+ import useExerciseRecord from '../redux/Effects/useExerciseRecord';
+ import Toast from 'react-native-toast-message';
+-import {useSettings} from '../redux/settings/use/useSettings';
++import {useSettingsSelector} from '../redux/settings/use/useSettings';
+ import {useExercise} from '../redux/Exercises/use/useExercise';
+ import {useNavigation} from '@react-navigation/native';
+ 
+@@ -16,14 +16,15 @@ const Tab = createMaterialBottomTabNavigator();
+ 
+ export const BottomTabs = () => {
+   const navigation = useNavigation();
+-  const settings = useSettings();
+-  const allTrainings = useTrainings();
++  // GH-671: a boolean and a toggle instead of the training list and the whole settings — both
++  // were new values on every logged set and re-rendered the tab navigator each time.
++  const disableToasts = useSettingsSelector((settings) => settings.toggles?.disableToasts);
++  const isTrainingStarted = useSelector(selectIsAnyTrainingStarted);
+   let useExerciseRecord1 = useExerciseRecord();
+   let exercise = useExercise(useExerciseRecord1?.exerciseId);
+-  let isTrainingStarted = allTrainings.some((A) => A.state === TrainingsState.STARTED);
+ 
+   React.useEffect(() => {
+-    if (useExerciseRecord1 && exercise && !settings.toggles?.disableToasts) {
++    if (useExerciseRecord1 && exercise && !disableToasts) {
+       Toast.show({
+         type: 'success',
+         text1: 'New Record!',
+@@ -41,7 +42,7 @@ export const BottomTabs = () => {
+         },
+       });
+     }
+-  }, [useExerciseRecord1, exercise, navigation, settings.toggles?.disableToasts]);
++  }, [useExerciseRecord1, exercise, navigation, disableToasts]);
+ 
+   return (
+     <Tab.Navigator initialRouteName="Training" shifting={true} backBehavior="history">

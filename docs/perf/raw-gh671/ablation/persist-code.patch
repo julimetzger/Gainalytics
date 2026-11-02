@@ -1,0 +1,72 @@
+diff --git a/app/redux/Workout/workoutReducer.ts b/app/redux/Workout/workoutReducer.ts
+index e1639201..09e6c993 100644
+--- a/app/redux/Workout/workoutReducer.ts
++++ b/app/redux/Workout/workoutReducer.ts
+@@ -253,7 +253,11 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
+       };
+     }
+     case 'FINALIZE_WORKOUT': {
+-      workoutState.byId[action.workoutId].end = action.end;
++      // GH-671: a new workout object, never `end` set on the stored one — the incremental
++      // persistence (redux/persist/incremental-storage.ts) writes a workout only when it is a
++      // different object, so an in-place change would never reach the disk.
++      if (workoutState.byId[action.workoutId] === undefined) return workoutState;
++      const finalizedWorkout = {...workoutState.byId[action.workoutId], end: action.end};
+       if (workoutState.notFinishedWorkouts !== undefined)
+         for (let key in workoutState.notFinishedWorkouts) {
+           if (workoutState.notFinishedWorkouts[key] === action.workoutId) delete workoutState.notFinishedWorkouts[key];
+@@ -262,7 +266,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
+         delete workoutState.suggestedWorkouts[workoutState.byId[action.workoutId].exerciseId];
+       return {
+         ...workoutState,
+-        byId: {...workoutState.byId},
++        byId: {...workoutState.byId, [action.workoutId]: finalizedWorkout},
+         notFinishedWorkouts: {...workoutState.notFinishedWorkouts},
+         suggestedWorkouts: {...workoutState.suggestedWorkouts},
+       };
+diff --git a/configureStore.ts b/configureStore.ts
+index babaa5b1..e70cabc6 100644
+--- a/configureStore.ts
++++ b/configureStore.ts
+@@ -6,6 +6,7 @@ import createFilter from 'redux-persist-transform-filter';
+ import {configureStore, Tuple} from '@reduxjs/toolkit';
+ import logger from 'redux-logger';
+ import {healthConnectMiddleware} from './app/redux/HealthConnect/healthConnectMiddleware';
++import {createIncrementalStorage} from './app/redux/persist/incremental-storage';
+ 
+ export const migrations = {
+   0: (state) => {
+@@ -178,20 +179,9 @@ export const migrations = {
+ // No id: v4 falls back to the default instance 'mmkv.default', the same file v3's `new MMKV()` used.
+ const storage = createMMKV();
+ 
+-export const reduxStorage: Storage = {
+-  setItem: (key, value) => {
+-    storage.set(key, value);
+-    return Promise.resolve(true);
+-  },
+-  getItem: (key) => {
+-    const value = storage.getString(key);
+-    return Promise.resolve(value);
+-  },
+-  removeItem: (key) => {
+-    storage.remove(key);
+-    return Promise.resolve();
+-  },
+-};
++// GH-671: only what changed is written (per slice, workouts in chunks) instead of the whole
++// ~1.8 MB state on every change; reads the old single `persist:root` value and migrates it.
++export const reduxStorage: Storage = createIncrementalStorage(storage);
+ 
+ const saveUserLoginSubsetFilter = createFilter('workouts', ['byId', 'byExerciseId', 'allIds', 'plannedWorkouts']);
+ // GH-528: only the opt-in and the sync bookkeeping are persisted; permissions are re-read and
+@@ -206,6 +196,9 @@ const persistConfig = {
+   stateReconciler: hardSet,
+   transforms: [saveUserLoginSubsetFilter, healthConnectPersistFilter],
+   migrate: createMigrate(migrations, {debug: true}),
++  // GH-671: the storage receives and returns objects; it serialises each part itself.
++  serialize: false,
++  deserialize: false,
+ };
+ 
+ // @ts-ignore
