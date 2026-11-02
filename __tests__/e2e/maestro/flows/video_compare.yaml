@@ -82,7 +82,7 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     text: 'Squat · Set 1 · 175 kg @ 2 RIR'
     childOf:
-      id: 'video-analysis-detail-header'
+      id: 'video-analysis-detail-header-container'
 - assertNotVisible: '.*Analysis #[0-9]+.*'
 # GH-681: "Compare" moved to the bottom card, below the playback section.
 - repeat:
@@ -169,7 +169,7 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     text: 'Squat · No linked set'
     childOf:
-      id: 'video-analysis-detail-header'
+      id: 'video-analysis-detail-header-container'
 - assertNotVisible: '.*Analysis #[0-9]+.*'
 - back
 - extendedWaitUntil:
@@ -261,7 +261,7 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     text: 'Unlinked analysis'
     childOf:
-      id: 'video-analysis-detail-header'
+      id: 'video-analysis-detail-header-container'
 # Compare sits at the very bottom (edge swipes: the player / chart eat centred gestures).
 - repeat:
     times: 12

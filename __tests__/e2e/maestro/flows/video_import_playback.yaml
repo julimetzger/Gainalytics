@@ -188,10 +188,12 @@ appId: com.powerliftingworkoutplanner
 - assertNotVisible: '.*App was closed while import or analysis was running.*'
 # GH-681: the header shows only the set heading, the video follows directly.
 # The clip is not linked to a set -> the detail header falls back to this label.
+# Paper's Card puts `testID` on an empty background view; the title is a child
+# of `<testID>-container`.
 - assertVisible:
     text: 'Unlinked analysis'
     childOf:
-      id: 'video-analysis-detail-header'
+      id: 'video-analysis-detail-header-container'
 - assertVisible:
     id: 'video-analysis-playback-player'
     below:
@@ -324,15 +326,18 @@ appId: com.powerliftingworkoutplanner
 # the player and the speed chart and is clipped out of the hierarchy when the
 # view stops just past the player (the toggle check alone can stop too early),
 # so scroll until the readout itself is on screen, then until the toggle is.
+# GH-681: the header is short now, so the view can stop with the velocity on
+# screen but the rep line above it clipped -> wait for the rep line, in short
+# swipes that keep the speed chart below on screen.
 - repeat:
-    times: 4
+    times: 6
     while:
       notVisible:
-        id: 'video-analysis-playback-current-velocity'
+        id: 'video-analysis-playback-current-rep'
     commands:
       - swipe:
-          start: '97%, 35%'
-          end: '97%, 80%'
+          start: '97%, 40%'
+          end: '97%, 55%'
           duration: 1500
 - repeat:
     times: 4
@@ -347,6 +352,8 @@ appId: com.powerliftingworkoutplanner
 - waitForAnimationToEnd
 - assertVisible:
     id: 'video-analysis-playback-player'
+- assertVisible:
+    id: 'video-analysis-playback-current-rep'
 - assertVisible:
     id: 'video-analysis-playback-current-velocity'
 - assertVisible:

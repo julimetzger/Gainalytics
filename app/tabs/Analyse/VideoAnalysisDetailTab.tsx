@@ -214,7 +214,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         const resultPath = await analyzeSquatVideo(videoUri, analysis.id, manualSeed, analyzedFps);
         attachVideoAnalysisResult(analysis.id, resultPath, analysis.localVideoPath);
         setManualSeedFramePath(analysis.id, undefined);
-      } catch (error) {
+      } catch {
         setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.FAILED, 'Seeded analysis failed');
       } finally {
         setManualSeedRunning(false);
@@ -239,7 +239,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         text2: 'The video is now stored in the app and will be kept.',
         position: 'top',
       });
-    } catch (_error) {
+    } catch {
       Toast.show({
         type: 'error',
         text1: 'Secure failed',
