@@ -253,7 +253,11 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
       };
     }
     case 'FINALIZE_WORKOUT': {
-      workoutState.byId[action.workoutId].end = action.end;
+      // GH-671: a new workout object, never `end` set on the stored one — the incremental
+      // persistence (redux/persist/incremental-storage.ts) writes a workout only when it is a
+      // different object, so an in-place change would never reach the disk.
+      if (workoutState.byId[action.workoutId] === undefined) return workoutState;
+      const finalizedWorkout = {...workoutState.byId[action.workoutId], end: action.end};
       if (workoutState.notFinishedWorkouts !== undefined)
         for (let key in workoutState.notFinishedWorkouts) {
           if (workoutState.notFinishedWorkouts[key] === action.workoutId) delete workoutState.notFinishedWorkouts[key];
@@ -262,7 +266,7 @@ const exerciseReducer = (workoutState: NormalizedWorkoutState<Workout> = initial
         delete workoutState.suggestedWorkouts[workoutState.byId[action.workoutId].exerciseId];
       return {
         ...workoutState,
-        byId: {...workoutState.byId},
+        byId: {...workoutState.byId, [action.workoutId]: finalizedWorkout},
         notFinishedWorkouts: {...workoutState.notFinishedWorkouts},
         suggestedWorkouts: {...workoutState.suggestedWorkouts},
       };

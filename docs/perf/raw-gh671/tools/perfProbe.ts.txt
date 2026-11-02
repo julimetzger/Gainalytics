@@ -1,0 +1,43 @@
+// GH-671 profiling probe (TEMPORARY, only in the two "probe" release builds, never committed as app code).
+// Hooks used in those builds (all removed again):
+//   AddWorkoutSet "Add" onPress:   probeStart('tap:Add'); probeSpan('h:submit', submit); probeMark('handler-end')
+//   configureStore:                rootReducer wrapped in probeSpan('red:<type>'), a first middleware
+//                                  probeSpan('disp:<type>', next), store.subscribe listeners wrapped in
+//                                  probeSpan('notify'), persist serialize / MMKV set / storage.setItem timed
+//   components (render bodies):    probeMark('r:<Name>') in TrainingsPlanTab, TrainingsPlanHeader,
+//                                  TrainingsPlanNode (micro + renderContent), DraggableExercise,
+//                                  ExecuteTraining, AddWorkout (+ useLayoutEffect / useEffect marks),
+//                                  AddWorkoutSet (set index), Estimated1RmCard, RestTimerCard, TrainingHomeContent
+// Output: one logcat line per "Add" (tag ReactNativeJS, prefix GH671P): "<start ms> <duration ms> <label> | ...",
+// times relative to the start of the onPress handler, flushed 2.5 s after the tap (outside the measured window).
+type Ev = [string, number, number];
+let evs: Ev[] = [];
+let t0 = 0;
+let active = false;
+const now = () => performance.now();
+
+const flush = () => {
+  active = false;
+  console.log('GH671P ' + evs.map(([l, s, d]) => `${s.toFixed(1)} ${d.toFixed(1)} ${l}`).join(' | '));
+};
+
+export const probeStart = (label: string) => {
+  t0 = now();
+  evs = [[label, 0, 0]];
+  active = true;
+  setTimeout(flush, 2500);
+};
+
+export const probeMark = (label: string) => {
+  if (active) evs.push([label, now() - t0, 0]);
+};
+
+export function probeSpan<T>(label: string, fn: () => T): T {
+  if (!active) return fn();
+  const s = now();
+  try {
+    return fn();
+  } finally {
+    evs.push([label, s - t0, now() - s]);
+  }
+}

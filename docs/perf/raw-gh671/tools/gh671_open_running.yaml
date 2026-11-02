@@ -1,0 +1,30 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-671 data safety: after a cold start, open the running measurement training (Bankdrücken).
+# The caller checks the logged sets (screenshot: "Set N" label + rows).
+- launchApp:
+    stopApp: false
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'training-home-screen'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'next-training-start-button'
+    direction: DOWN
+    centerElement: true
+    timeout: 60000
+- assertVisible:
+    id: 'next-training-status-label'
+    text: 'Training running'
+- tapOn:
+    id: 'next-training-start-button'
+- extendedWaitUntil:
+    visible:
+      id: '^add-workout-set-reps-input$'
+    timeout: 60000
+- assertVisible:
+    id: '^add-workout-set-logged-1$'
+- assertVisible:
+    id: '^add-workout-set-logged-9$'
