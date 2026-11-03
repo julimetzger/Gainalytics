@@ -36,6 +36,24 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: '^exercise-searchbar$'
     timeout: 30000
+
+# ── 0. GH-675: the rows mount in stages (first screen, then a few per frame) — all 82 end up in the list,
+# in order. The alphabetically last baseline exercises: … "Triceps pushdown v griff" (58), "Walking lunges" (70).
+# ~80 rows: every scroll step dumps the full hierarchy, so the walk down takes ~1 min on the CI emulator.
+- scrollUntilVisible:
+    element:
+      id: '^exercise-row-70$'
+    direction: DOWN
+    timeout: 120000
+- assertVisible:
+    text: 'Walking lunges'
+    below:
+      id: '^exercise-row-58$'
+- assertVisible:
+    id: '^exercise-row-58$'
+    below:
+      text: 'Triceps overhead extension.*'
+
 - tapOn:
     id: '^exercise-searchbar$'
 - inputText: 'Squat'

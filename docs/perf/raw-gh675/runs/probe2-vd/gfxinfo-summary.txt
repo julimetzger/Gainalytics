@@ -1,0 +1,27 @@
+Total frames rendered: 13
+Janky frames: 13 (100.00%)
+Janky frames (legacy): 13 (100.00%)
+50th percentile: 200ms
+90th percentile: 300ms
+99th percentile: 350ms
+50th gpu percentile: 4950ms
+90th gpu percentile: 4950ms
+99th gpu percentile: 4950ms
+Total frames rendered: 14
+Janky frames: 13 (92.86%)
+Janky frames (legacy): 14 (100.00%)
+50th percentile: 150ms
+90th percentile: 350ms
+99th percentile: 350ms
+50th gpu percentile: 4950ms
+90th gpu percentile: 4950ms
+99th gpu percentile: 4950ms
+Total frames rendered: 10
+Janky frames: 10 (100.00%)
+Janky frames (legacy): 10 (100.00%)
+50th percentile: 150ms
+90th percentile: 300ms
+99th percentile: 300ms
+50th gpu percentile: 4950ms
+90th gpu percentile: 4950ms
+99th gpu percentile: 4950ms

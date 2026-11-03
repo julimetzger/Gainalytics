@@ -1,0 +1,45 @@
+Total frames rendered: 17
+Janky frames: 12 (70.59%)
+Janky frames (legacy): 16 (94.12%)
+50th percentile: 48ms
+90th percentile: 150ms
+99th percentile: 250ms
+50th gpu percentile: 20ms
+90th gpu percentile: 4950ms
+99th gpu percentile: 4950ms
+Total frames rendered: 20
+Janky frames: 17 (85.00%)
+Janky frames (legacy): 19 (95.00%)
+50th percentile: 57ms
+90th percentile: 200ms
+99th percentile: 300ms
+50th gpu percentile: 24ms
+90th gpu percentile: 4950ms
+99th gpu percentile: 4950ms
+Total frames rendered: 18
+Janky frames: 12 (66.67%)
+Janky frames (legacy): 17 (94.44%)
+50th percentile: 48ms
+90th percentile: 200ms
+99th percentile: 250ms
+50th gpu percentile: 22ms
+90th gpu percentile: 4950ms
+99th gpu percentile: 4950ms
+Total frames rendered: 17
+Janky frames: 13 (76.47%)
+Janky frames (legacy): 16 (94.12%)
+50th percentile: 40ms
+90th percentile: 150ms
+99th percentile: 200ms
+50th gpu percentile: 22ms
+90th gpu percentile: 4950ms
+99th gpu percentile: 4950ms
+Total frames rendered: 19
+Janky frames: 13 (68.42%)
+Janky frames (legacy): 18 (94.74%)
+50th percentile: 48ms
+90th percentile: 150ms
+99th percentile: 250ms
+50th gpu percentile: 25ms
+90th gpu percentile: 4950ms
+99th gpu percentile: 4950ms

@@ -1,0 +1,56 @@
+appId: com.powerliftingworkoutplanner
+---
+# GH-675: untraced preparation of PERF-004 scenario 5c on the CI emulator (same state as
+# docs/perf/raw-2026-11/tools/scenarios.sh prep5c): Analyse -> drawer -> Metrics Overview, expand the
+# filter panel, exercise "Bankdrücken" via Search all, collapse the panel. The week 16-22/02/26 is set
+# afterwards by scn5c.sh (range dialog, typed dates), like PERF-004 set_range.
+# Start the app with `am start` first, then run this flow; it keeps the app running (stopApp: false).
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'tab-analyse'
+    timeout: 120000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'analyse-drawer-toggle'
+    timeout: 30000
+- tapOn:
+    id: 'analyse-drawer-toggle'
+- runFlow:
+    when:
+      notVisible: 'Close drawer'
+    commands:
+      - tapOn:
+          id: 'analyse-drawer-toggle'
+- extendedWaitUntil:
+    visible: 'Close drawer'
+    timeout: 15000
+- tapOn:
+    text: '^Metrics Overview$'
+    below:
+      id: 'analyse-drawer-toggle'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'filter-panel-card'
+    timeout: 30000
+- tapOn:
+    id: 'filter-panel-card'
+- extendedWaitUntil:
+    visible:
+      id: 'filter-panel-collapse'
+    timeout: 10000
+- runFlow:
+    file: ../../../../__tests__/e2e/maestro/flows/pick_exercise_in_search_sheet.yaml
+    env:
+      NAME: 'Bankdrücken'
+- assertVisible:
+    id: 'filter-exercise-section-title'
+    text: 'Exercises \(1\)'
+- tapOn:
+    id: 'filter-panel-collapse'
+- extendedWaitUntil:
+    notVisible:
+      id: 'filter-panel-collapse'
+    timeout: 10000
