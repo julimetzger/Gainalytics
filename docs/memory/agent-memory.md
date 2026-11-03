@@ -1054,6 +1054,21 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Problem (GH-672):** `assertVisible {text: '13 reps', below: {text: 'Hyperextension'}}` failed although the card was on screen; uiautomator showed `text="Hyperextension "`. Text selectors are full-string regexes (known), so dump the hierarchy before trusting a visible label.
 **Apply when:** selecting History/exercise names from the baseline fixture.
 
+### Video analysis detail: status, secure, Compare and VL reference are at the BOTTOM since GH-681
+**Problem (GH-681):** the detail screen now shows `video-analysis-detail-header` (set heading + date only), then the video. `video-analysis-detail-status`, `-analyzed-fps`, `-secure-video-button`, `-compare-button` (card `video-analysis-details-card`) and `vl-reference-card` come after the overlay and rep chart. An `extendedWaitUntil` on "Status: done" therefore fails as soon as the video pushes the card off screen.
+**Fix / Rule:** wait for DONE with `extendedWaitUntil: {visible: {id: 'video-analysis-playback-player'}}` (it only renders with a loaded result). Reach the bottom with edge-swipe `repeat … while notVisible` (the player/chart eat centred `scrollUntilVisible` swipes). Only `extendedWaitUntil` on the player right after opening: the screen can reopen scrolled down — first scroll back up `while notVisible: video-analysis-detail-header`. Verified on the emulator in GH-681 round 2 (all three flows pass).
+With the short header, the readout's rep line (`video-analysis-playback-current-rep`, above `-current-velocity`) can sit clipped under the app bar while the velocity is visible → scroll until the REP line is visible, in short 15 % swipes (`97%,40%` → `97%,55%`) so the speed chart stays on screen.
+**Apply when:** writing or fixing video detail flows (video_import_playback / video_compare / video_list_filters_vl).
+
+### Paper `<Card testID>`: the testID node is an empty leaf — use `childOf: {id: '<testID>-container'}`
+**Problem (GH-681):** `assertVisible {text: 'Unlinked analysis', childOf: {id: 'video-analysis-detail-header'}}` failed although the title was on screen. The uiautomator dump shows `<testID>` as a self-closing ViewGroup (the card background) and the Card.Title text as its SIBLING; both sit inside `<testID>-container` (same bounds).
+**Fix / Rule:** for "text inside this card" use `childOf: {id: '<testID>-container'}`; `below:`/`visible:` on the bare `<testID>` still work (same bounds).
+**Apply when:** scoping a text assertion to a Paper `Card` (seen in GH-681).
+
+### Screen tests without `as any` for route/navigation props
+**Problem:** Codex review flags `route={… as any} navigation={{} as any}` in screen tests (AGENTS.md: no `as`, use `satisfies`). A full `NativeStackNavigationProp` fake is impractical.
+**Fix / Rule:** if the screen only reads `route` (navigation via `useNavigation()`), declare its props as `interface Props extends Pick<NativeStackScreenProps<RootStackParamList, 'X'>, 'route'> {}` (an interface, not a `type` alias — Codex flags aliases against "define Props interface") and in the test write `const route = {key, name, params} satisfies React.ComponentProps<typeof Screen>['route']`. Mocked readers get complete entity fixtures checked with `satisfies Entity`, not `Partial<…>` plus a cast. Walk `screen.toJSON()` typed as `ReactTestRendererJSON` from `react-test-renderer`.
+**Apply when:** writing component or screen specs (seen in GH-681 Codex round).
 ### Attribute release-build JS time with a throwaway probe build: `performance.now()` + `console.log` → logcat
 **Observation (GH-673):** a release APK still logs `console.log` under `ReactNativeJS` (`adb logcat -d -s ReactNativeJS:V`). Accumulate `performance.now()` deltas in a `global.__x` object (also inside `node_modules` files), print once via `setTimeout` after the gesture. After a JS-only change `tool.sh rebuild-release` took ~1 min (incremental), so probe → fix → measure cycles are cheap. Revert probes with Edit (`git restore` needs approval) and check `git status` before committing.
 **Apply when:** a perf ticket must show *where* the time goes, not only the total.
