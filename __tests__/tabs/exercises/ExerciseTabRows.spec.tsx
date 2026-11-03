@@ -1,5 +1,6 @@
 import React from 'react';
 import {act, render} from '@testing-library/react-native';
+import type {ReactTestInstance} from 'react-test-renderer';
 import ExerciseTab, {exerciseListStages} from '../../../app/tabs/exercises/ExerciseTab';
 import {Record} from '../../../app/models/entities/Exercise';
 import {useAlleExercises} from '../../../app/redux/Exercises/use/useAllExercises';
@@ -139,7 +140,8 @@ describe('ExerciseTab rows + focus carousel', () => {
 // screen of rows comes first, the rest a few rows per frame, until every row is there.
 describe('ExerciseTab staged rows (GH-675)', () => {
   const navigation = {navigate: jest.fn()} as any;
-  const rowIds = (queryAllByTestId: (id: RegExp) => {props: {testID: string}}[]) => queryAllByTestId(/^exercise-row-\d+$/).map((row) => row.props.testID);
+  const rowIds = (rows: ReactTestInstance[]) => rows.map((row) => row.props.testID);
+  const ROW_ID = /^exercise-row-\d+$/;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -155,7 +157,7 @@ describe('ExerciseTab staged rows (GH-675)', () => {
   it('renders the first 12 rows first and every row a few frames later, in list order', () => {
     const {queryAllByTestId} = render(<ExerciseTab navigation={navigation} route={{} as any} />);
 
-    expect(rowIds(queryAllByTestId)).toEqual(Array.from({length: 12}, (_, i) => `exercise-row-${i + 1}`));
+    expect(rowIds(queryAllByTestId(ROW_ID))).toEqual(Array.from({length: 12}, (_, i) => `exercise-row-${i + 1}`));
 
     // one stage per frame; each stage arms the next timer after its render
     const nextFrame = () =>
@@ -163,11 +165,11 @@ describe('ExerciseTab staged rows (GH-675)', () => {
         jest.advanceTimersByTime(16);
       });
     nextFrame();
-    expect(rowIds(queryAllByTestId)).toHaveLength(18);
+    expect(rowIds(queryAllByTestId(ROW_ID))).toHaveLength(18);
 
     nextFrame();
     nextFrame();
-    expect(rowIds(queryAllByTestId)).toEqual(Array.from({length: 30}, (_, i) => `exercise-row-${i + 1}`));
+    expect(rowIds(queryAllByTestId(ROW_ID))).toEqual(Array.from({length: 30}, (_, i) => `exercise-row-${i + 1}`));
   });
 
   it('uses as many stages as needed so the last one adds at most 6 rows', () => {
