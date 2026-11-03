@@ -11,7 +11,6 @@ import {formatVlReferenceLabel, vlToRirEstimate} from '../../utils/velocityLossR
 import {VelocityLossReference} from '../../models/entities/Exercise';
 import {isSourceUnavailableError} from '../../utils/videoAnalysisSource';
 import {isVideoSourceAvailable} from '../../utils/videoAnalysisNative';
-import {Stage} from '../common/ProgressiveMount';
 
 interface Props {
   analysisId: number;
@@ -1500,9 +1499,6 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
         </View>
       </View>
 
-      {/* GH-675: everything below the scrubber is off screen when the detail opens. Inside the detail screen's
-          ProgressiveMount it mounts one frame after the player and the speed chart (all at once elsewhere). */}
-      <Stage at={1}>
       {result.repMetrics.length > 0 && (
         <View testID="video-analysis-rep-summary" style={styles.repSummarySection}>
           <Text variant="labelMedium" style={styles.repSummaryTitle}>
@@ -1637,7 +1633,6 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
           </View>
         </View>
       )}
-      </Stage>
     </>
   );
 };
