@@ -1,6 +1,6 @@
 import React, {memo, useCallback, useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
-import {FlashList} from '@shopify/flash-list';
+import {ProgressiveMount, useProgressiveLimit} from '../../components/common/ProgressiveMount';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import {Card, Chip, FAB, Icon, Searchbar, Text, useTheme} from 'react-native-paper';
@@ -14,9 +14,11 @@ import {useExerciseWorkoutSummary} from '../../redux/Workout/use/useExerciseWork
 import {useOneRmSessionHistory} from '../../redux/Workout/use/useOneRmSessionHistory';
 import {formatTimeAgo} from '../../components/exercise/show/formatTimeAgo';
 
-// FlashList renders the first screen progressively, 2 rows per pass by default — for this list that was three
-// extra JS passes and a second long frame while the tab opened. One screen of rows fits in the first pass.
-const EXERCISE_LIST_OVERRIDE_PROPS = {initialDrawBatchSize: 12};
+/** Rows in the first commit (one screen) and per following frame while the Exercises tab opens (GH-675). */
+const FIRST_ROWS = 12;
+const ROWS_PER_STAGE = 6;
+/** Enough stages that the last one (which renders everything) adds at most ROWS_PER_STAGE rows. */
+export const exerciseListStages = (rowCount: number) => Math.max(1, Math.ceil((rowCount - FIRST_ROWS) / ROWS_PER_STAGE) + 1);
 
 const ExerciseTab = ({navigation}: Props) => {
   const theme = useTheme();
@@ -44,6 +46,8 @@ const ExerciseTab = ({navigation}: Props) => {
 
   const focusExercises = useMemo(() => filteredExercises.filter((ex) => ex.isFocus), [filteredExercises]);
   const listExercises = filteredExercises;
+  // Fixed at mount: the stage counter only climbs once, when the tab opens; later list changes render at once.
+  const [listStages] = useState(() => exerciseListStages(listExercises.length));
 
   const goToDetail = useCallback(
     (exercise: Exercise) => {
@@ -53,46 +57,6 @@ const ExerciseTab = ({navigation}: Props) => {
       });
     },
     [navigation],
-  );
-
-  const {outlineVariant, surfaceVariant, onSurface, onSurfaceVariant, primary} = theme.colors;
-  const renderRow = useCallback(
-    ({item}: {item: Exercise}) => (
-      <ExerciseRow
-        exercise={item}
-        onPress={goToDetail}
-        outlineColor={outlineVariant}
-        surfaceVariantColor={surfaceVariant}
-        onSurfaceColor={onSurface}
-        onSurfaceVariantColor={onSurfaceVariant}
-        primaryColor={primary}
-      />
-    ),
-    [goToDetail, outlineVariant, surfaceVariant, onSurface, onSurfaceVariant, primary],
-  );
-
-  // GH-675: the list used to be a plain ScrollView that built all rows (82 exercises, ~760 native views,
-  // one 261 ms frame on the device) when the tab opened. FlashList builds only the rows on screen; the
-  // focus carousel and the section label scroll with the rows as the list header, as before.
-  const listHeader = (
-    <>
-      {focusExercises.length > 0 && (
-        <View>
-          <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
-            FOCUS EXERCISES
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.focusRow} testID="focus-carousel">
-            {focusExercises.map((ex) => (
-              <FocusCard key={ex.id} exercise={ex} onPress={() => goToDetail(ex)} primaryColor={theme.colors.primary} />
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
-        ALL EXERCISES
-      </Text>
-    </>
   );
 
   return (
@@ -127,20 +91,35 @@ const ExerciseTab = ({navigation}: Props) => {
         </ScrollView>
       </View>
 
-      <View style={styles.body}>
-        <FlashList
-          testID="exercise-list"
-          data={listExercises}
-          renderItem={renderRow}
-          keyExtractor={(ex) => String(ex.id)}
-          ListHeaderComponent={listHeader}
-          ListEmptyComponent={<Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No exercises found</Text>}
-          ListFooterComponent={<View style={styles.bottomSpacer} />}
-          contentInsetAdjustmentBehavior="automatic"
-          keyboardShouldPersistTaps="handled"
-          overrideProps={EXERCISE_LIST_OVERRIDE_PROPS}
-        />
-      </View>
+      <ScrollView
+        style={styles.body}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+      >
+        {focusExercises.length > 0 && (
+          <View>
+            <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
+              FOCUS EXERCISES
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.focusRow} testID="focus-carousel">
+              {focusExercises.map((ex) => (
+                <FocusCard key={ex.id} exercise={ex} onPress={() => goToDetail(ex)} primaryColor={theme.colors.primary} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
+          ALL EXERCISES
+        </Text>
+        {/* GH-675: building all rows at once (82 exercises, ~760 native views) was one 261 ms frame on the
+            device when the tab opened. The first screen of rows comes in the first commit, the rest a few rows
+            per frame right after; once mounted, the list scrolls exactly as before (no recycling). */}
+        <ProgressiveMount stages={listStages}>
+          <ExerciseRowList exercises={listExercises} onPress={goToDetail} />
+        </ProgressiveMount>
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
 
       <FAB
         icon="plus"
@@ -327,6 +306,37 @@ const FocusCard = ({exercise, onPress, primaryColor}: FocusCardProps) => {
         </Card.Content>
       </Card>
     </Pressable>
+  );
+};
+
+interface ExerciseRowListProps {
+  exercises: Exercise[];
+  onPress: (exercise: Exercise) => void;
+}
+
+/** The "ALL EXERCISES" rows; inside the tab's ProgressiveMount the first FIRST_ROWS come first (GH-675). */
+const ExerciseRowList = ({exercises, onPress}: ExerciseRowListProps) => {
+  const theme = useTheme();
+  const rowLimit = useProgressiveLimit(FIRST_ROWS, ROWS_PER_STAGE);
+  return (
+    <View testID="exercise-list">
+      {exercises.length === 0 ? (
+        <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No exercises found</Text>
+      ) : (
+        exercises.slice(0, rowLimit).map((ex) => (
+          <ExerciseRow
+            key={ex.id}
+            exercise={ex}
+            onPress={onPress}
+            outlineColor={theme.colors.outlineVariant}
+            surfaceVariantColor={theme.colors.surfaceVariant}
+            onSurfaceColor={theme.colors.onSurface}
+            onSurfaceVariantColor={theme.colors.onSurfaceVariant}
+            primaryColor={theme.colors.primary}
+          />
+        ))
+      )}
+    </View>
   );
 };
 
