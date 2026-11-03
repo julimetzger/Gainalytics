@@ -335,7 +335,6 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
               savedSetResult={analysis.setResult}
               metersPerPixel={analysis.metersPerPixel}
               vlReference={vlReference}
-              knownVideoDurationMs={analysis.videoMeta.durationMs}
             />
           )}
         </Card.Content>

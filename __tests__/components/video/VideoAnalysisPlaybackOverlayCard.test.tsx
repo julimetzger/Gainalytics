@@ -509,47 +509,6 @@ describe('VideoAnalysisPlaybackOverlayCard – speed chart marker alignment', ()
     );
   });
 
-  // GH-675: every prop change on the native chart re-runs notifyDataSetChanged + a full redraw. The stored
-  // video length spans the axis before the player loads, so the axis does not move when it does.
-  describe('known video duration (GH-675)', () => {
-    const xAxisMaximum = (getByTestId: (testId: string) => any): number => getByTestId('video-analysis-playback-speed-plot').props.xAxis.axisMaximum;
-
-    it('spans the axis over the stored video length before the player reports one', () => {
-      const {getByTestId} = render(
-        <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithOffset()} knownVideoDurationMs={VIDEO_DURATION_MS} />,
-      );
-
-      expect(xAxisMaximum(getByTestId)).toBe(VIDEO_DURATION_MS);
-    });
-
-    it('keeps the axis unchanged when the player reports the same length', () => {
-      const {getByTestId} = render(
-        <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithOffset()} knownVideoDurationMs={VIDEO_DURATION_MS} />,
-      );
-      const xAxisBeforeLoad = getByTestId('video-analysis-playback-speed-plot').props.xAxis;
-
-      loadPlayer(getByTestId('video-analysis-playback-player'), VIDEO_DURATION_MS);
-
-      expect(getByTestId('video-analysis-playback-speed-plot').props.xAxis).toEqual(xAxisBeforeLoad);
-    });
-
-    it('follows the player once it reports a different length, exactly as without a stored one', () => {
-      const {getByTestId} = render(
-        <VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithOffset()} knownVideoDurationMs={VIDEO_DURATION_MS + 400} />,
-      );
-
-      loadPlayer(getByTestId('video-analysis-playback-player'), VIDEO_DURATION_MS);
-
-      expect(xAxisMaximum(getByTestId)).toBe(VIDEO_DURATION_MS);
-    });
-
-    it('starts on the last bar-path time without a stored length (as before)', () => {
-      const {getByTestId} = render(<VideoAnalysisPlaybackOverlayCard analysisId={1} videoUri="/test/video.mp4" result={makeResultWithOffset()} />);
-
-      expect(xAxisMaximum(getByTestId)).toBe(LAST_DATA_TIME_MS);
-    });
-  });
-
   it('marker starts at the chart left edge at playback t=0 even when data starts later', () => {
     const {getByTestId, scrubber} = setupWithOffset();
     seekViaScrubbingTo(scrubber, 0, VIDEO_DURATION_MS, 100);

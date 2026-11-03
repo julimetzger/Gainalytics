@@ -22,8 +22,6 @@ interface Props {
   metersPerPixel?: number;
   /** Active VL reference of this analysis' exercise — scales the RIR estimate shown below. */
   vlReference?: VelocityLossReference;
-  /** Video length stored at import (`videoMeta.durationMs`); stands in until the player reports its own. */
-  knownVideoDurationMs?: number;
 }
 
 interface TimeRange {
@@ -405,7 +403,7 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
   });
 
-const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSetResult, metersPerPixel, vlReference, knownVideoDurationMs}: Props) => {
+const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSetResult, metersPerPixel, vlReference}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
   const saveSetResult = dispatchSaveVideoAnalysisSetResult();
@@ -611,15 +609,9 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
   const vlReferenceLabel = useMemo(() => formatVlReferenceLabel(vlReference), [vlReference]);
 
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
-  // GH-675: until the player reports its duration, the length stored at import stands in for it. Every
-  // prop change on the native speed chart re-runs notifyDataSetChanged + a full redraw on the UI thread;
-  // starting on the last bar-path time and switching to the player's length once it loaded cost one
-  // extra axis update (two long frames) right after the screen opened. Once the player reported, the
-  // value is the player's exactly as before.
   const correctedPlaybackDurationMs = useMemo(() => {
-    const durationMs = playbackDurationMs > 0 ? playbackDurationMs : knownVideoDurationMs ?? 0;
-    return Math.max(durationMs, timeRange.maxTimeMs);
-  }, [knownVideoDurationMs, playbackDurationMs, timeRange.maxTimeMs]);
+    return Math.max(playbackDurationMs, timeRange.maxTimeMs);
+  }, [playbackDurationMs, timeRange.maxTimeMs]);
 
   // Keep videoDurationMsSV in sync with correctedPlaybackDurationMs for UI-thread animations.
   // SharedValue intentionally excluded from deps (stable ref, memory entry #16).
