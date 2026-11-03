@@ -14,6 +14,10 @@ import {useExerciseWorkoutSummary} from '../../redux/Workout/use/useExerciseWork
 import {useOneRmSessionHistory} from '../../redux/Workout/use/useOneRmSessionHistory';
 import {formatTimeAgo} from '../../components/exercise/show/formatTimeAgo';
 
+// FlashList renders the first screen progressively, 2 rows per pass by default — for this list that was three
+// extra JS passes and a second long frame while the tab opened. One screen of rows fits in the first pass.
+const EXERCISE_LIST_OVERRIDE_PROPS = {initialDrawBatchSize: 12};
+
 const ExerciseTab = ({navigation}: Props) => {
   const theme = useTheme();
   const [search, setSearch] = useState('');
@@ -134,6 +138,7 @@ const ExerciseTab = ({navigation}: Props) => {
           ListFooterComponent={<View style={styles.bottomSpacer} />}
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
+          overrideProps={EXERCISE_LIST_OVERRIDE_PROPS}
         />
       </View>
 
