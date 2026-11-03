@@ -11,6 +11,7 @@ import {formatVlReferenceLabel, vlToRirEstimate} from '../../utils/velocityLossR
 import {VelocityLossReference} from '../../models/entities/Exercise';
 import {isSourceUnavailableError} from '../../utils/videoAnalysisSource';
 import {isVideoSourceAvailable} from '../../utils/videoAnalysisNative';
+import {Stage} from '../common/ProgressiveMount';
 
 interface Props {
   analysisId: number;
@@ -22,6 +23,8 @@ interface Props {
   metersPerPixel?: number;
   /** Active VL reference of this analysis' exercise — scales the RIR estimate shown below. */
   vlReference?: VelocityLossReference;
+  /** Video length stored at import (`videoMeta.durationMs`); stands in until the player reports its own. */
+  knownVideoDurationMs?: number;
 }
 
 interface TimeRange {
@@ -403,7 +406,7 @@ const createThemedStyles = (theme: MD3Theme) =>
     },
   });
 
-const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSetResult, metersPerPixel, vlReference}: Props) => {
+const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSetResult, metersPerPixel, vlReference, knownVideoDurationMs}: Props) => {
   const theme = useTheme();
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
   const saveSetResult = dispatchSaveVideoAnalysisSetResult();
@@ -609,9 +612,15 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
   const vlReferenceLabel = useMemo(() => formatVlReferenceLabel(vlReference), [vlReference]);
 
   const timeRange = useMemo(() => getTimeRange(smoothedBarPathSeries), [smoothedBarPathSeries]);
+  // GH-675: until the player reports its duration, the length stored at import stands in for it. Every
+  // prop change on the native speed chart re-runs notifyDataSetChanged + a full redraw on the UI thread;
+  // starting on the last bar-path time and switching to the player's length once it loaded cost one
+  // extra axis update (two long frames) right after the screen opened. Once the player reported, the
+  // value is the player's exactly as before.
   const correctedPlaybackDurationMs = useMemo(() => {
-    return Math.max(playbackDurationMs, timeRange.maxTimeMs);
-  }, [playbackDurationMs, timeRange.maxTimeMs]);
+    const durationMs = playbackDurationMs > 0 ? playbackDurationMs : knownVideoDurationMs ?? 0;
+    return Math.max(durationMs, timeRange.maxTimeMs);
+  }, [knownVideoDurationMs, playbackDurationMs, timeRange.maxTimeMs]);
 
   // Keep videoDurationMsSV in sync with correctedPlaybackDurationMs for UI-thread animations.
   // SharedValue intentionally excluded from deps (stable ref, memory entry #16).
@@ -1491,6 +1500,9 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
         </View>
       </View>
 
+      {/* GH-675: everything below the scrubber is off screen when the detail opens. Inside the detail screen's
+          ProgressiveMount it mounts one frame after the player and the speed chart (all at once elsewhere). */}
+      <Stage at={1}>
       {result.repMetrics.length > 0 && (
         <View testID="video-analysis-rep-summary" style={styles.repSummarySection}>
           <Text variant="labelMedium" style={styles.repSummaryTitle}>
@@ -1625,6 +1637,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
           </View>
         </View>
       )}
+      </Stage>
     </>
   );
 };

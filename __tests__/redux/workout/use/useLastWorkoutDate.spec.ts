@@ -59,6 +59,32 @@ describe('findLastWorkoutDateForMuscle / findLastWorkoutDateByMuscle (GH-458 rou
     expect(byMuscle.get(Muscles.BICEPS)?.getTime()).toBe(new Date(2026, 1, 20).getTime());
     expect(byMuscle.get(Muscles.BACK)).toBeUndefined();
   });
+
+  // GH-675: findLastWorkoutDateByMuscle now walks the workouts once for all muscles instead of once per
+  // muscle. It must give exactly what the per-muscle lookup gives, for every muscle.
+  it('matches findLastWorkoutDateForMuscle for every muscle (single pass, GH-675)', () => {
+    const PULL_UP = {id: 3, name: 'Pull up', muscles: [{muscle: Muscles.BACK, percent: 70}, {muscle: Muscles.BICEPS, percent: 30}]} as unknown as Exercise;
+    const NO_MUSCLES = {id: 4, name: 'Plank'} as unknown as Exercise;
+    const exercises = makeExercises([CHEST_PRESS, BICEPS_CURL, PULL_UP, NO_MUSCLES]);
+    const workouts = makeWorkouts([
+      {id: 10, exerciseId: 1, start: new Date(2026, 1, 2), end: new Date(2026, 1, 2), sets: [{}]} as unknown as Workout,
+      {id: 11, exerciseId: 2, start: new Date(2026, 1, 20), end: new Date(2026, 1, 20), sets: [{}]} as unknown as Workout,
+      {id: 12, exerciseId: 3, start: new Date(2026, 1, 25), end: new Date(2026, 1, 25), sets: [{}]} as unknown as Workout, // newest Biceps + Back
+      {id: 13, exerciseId: 3, start: new Date(2026, 2, 3), sets: []} as unknown as Workout, // no sets: not a training
+      {id: 14, exerciseId: 1, start: new Date(2026, 1, 9), sets: [{}]} as unknown as Workout, // no end: start counts
+      {id: 15, exerciseId: 4, start: new Date(2026, 2, 1), end: new Date(2026, 2, 1), sets: [{}]} as unknown as Workout, // no muscles
+      {id: 16, exerciseId: 99, start: new Date(2026, 2, 5), end: new Date(2026, 2, 5), sets: [{}]} as unknown as Workout, // unknown exercise
+      {id: 17, exerciseId: 2, sets: [{}]} as unknown as Workout, // no date at all
+    ]);
+
+    const byMuscle = findLastWorkoutDateByMuscle(workouts, exercises);
+    const perMuscle = new Map([...byMuscle.keys()].map((muscle) => [muscle, findLastWorkoutDateForMuscle(workouts, exercises, muscle)]));
+
+    expect(byMuscle).toEqual(perMuscle);
+    expect(byMuscle.get(Muscles.CHEST)).toEqual(new Date(2026, 1, 9));
+    expect(byMuscle.get(Muscles.BICEPS)).toEqual(new Date(2026, 1, 25));
+    expect(byMuscle.get(Muscles.BACK)).toEqual(new Date(2026, 1, 25));
+  });
 });
 
 describe('findLastTrainedExerciseId (GH-458 round 2, issue #461)', () => {

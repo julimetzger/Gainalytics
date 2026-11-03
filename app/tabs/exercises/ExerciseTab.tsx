@@ -1,5 +1,6 @@
-import React, {useMemo, useState} from 'react';
+import React, {memo, useCallback, useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {FlashList} from '@shopify/flash-list';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import {Card, Chip, FAB, Icon, Searchbar, Text, useTheme} from 'react-native-paper';
@@ -40,12 +41,55 @@ const ExerciseTab = ({navigation}: Props) => {
   const focusExercises = useMemo(() => filteredExercises.filter((ex) => ex.isFocus), [filteredExercises]);
   const listExercises = filteredExercises;
 
-  const goToDetail = (exercise: Exercise) => {
-    navigation.navigate({
-      name: 'AddWorkoutTab',
-      params: {exercise},
-    });
-  };
+  const goToDetail = useCallback(
+    (exercise: Exercise) => {
+      navigation.navigate({
+        name: 'AddWorkoutTab',
+        params: {exercise},
+      });
+    },
+    [navigation],
+  );
+
+  const {outlineVariant, surfaceVariant, onSurface, onSurfaceVariant, primary} = theme.colors;
+  const renderRow = useCallback(
+    ({item}: {item: Exercise}) => (
+      <ExerciseRow
+        exercise={item}
+        onPress={goToDetail}
+        outlineColor={outlineVariant}
+        surfaceVariantColor={surfaceVariant}
+        onSurfaceColor={onSurface}
+        onSurfaceVariantColor={onSurfaceVariant}
+        primaryColor={primary}
+      />
+    ),
+    [goToDetail, outlineVariant, surfaceVariant, onSurface, onSurfaceVariant, primary],
+  );
+
+  // GH-675: the list used to be a plain ScrollView that built all rows (82 exercises, ~760 native views,
+  // one 261 ms frame on the device) when the tab opened. FlashList builds only the rows on screen; the
+  // focus carousel and the section label scroll with the rows as the list header, as before.
+  const listHeader = (
+    <>
+      {focusExercises.length > 0 && (
+        <View>
+          <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
+            FOCUS EXERCISES
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.focusRow} testID="focus-carousel">
+            {focusExercises.map((ex) => (
+              <FocusCard key={ex.id} exercise={ex} onPress={() => goToDetail(ex)} primaryColor={theme.colors.primary} />
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
+        ALL EXERCISES
+      </Text>
+    </>
+  );
 
   return (
     <View style={[styles.root, {backgroundColor: theme.colors.background}]}>
@@ -79,47 +123,19 @@ const ExerciseTab = ({navigation}: Props) => {
         </ScrollView>
       </View>
 
-      <ScrollView
-        style={styles.body}
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-      >
-        {focusExercises.length > 0 && (
-          <View>
-            <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
-              FOCUS EXERCISES
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.focusRow} testID="focus-carousel">
-              {focusExercises.map((ex) => (
-                <FocusCard key={ex.id} exercise={ex} onPress={() => goToDetail(ex)} primaryColor={theme.colors.primary} />
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
-          ALL EXERCISES
-        </Text>
-        <View testID="exercise-list">
-          {listExercises.length === 0 ? (
-            <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No exercises found</Text>
-          ) : (
-            listExercises.map((ex) => (
-              <ExerciseRow
-                key={ex.id}
-                exercise={ex}
-                onPress={() => goToDetail(ex)}
-                outlineColor={theme.colors.outlineVariant}
-                surfaceVariantColor={theme.colors.surfaceVariant}
-                onSurfaceColor={theme.colors.onSurface}
-                onSurfaceVariantColor={theme.colors.onSurfaceVariant}
-                primaryColor={theme.colors.primary}
-              />
-            ))
-          )}
-        </View>
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+      <View style={styles.body}>
+        <FlashList
+          testID="exercise-list"
+          data={listExercises}
+          renderItem={renderRow}
+          keyExtractor={(ex) => String(ex.id)}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={<Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No exercises found</Text>}
+          ListFooterComponent={<View style={styles.bottomSpacer} />}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+        />
+      </View>
 
       <FAB
         icon="plus"
@@ -311,7 +327,7 @@ const FocusCard = ({exercise, onPress, primaryColor}: FocusCardProps) => {
 
 interface ExerciseRowProps {
   exercise: Exercise;
-  onPress: () => void;
+  onPress: (exercise: Exercise) => void;
   outlineColor: string;
   surfaceVariantColor: string;
   onSurfaceColor: string;
@@ -319,7 +335,7 @@ interface ExerciseRowProps {
   primaryColor: string;
 }
 
-const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSurfaceColor, onSurfaceVariantColor, primaryColor}: ExerciseRowProps) => {
+const ExerciseRow = memo(({exercise, onPress, outlineColor, surfaceVariantColor, onSurfaceColor, onSurfaceVariantColor, primaryColor}: ExerciseRowProps) => {
   const muscleList = (exercise.muscles ?? []).map((m) => m.muscle).filter((m): m is Muscles => m != null);
   const tag = primaryMuscleTag(muscleList);
   const oneRm = lastOneRm(exercise);
@@ -331,7 +347,7 @@ const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSu
       : '—';
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => onPress(exercise)}
       testID={`exercise-row-${exercise.id}`}
       style={({pressed}) => [
         styles.row,
@@ -367,6 +383,6 @@ const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSu
       <Sparkline values={history} width={56} height={20} color={primaryColor} testID={`exercise-row-sparkline-${exercise.id}`} />
     </Pressable>
   );
-};
+});
 
 export default ExerciseTab;

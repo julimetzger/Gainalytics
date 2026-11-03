@@ -34,6 +34,7 @@ import {
 import {isVideoSecuredInApp, resolveVideoPlaybackUri} from '../../utils/videoAnalysisSource';
 import {calibrateFromSeed} from '../../utils/video-analysis-import';
 import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
+import {ProgressiveMount, Stage} from '../../components/common/ProgressiveMount';
 import Toast from 'react-native-toast-message';
 
 // Only the route is used; navigation comes from useNavigation().
@@ -327,31 +328,40 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           {!playbackUri && <Text>No video source available yet.</Text>}
           {playbackUri && !result && <Text>No analysis result available yet.</Text>}
           {playbackUri && result && (
-            <VideoAnalysisPlaybackOverlayCard
-              key={`${analysis.id}-${playbackUri}`}
-              analysisId={analysis.id!}
-              videoUri={playbackUri}
-              result={result}
-              savedSetResult={analysis.setResult}
-              metersPerPixel={analysis.metersPerPixel}
-              vlReference={vlReference}
-            />
+            // GH-675: the overlay mounts in two commits — player, controls and speed chart first, the off-screen
+            // rep table and metrics below the scrubber one frame later (its <Stage at={1}>).
+            <ProgressiveMount key={`${analysis.id}-${playbackUri}`} stages={2}>
+              <VideoAnalysisPlaybackOverlayCard
+                analysisId={analysis.id!}
+                videoUri={playbackUri}
+                result={result}
+                savedSetResult={analysis.setResult}
+                metersPerPixel={analysis.metersPerPixel}
+                vlReference={vlReference}
+                knownVideoDurationMs={analysis.videoMeta.durationMs}
+              />
+            </ProgressiveMount>
           )}
         </Card.Content>
       </Card>
 
       {analysis.status === VideoAnalysisStatus.DONE &&
         ((result?.repMetrics?.length ?? 0) > 0 || (analysis.setResult?.repResults?.length ?? 0) > 0) && (
-        <Card style={styles.card}>
-          <Card.Title title="Rep Velocity Chart" />
-          <Card.Content>
-            <VelocityLossBarChart
-              repMetrics={result?.repMetrics ?? []}
-              savedSetResult={analysis.setResult}
-              metersPerPixel={analysis.metersPerPixel}
-            />
-          </Card.Content>
-        </Card>
+        // GH-675: below the overlay, off screen on open — its native bar chart mounts one frame after it shows up.
+        <ProgressiveMount stages={2}>
+          <Stage at={1}>
+            <Card style={styles.card}>
+              <Card.Title title="Rep Velocity Chart" />
+              <Card.Content>
+                <VelocityLossBarChart
+                  repMetrics={result?.repMetrics ?? []}
+                  savedSetResult={analysis.setResult}
+                  metersPerPixel={analysis.metersPerPixel}
+                />
+              </Card.Content>
+            </Card>
+          </Stage>
+        </ProgressiveMount>
       )}
 
       {analysis.status === VideoAnalysisStatus.AWAITING_SEED_SELECTION && (

@@ -20,6 +20,7 @@ import AnalyseStaleRangeBanner from '../../components/analyse/AnalyseStaleRangeB
 import {rangeEndingAt} from '../../utils/analyse-range';
 import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 import {Metric} from '../../models/Metric';
+import {ProgressiveMount, Stage} from '../../components/common/ProgressiveMount';
 
 const DashboardTab = () => {
   const navigation = useNavigation<any>();
@@ -147,9 +148,15 @@ const DashboardTab = () => {
 
       <MuscleHeatmap muscleMetricMap={muscleMetricMap} onMusclePress={handleMusclePress} />
 
-      <FocusExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
+      {/* GH-675: the exercise cards sit below the muscle chart, off screen when the tab opens. They mount one
+          frame later, so opening the Dashboard no longer builds the whole screen in a single commit. */}
+      <ProgressiveMount stages={2}>
+        <Stage at={1}>
+          <FocusExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
 
-      <TopExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
+          <TopExercisesCard exerciseMetricMap={exerciseMetricMap} onExercisePress={handleExercisePress} />
+        </Stage>
+      </ProgressiveMount>
 
     </ScrollView>
   );

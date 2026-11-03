@@ -5,7 +5,7 @@ import {Workout} from '../../models/entities/Workout';
 import MetricsOverviewForWorkouts from './MetricsOverviewForWorkouts';
 import {Muscles} from '../../models/Muscles';
 import {Exercise} from '../../models/entities/Exercise';
-import React from 'react';
+import React, {memo} from 'react';
 import AnalyseEmptyState from './AnalyseEmptyState';
 import AnalyseStaleRangeBanner from './AnalyseStaleRangeBanner';
 import {ANALYSE_EXTENDED_RANGE_MONTHS, describeRange, rangeEndingToday} from '../../utils/analyse-range';
@@ -65,4 +65,16 @@ const MetricsNode = ({range, setRange, muscle, exercise}: MetricNodeProps) => {
   );
 };
 
-export default MetricsNode;
+const rangeTime = (date: Date) => new Date(date).getTime();
+
+// GH-675: RangeSwiper hands every pane a NEW Range object on each swipe, although two of the three panes keep
+// their period. Comparing the period by value lets those two skip the render (and their workout scans); only
+// the pane that moved to a new week renders. setRange is stable (RangeSwiper), exercise/muscle are state.
+const arePropsEqual = (previous: MetricNodeProps, next: MetricNodeProps) =>
+  rangeTime(previous.range.startDate) === rangeTime(next.range.startDate) &&
+  rangeTime(previous.range.endDate) === rangeTime(next.range.endDate) &&
+  previous.setRange === next.setRange &&
+  previous.exercise === next.exercise &&
+  previous.muscle === next.muscle;
+
+export default memo(MetricsNode, arePropsEqual);
