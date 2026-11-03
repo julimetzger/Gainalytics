@@ -37,9 +37,10 @@ jest.mock('../../../../app/redux/Exercises/use/useExerciseByIds', () => ({
   ],
 }));
 
-jest.mock('../../../../app/redux/settings/use/useSettings', () => ({
-  useSettings: () => ({toggles: {disableTimer: true}}),
-}));
+jest.mock('../../../../app/redux/settings/use/useSettings', () => {
+  const useSettings = () => ({toggles: {disableTimer: true}});
+  return {useSettings, useSettingsSelector: (select: (settings: any) => unknown) => select(useSettings())};
+});
 
 jest.mock('../../../../app/redux/Training/dispatch/plan/dispatchStartTraining', () => ({
   dispatchStartTraining: () => jest.fn(),

@@ -1,8 +1,8 @@
 import {getDaysBetween, getEndOfMonth, getFirstDayOfMonth, getYYYYMMDDFormat, subtractMonths} from '../../../utils/DateHelper';
 import * as React from 'react';
-import {useState} from 'react';
+import {useCallback, useMemo, useState} from 'react';
 import {useWorkoutsIn} from '../../../redux/Workout/use/useWorkoutsIn';
-import {useTheme} from 'react-native-paper';
+import {MD3Theme, useTheme} from 'react-native-paper';
 import {Range} from './DateRangePicker';
 import {DateData} from 'react-native-calendars';
 import {CalendarList} from 'react-native-calendars/src';
@@ -16,153 +16,129 @@ interface DatePickerModalProps<T extends DateOrRange> {
   onChange: (arg: T) => void;
 }
 
-export const DatePickerModal = <T extends DateOrRange>({date, onChange}: DatePickerModalProps<T>) => {
-  let useTheme1 = useTheme();
-  const [rangeForWorkouts, setRangeForWorkouts] = useState(
-    date instanceof NullableRange
-      ? new Range(subtractMonths(4, date.startDate ? getFirstDayOfMonth(date.startDate) : new Date()), getEndOfMonth(date.endDate ? date.endDate : new Date()))
-      : new Range(subtractMonths(4, getFirstDayOfMonth(date)), getEndOfMonth(date)),
-  );
+type Colors = MD3Theme['colors'];
+
+/** Period start/end, the days in between and the training days (dots) of a range selection. */
+function rangeMarkedDates(startDate: Date | undefined, endDate: Date | undefined, workoutDates: string[], colors: Colors): MarkedDates {
   let highlightedDates: MarkedDates = {};
-  let workoutsDone = useWorkoutsIn(rangeForWorkouts);
-  let dates = workoutsDone.map((workout) => getYYYYMMDDFormat(workout.start!!));
-  if (date instanceof NullableRange) {
-    let startDate = date.startDate ? getYYYYMMDDFormat(date.startDate) : undefined;
-    let endDate = date.endDate ? getYYYYMMDDFormat(date.endDate) : undefined;
-    let periodMarkings;
+  const start = startDate ? getYYYYMMDDFormat(startDate) : undefined;
+  const end = endDate ? getYYYYMMDDFormat(endDate) : undefined;
+  let periodDays: Set<string> | undefined;
 
-    startDate
-      ? (highlightedDates[startDate] = {
-          color: useTheme1.colors.primary,
-          startingDay: true,
-        })
-      : 0;
-    endDate
-      ? (highlightedDates[endDate] = {
-          color: useTheme1.colors.primary,
-          endingDay: true,
-        })
-      : 0;
-    if (startDate && endDate) {
-      let daysBetween = getDaysBetween(date.startDate!!, date.endDate!!);
-      periodMarkings = Array.from(daysBetween).map((date) => getYYYYMMDDFormat(date));
-      let daysBetweenMarkedDates = Object.fromEntries(
-        periodMarkings
-          .filter((date) => {
-            return date !== startDate && date !== endDate;
-          })
-          .map((date) => {
-            return [date, {color: useTheme1.colors.primaryContainer}];
-          }),
-      );
-
-      highlightedDates = {
-        ...highlightedDates,
-        ...daysBetweenMarkedDates,
-      };
-    }
-    const set = new Set(dates);
-    let fromEntries = Object.fromEntries(
-      Array.from(set).map((date) => {
-        if (startDate && startDate === date)
-          return [
-            date,
-            {
-              color: useTheme1.colors.primary,
-              startingDay: true,
-              marked: true,
-              dotColor: useTheme1.colors.onPrimary,
-            },
-          ];
-        if (endDate && endDate === date)
-          return [
-            date,
-            {
-              color: useTheme1.colors.primary,
-              endingDay: true,
-              dotColor: useTheme1.colors.onPrimary,
-            },
-          ];
-        if (periodMarkings!! && periodMarkings.includes(date))
-          return [
-            date,
-            {
-              color: useTheme1.colors.primaryContainer,
-              marked: true,
-              dotColor: useTheme1.colors.onPrimaryContainer,
-            },
-          ];
-        else {
-          return [date, {marked: true}];
-        }
-      }),
+  if (start) {
+    highlightedDates[start] = {color: colors.primary, startingDay: true};
+  }
+  if (end) {
+    highlightedDates[end] = {color: colors.primary, endingDay: true};
+  }
+  if (startDate && endDate && start && end) {
+    // GH-673: a Set instead of Array.includes — the old lookup ran once per training day over every day of the range.
+    periodDays = new Set(getDaysBetween(startDate, endDate).map((day) => getYYYYMMDDFormat(day)));
+    const daysBetween = Object.fromEntries(
+      Array.from(periodDays)
+        .filter((day) => day !== start && day !== end)
+        .map((day) => [day, {color: colors.primaryContainer}]),
     );
-    highlightedDates = {...highlightedDates, ...fromEntries};
-  }
-  if (date instanceof Date) {
-    let utcDate = getYYYYMMDDFormat(date);
-    highlightedDates = {
-      ...highlightedDates,
-      [utcDate]: {selectedColor: useTheme1.colors.primary, selected: true},
-    };
-    const set = new Set(dates.filter((date) => date !== utcDate));
-    let fromEntries = Object.fromEntries(
-      Array.from(set).map((date) => {
-        return [date, {marked: true}];
-      }),
-    );
-    highlightedDates = {
-      ...highlightedDates,
-      ...fromEntries,
-    };
+    highlightedDates = {...highlightedDates, ...daysBetween};
   }
 
-  function extracted(dateData: DateData) {
-    if (date instanceof NullableRange) {
-      if (!date.startDate && !date.endDate) {
-        onChange(new NullableRange(new Date(dateData.dateString), undefined) as T);
-      } else if (date.startDate && date.endDate) {
-        onChange(new NullableRange(new Date(dateData.dateString), undefined) as T);
-      } else if (date.startDate && !date.endDate) {
-        if (date.startDate > new Date(dateData.dateString)) {
-          onChange(new NullableRange(new Date(dateData.dateString), undefined) as T);
-        } else {
-          onChange(new NullableRange(new Date(date.startDate), new Date(dateData.dateString)) as T);
-        }
+  const trainingDays = Object.fromEntries(
+    Array.from(new Set(workoutDates)).map((day) => {
+      if (start && start === day) {
+        return [day, {color: colors.primary, startingDay: true, marked: true, dotColor: colors.onPrimary}];
       }
-    }
-    if (date instanceof Date) {
-      onChange(new Date(dateData.dateString) as T);
-    }
-  }
-
-  return (
-    <CalendarList
-      markingType={'period'}
-      theme={{
-        backgroundColor: useTheme1.colors.background,
-        calendarBackground: useTheme1.colors.background,
-        textSectionTitleColor: useTheme1.colors.onBackground,
-        selectedDayBackgroundColor: useTheme1.colors.primary,
-        selectedDayTextColor: useTheme1.colors.onPrimary,
-        todayTextColor: useTheme1.colors.primary,
-        dayTextColor: useTheme1.colors.onBackground,
-        textDisabledColor: useTheme1.colors.onBackground,
-        dotColor: useTheme1.colors.primary,
-        selectedDotColor: useTheme1.colors.onPrimary,
-        arrowColor: useTheme1.colors.primary,
-        monthTextColor: useTheme1.colors.primary,
-      }}
-      onDayPress={(dateData: DateData) => {
-        extracted(dateData);
-      }}
-      markedDates={highlightedDates}
-      enableSwipeMonths={true}
-      onVisibleMonthsChange={(months) =>
-        setRangeForWorkouts(new Range(subtractMonths(2, getFirstDayOfMonth(new Date(months[0].timestamp))), subtractMonths(-2, getEndOfMonth(new Date(months[0].timestamp)))))
+      if (end && end === day) {
+        return [day, {color: colors.primary, endingDay: true, dotColor: colors.onPrimary}];
       }
-    />
+      if (periodDays && periodDays.has(day)) {
+        return [day, {color: colors.primaryContainer, marked: true, dotColor: colors.onPrimaryContainer}];
+      }
+      return [day, {marked: true}];
+    }),
   );
+  return {...highlightedDates, ...trainingDays};
+}
+
+/** The selected day and the training days (dots) of a single-date selection. */
+function singleMarkedDates(date: Date, workoutDates: string[], colors: Colors): MarkedDates {
+  const selectedDay = getYYYYMMDDFormat(date);
+  const trainingDays = Object.fromEntries(Array.from(new Set(workoutDates.filter((day) => day !== selectedDay))).map((day) => [day, {marked: true}]));
+  return {[selectedDay]: {selectedColor: colors.primary, selected: true}, ...trainingDays};
+}
+
+/** Training days get a dot from 2 months before to 2 months after the month at the top of the list. */
+const workoutWindowAround = (monthTimestamp: number) => new Range(subtractMonths(2, getFirstDayOfMonth(new Date(monthTimestamp))), subtractMonths(-2, getEndOfMonth(new Date(monthTimestamp))));
+
+export const DatePickerModal = <T extends DateOrRange>({date, onChange}: DatePickerModalProps<T>) => {
+  const {colors} = useTheme();
+  // GH-673: the list always opens on today's month. Passing it as `current` lets CalendarList draw
+  // the months around it on the first render (without it, every month first renders as a
+  // placeholder and is re-rendered once the list reports its visible month). The dot window starts
+  // where that first visible-month report used to put it (its timestamp is UTC midnight of the day).
+  const [today] = useState(() => new Date());
+  const initialMonth = getYYYYMMDDFormat(today);
+  const [rangeForWorkouts, setRangeForWorkouts] = useState(() => workoutWindowAround(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())));
+  const workoutsDone = useWorkoutsIn(rangeForWorkouts);
+  const workoutDates = useMemo(() => workoutsDone.map((workout) => getYYYYMMDDFormat(workout.start!!)), [workoutsDone]);
+
+  // GH-673: the dialog re-renders with a new (equal) date object on open and on Save. Keying the
+  // markings and the day handler on the date VALUES keeps markedDates, theme and callbacks stable,
+  // so the calendar months and their memoized day cells skip those renders.
+  const isRange = date instanceof NullableRange;
+  const startTime = date instanceof NullableRange ? date.startDate?.getTime() : date.getTime();
+  const endTime = date instanceof NullableRange ? date.endDate?.getTime() : undefined;
+
+  const markedDates = useMemo(() => {
+    if (!isRange) {
+      return singleMarkedDates(new Date(startTime!!), workoutDates, colors);
+    }
+    return rangeMarkedDates(startTime === undefined ? undefined : new Date(startTime), endTime === undefined ? undefined : new Date(endTime), workoutDates, colors);
+  }, [isRange, startTime, endTime, workoutDates, colors]);
+
+  const onDayPress = useCallback(
+    (dateData: DateData) => {
+      if (!isRange) {
+        onChange(new Date(dateData.dateString) as T);
+        return;
+      }
+      if (startTime === undefined && endTime !== undefined) {
+        return; // an end without a start is never set by the dialog; the old handler ignored it too
+      }
+      const pressed = new Date(dateData.dateString);
+      if (startTime !== undefined && endTime === undefined && startTime <= pressed.getTime()) {
+        onChange(new NullableRange(new Date(startTime), pressed) as T);
+      } else {
+        // no range yet, a complete range, or a day before the start: start a new range
+        onChange(new NullableRange(pressed, undefined) as T);
+      }
+    },
+    [isRange, startTime, endTime, onChange],
+  );
+
+  const onVisibleMonthsChange = useCallback((months: DateData[]) => {
+    const next = workoutWindowAround(months[0].timestamp);
+    setRangeForWorkouts((prev) => (prev.startDate.getTime() === next.startDate.getTime() && prev.endDate.getTime() === next.endDate.getTime() ? prev : next));
+  }, []);
+
+  const theme = useMemo(
+    () => ({
+      backgroundColor: colors.background,
+      calendarBackground: colors.background,
+      textSectionTitleColor: colors.onBackground,
+      selectedDayBackgroundColor: colors.primary,
+      selectedDayTextColor: colors.onPrimary,
+      todayTextColor: colors.primary,
+      dayTextColor: colors.onBackground,
+      textDisabledColor: colors.onBackground,
+      dotColor: colors.primary,
+      selectedDotColor: colors.onPrimary,
+      arrowColor: colors.primary,
+      monthTextColor: colors.primary,
+    }),
+    [colors],
+  );
+
+  return <CalendarList current={initialMonth} markingType={'period'} theme={theme} onDayPress={onDayPress} markedDates={markedDates} enableSwipeMonths={true} onVisibleMonthsChange={onVisibleMonthsChange} />;
 };
 
 export default DatePickerModal;

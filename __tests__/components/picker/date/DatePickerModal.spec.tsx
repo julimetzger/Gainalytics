@@ -31,8 +31,9 @@ jest.mock('react-native-calendars/src', () => ({
   },
 }));
 
-jest.mock('react-native-paper', () => ({
-  useTheme: () => ({
+jest.mock('react-native-paper', () => {
+  // one theme object like Paper's provider, so memoized values can stay stable across renders
+  const theme = {
     colors: {
       background: '#f5f5f5',
       onBackground: '#101010',
@@ -41,8 +42,9 @@ jest.mock('react-native-paper', () => ({
       primaryContainer: '#dbe6ff',
       onPrimaryContainer: '#001133',
     },
-  }),
-}));
+  };
+  return {useTheme: () => theme};
+});
 
 const mockedUseWorkoutsIn = jest.mocked(useWorkoutsIn);
 
@@ -139,6 +141,32 @@ describe('DatePickerModal', () => {
     const lastCallArgument = onChange.mock.calls[onChange.mock.calls.length - 1][0];
 
     expect(lastCallArgument).toEqual(expected);
+  });
+
+  it('marks start, end, the days in between and the training days of a range', () => {
+    render(<DatePickerModal date={new NullableRange(new Date(2024, 0, 5), new Date(2024, 0, 8))} onChange={jest.fn()} />);
+
+    expect(getRequiredCalendarProp('markedDates')).toEqual({
+      '2024-01-05': {color: '#0055ff', startingDay: true, marked: true, dotColor: '#ffffff'},
+      '2024-01-06': {color: '#dbe6ff', marked: true, dotColor: '#001133'},
+      '2024-01-07': {color: '#dbe6ff'},
+      '2024-01-08': {color: '#0055ff', endingDay: true},
+    });
+  });
+
+  // GH-673: the dialog re-renders with a new but equal range on open and on Save. Stable props let
+  // the calendar months and their memoized day cells skip those renders.
+  it('keeps markings, theme and day handler when re-rendered with an equal range', () => {
+    const onChange = jest.fn();
+    const {rerender} = render(<DatePickerModal date={new NullableRange(new Date(2024, 0, 5), new Date(2024, 0, 8))} onChange={onChange} />);
+    const first = {...mockCalendarPropsRef.current};
+
+    rerender(<DatePickerModal date={new NullableRange(new Date(2024, 0, 5), new Date(2024, 0, 8))} onChange={onChange} />);
+
+    expect(getRequiredCalendarProp('markedDates')).toBe(first.markedDates);
+    expect(getRequiredCalendarProp('theme')).toBe(first.theme);
+    expect(getRequiredCalendarProp('onDayPress')).toBe(first.onDayPress);
+    expect(getRequiredCalendarProp('onVisibleMonthsChange')).toBe(first.onVisibleMonthsChange);
   });
 
   it('marks selected and workout dates in single-date mode', () => {

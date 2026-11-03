@@ -1,7 +1,7 @@
 import {useEffect, useRef, useCallback} from 'react';
 import {Platform} from 'react-native';
 import notifee, {AlarmType, AndroidImportance, TimestampTrigger, TriggerType} from '@notifee/react-native';
-import {useSettings} from '../../../redux/settings/use/useSettings';
+import {useSettingsSelector} from '../../../redux/settings/use/useSettings';
 import {canScheduleExactAlarms} from '../../../utils/NotificationUtils';
 
 function createChannel() {
@@ -13,8 +13,8 @@ function createChannel() {
 }
 
 export const PauseDoneNotification = () => {
-  let appSettings = useSettings();
-  const useExact = appSettings.localNotification?.exactAlarmPermission ?? false;
+  // GH-671: one value, not the whole settings (which change on every rest-timer start).
+  const useExact = useSettingsSelector((settings) => settings.localNotification?.exactAlarmPermission) ?? false;
   const channelIdRef = useRef<string>();
   const notificationIdRef = useRef<string>('pause_done'); // stable id
 

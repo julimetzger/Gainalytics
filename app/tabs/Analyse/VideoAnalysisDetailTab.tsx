@@ -17,6 +17,7 @@ import CompareAnalysisPickerItem from '../../components/video/CompareAnalysisPic
 import VideoAnalysisPlaybackOverlayCard from '../../components/video/VideoAnalysisPlaybackOverlayCard';
 import VideoAnalysisManualSeedCard from '../../components/video/VideoAnalysisManualSeedCard';
 import VlReferenceCard from '../../components/video/VlReferenceCard';
+import VideoAnalysisDetailsCard from '../../components/video/VideoAnalysisDetailsCard';
 import VelocityLossBarChart from '../../components/video/VelocityLossBarChart';
 import {dispatchSetVideoAnalysisStatus} from '../../redux/VideoAnalysis/dispatch/dispatchSetVideoAnalysisStatus';
 import {dispatchAttachVideoAnalysisResult} from '../../redux/VideoAnalysis/dispatch/dispatchAttachVideoAnalysisResult';
@@ -35,7 +36,8 @@ import {calibrateFromSeed} from '../../utils/video-analysis-import';
 import AnalyseEmptyState from '../../components/analyse/AnalyseEmptyState';
 import Toast from 'react-native-toast-message';
 
-interface Props extends NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'> {}
+// Only the route is used; navigation comes from useNavigation().
+interface Props extends Pick<NativeStackScreenProps<RootStackParamList, 'VideoAnalysisDetail'>, 'route'> {}
 
 interface PreviewDimensions {
   width: number;
@@ -98,6 +100,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
     },
     [navigation, analysis],
   );
+  const onOpenComparePicker = useCallback(() => setShowComparePicker(true), []);
   const setVideoAnalysisStatus = dispatchSetVideoAnalysisStatus();
   const attachVideoAnalysisResult = dispatchAttachVideoAnalysisResult();
   const setManualSeedFramePath = dispatchSetVideoAnalysisManualSeedFramePath();
@@ -212,7 +215,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         const resultPath = await analyzeSquatVideo(videoUri, analysis.id, manualSeed, analyzedFps);
         attachVideoAnalysisResult(analysis.id, resultPath, analysis.localVideoPath);
         setManualSeedFramePath(analysis.id, undefined);
-      } catch (error) {
+      } catch {
         setVideoAnalysisStatus(analysis.id, VideoAnalysisStatus.FAILED, 'Seeded analysis failed');
       } finally {
         setManualSeedRunning(false);
@@ -237,7 +240,7 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         text2: 'The video is now stored in the app and will be kept.',
         position: 'top',
       });
-    } catch (_error) {
+    } catch {
       Toast.show({
         type: 'error',
         text1: 'Secure failed',
@@ -304,60 +307,19 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
         </View>
       </Modal>
 
-      <Card style={styles.card}>
+      {/* GH-681: the header only identifies the set; the video follows right below. */}
+      <Card style={styles.card} testID="video-analysis-detail-header">
         <Card.Title
           title={analysisIdentity}
           titleNumberOfLines={2}
           subtitle={new Date(analysis.createdAt).toLocaleString()}
         />
-        <Card.Content>
-          <Text testID="video-analysis-detail-status">Status: {analysis.status}</Text>
-          {result?.analysisMeta?.analyzedFps != null && (
-            <Text testID="video-analysis-detail-analyzed-fps">Analysed at {Math.round(result.analysisMeta.analyzedFps)} fps</Text>
-          )}
-          <Text>Source: {analysis.sourceUri}</Text>
-          {analysis.localVideoPath && <Text>Local Video: {analysis.localVideoPath}</Text>}
-          {analysis.error && <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>}
-
-          {playbackUri && (
-            <View style={styles.secureActionsInner}>
-              <Button
-                testID="video-analysis-secure-video-button"
-                mode={videoSecured ? 'outlined' : 'contained'}
-                icon={videoSecured ? 'check-circle-outline' : 'download'}
-                disabled={!canSecureVideo || securingVideo}
-                loading={securingVideo}
-                onPress={onSecureVideo}
-                style={styles.secureButton}
-              >
-                {videoSecured ? 'Video secured in app' : 'Secure video in app'}
-              </Button>
-              <Text testID="video-analysis-secure-video-hint" variant="bodySmall" style={styles.secureHint}>
-                {videoSecured
-                  ? 'This video is stored in the app and will be kept, even if you delete it from the gallery.'
-                  : sourceAvailable === false
-                    ? 'The source video is no longer in the gallery and can no longer be imported into the app.'
-                    : 'Saves the video into the app. It will then be kept, even if you delete it from the gallery.'}
-              </Text>
-            </View>
-          )}
-        </Card.Content>
-        {analysis.status === VideoAnalysisStatus.DONE && (
-          <Card.Actions>
-            <Button
-              testID="video-analysis-compare-button"
-              mode="outlined"
-              onPress={() => setShowComparePicker(true)}
-            >
-              Compare
-            </Button>
-          </Card.Actions>
+        {analysis.error && (
+          <Card.Content>
+            <Text style={themedStyles.errorText}>Error: {analysis.error}</Text>
+          </Card.Content>
         )}
       </Card>
-
-      <Divider style={styles.divider} />
-
-      {analysis.status === VideoAnalysisStatus.DONE && <VlReferenceCard analysis={analysis} />}
 
       <Card style={styles.card}>
         <Card.Title title="Playback Overlay" />
@@ -404,6 +366,23 @@ const VideoAnalysisDetailTab = ({route}: Props) => {
           onRunManualSeedAnalysis={runManualSeedAnalysis}
         />
       )}
+
+      {/* GH-681: details, "Secure video in app", "Compare" and the VL reference sit at the very bottom. */}
+      <Divider style={styles.divider} />
+
+      <VideoAnalysisDetailsCard
+        analysis={analysis}
+        analyzedFps={result?.analysisMeta?.analyzedFps}
+        playbackUri={playbackUri}
+        videoSecured={videoSecured}
+        canSecureVideo={canSecureVideo}
+        securingVideo={securingVideo}
+        sourceAvailable={sourceAvailable}
+        onSecureVideo={onSecureVideo}
+        onCompare={onOpenComparePicker}
+      />
+
+      {analysis.status === VideoAnalysisStatus.DONE && <VlReferenceCard analysis={analysis} />}
     </ScrollView>
   );
 };
@@ -419,15 +398,6 @@ const styles = StyleSheet.create({
   },
   card: {
     margin: 10,
-  },
-  secureActionsInner: {
-    marginTop: 12,
-  },
-  secureButton: {
-    alignSelf: 'flex-start',
-  },
-  secureHint: {
-    marginTop: 6,
   },
   divider: {
     marginHorizontal: 10,

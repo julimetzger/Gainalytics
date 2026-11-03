@@ -33,7 +33,7 @@ import Toast from 'react-native-toast-message';
 import {useTrainingInTrainingsPlan} from '../../redux/Training/use/useTrainingInTrainingsPlan';
 import {PauseDoneNotification} from './execute/PauseDoneNotification';
 import {FinishTrainingNotification} from './execute/FinishTrainingNotification';
-import {useSettings} from '../../redux/settings/use/useSettings';
+import {useSettingsSelector} from '../../redux/settings/use/useSettings';
 import {dispatchDeleteTraining} from '../../redux/Training/dispatch/general/dispatchDeleteTraining';
 import {getLocalMicro, getMesoForMicro} from '../../redux/Training/trainingsPlanReducer';
 import {useWorkoutById} from '../../redux/Workout/use/useWorkoutById';
@@ -175,6 +175,9 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   const finalizeWorkout = dispatchFinalizeWorkout();
   // GH-623: what "Undo" needs to put the just-finished training back.
   const [finishUndo, setFinishUndo] = useState<{trainingsId: number; previousLastTraining?: number}>();
+  // GH-671: the rest timer is only selected while the undo snackbar is open; outside that window the
+  // result stays undefined, so a rest-timer start (= every logged set) does not re-render the pane.
+  const undoActiveRest = useSettingsSelector((settings) => (finishUndo !== undefined ? settings.restTimer?.active : undefined));
   // The snackbar lives in a Portal, so it stays visible after a swipe to another micro. Undo would then
   // silently reopen a training that is no longer on screen: leaving the pane ends the undo window.
   useEffect(() => {
@@ -182,7 +185,9 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
   }, [isCurrent]);
   let [schedulePauseDoneNotification, resetPauseNotification] = PauseDoneNotification();
   let [scheduleFinisTraining, resetFinishTraining] = FinishTrainingNotification();
-  let appSettings = useSettings();
+  // GH-671: only the toggle; reading the whole settings slice re-rendered every swiper pane on each
+  // rest-timer start (= every logged set).
+  const disableToasts = useSettingsSelector((settings) => settings.toggles?.disableToasts);
   const [showPicker, setShowPicker] = useState(false);
   // GH-483: a pulled-down carousel tile has to draw over the execute/edit view below it.
   const [exerciseStripRaised, setExerciseStripRaised] = useState(false);
@@ -338,7 +343,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
       return;
     }
     startTraining();
-    if (!appSettings.toggles?.disableToasts) {
+    if (!disableToasts) {
       Toast.show({
         type: 'info',
         text1: 'Training started!',
@@ -373,7 +378,7 @@ const TrainingsPlanNode = ({trainingsPlan, micro, trainingInMicro, showDone, set
     setTimeInWorkout(new Date(Date.now()));
     scheduleFinisTraining();
     // The rest timer itself kept running in the settings slice — only its notification was cancelled.
-    const activeRest = appSettings.restTimer?.active;
+    const activeRest = undoActiveRest;
     if (activeRest?.startedAt !== undefined && activeRest.targetSeconds !== undefined) {
       const remainingSeconds = Math.round((activeRest.startedAt + activeRest.targetSeconds * 1000 - Date.now()) / 1000);
       if (remainingSeconds > 0) schedulePauseDoneNotification(remainingSeconds);

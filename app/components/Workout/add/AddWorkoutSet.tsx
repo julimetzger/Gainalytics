@@ -4,7 +4,7 @@ import React, {useEffect, useState} from 'react';
 import Toast from 'react-native-toast-message';
 import {repetitionWeightByOneRm} from '../../../utils/AnalyseUtils';
 import {WorkoutSet} from '../../../models/entities/WorkoutSet';
-import {useSettings} from '../../../redux/settings/use/useSettings';
+import {useSettingsSelector} from '../../../redux/settings/use/useSettings';
 import {convertToNumber, ensureFormat} from '../../../utils/numberInput';
 import {parseRirInput, RIR_RULE_TOAST} from '../../../utils/rirInput';
 
@@ -25,8 +25,11 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
   const [rir, setRPE] = useState(workoutSet?.rir?.toString() ?? '0');
   const [reps, setReps] = useState(workoutSet?.reps?.toString() ?? '');
   const [editing, setEditing] = useState(hasToSaveManually);
-  let appSettings = useSettings();
-  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(appSettings.toggles?.disable1RMButton);
+  // GH-671: only the two toggles. Every logged set starts the rest timer, which lives in the
+  // settings — a whole-settings subscription re-rendered every set row on each "Add".
+  const disable1RMButton = useSettingsSelector((settings) => settings.toggles?.disable1RMButton);
+  const disableToasts = useSettingsSelector((settings) => settings.toggles?.disableToasts);
+  const [disable1RMWeightCalculation, setDisable1RMWeightCalculation] = useState(disable1RMButton);
   const [highlightWeightSuggestion, setHighlightWeightSuggestion] = useState(false);
   const [weightEmpty, setWeightEmpty] = useState(false);
   const [rirEmpty, setRirEmpty] = useState(false);
@@ -141,7 +144,7 @@ const AddWorkoutSet = ({onSubmit, workoutSet, oneRepMax, onDelete, hasToSaveManu
       reps: repsNumber,
       rir: rirNumber,
     } as WorkoutSet);
-    if (repsNumber > 20 && !appSettings.toggles?.disableToasts) {
+    if (repsNumber > 20 && !disableToasts) {
       Toast.show({
         type: 'error',
         text1: 'WARNING: Cardio detected!',

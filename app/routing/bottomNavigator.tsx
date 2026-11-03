@@ -4,12 +4,11 @@ import AnalyseRouter from './AnalyseRouter';
 import SettingsRouter from './SettingsRouter';
 import {createMaterialBottomTabNavigator} from 'react-native-paper/react-navigation';
 import TrainingRouter from './TrainingRouter';
-import {useTrainings} from '../redux/Training/use/useTrainings';
-import {TrainingsState} from '../models/TrainingsState';
+import {useSelector} from 'react-redux';
+import {selectIsAnyTrainingStarted} from '../redux/Training/use/useTrainings';
 import useExerciseRecord from '../redux/Effects/useExerciseRecord';
 import Toast from 'react-native-toast-message';
-import {useSelector} from 'react-redux';
-import {GlobalState} from '../redux/rootReducer';
+import {useSettingsSelector} from '../redux/settings/use/useSettings';
 import {useExercise} from '../redux/Exercises/use/useExercise';
 import {useNavigation} from '@react-navigation/native';
 
@@ -17,12 +16,12 @@ const Tab = createMaterialBottomTabNavigator();
 
 export const BottomTabs = () => {
   const navigation = useNavigation();
-  // GH-674: only the toast toggle — the whole settings slice re-rendered the tab navigator on every settings change.
-  const disableToasts = useSelector((state: GlobalState) => state.settings?.toggles?.disableToasts);
-  const allTrainings = useTrainings();
+  // GH-671: a boolean and a toggle instead of the training list and the whole settings — both
+  // were new values on every logged set and re-rendered the tab navigator each time.
+  const disableToasts = useSettingsSelector((settings) => settings.toggles?.disableToasts);
+  const isTrainingStarted = useSelector(selectIsAnyTrainingStarted);
   let useExerciseRecord1 = useExerciseRecord();
   let exercise = useExercise(useExerciseRecord1?.exerciseId);
-  let isTrainingStarted = allTrainings.some((A) => A.state === TrainingsState.STARTED);
 
   React.useEffect(() => {
     if (useExerciseRecord1 && exercise && !disableToasts) {
