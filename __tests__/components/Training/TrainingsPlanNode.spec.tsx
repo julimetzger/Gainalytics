@@ -48,6 +48,7 @@ jest.mock('../../../app/redux/Workout/use/useWorkoutById', () => ({
 
 jest.mock('../../../app/redux/settings/use/useSettings', () => ({
   useSettings: () => mockSettings,
+  useSettingsSelector: (select: (settings: any) => unknown) => select(mockSettings),
 }));
 
 jest.mock('../../../app/redux/Training/dispatch/plan/dispatchStartTraining', () => ({
