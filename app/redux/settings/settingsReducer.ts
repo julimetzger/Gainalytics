@@ -247,6 +247,9 @@ const settingsReducer = (settings: AppSettings = initialState, action: AnyAction
       } as AppSettings;
     }
     case 'SET_EXACT_ALARM_PERMISSION':
+      // GH-674: Settings re-checks the permission on every open; an unchanged answer must not
+      // hand out a new settings object (every subscriber re-renders, redux-persist rewrites the store).
+      if (settings.localNotification?.exactAlarmPermission === action.hasPermission) return settings;
       return {
         ...settings,
         localNotification: {

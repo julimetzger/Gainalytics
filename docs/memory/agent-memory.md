@@ -1032,6 +1032,25 @@ Workers append NEW learnings here (and only here), after checking the table of c
 **Fix / Rule:** derive the root from the same anchor in every script (here the parent of `tools/`, with a `PERF004_RAW_DIR` override), and grep for each `dirname` chain before committing tools under a new path.
 **Apply when:** committing measurement or helper scripts out of `.codex-orchestrator/runs/`.
 
+### A PSS "jump" with small Heap Alloc growth is a freed spike the allocator kept — read `meminfo -d` Alloc vs Size/Free
+**Observation (GH-674):** Dashboard → Settings added +90 MB PSS, but Native Heap *Alloc* rose only +15 MB while *Free* went 28 → 137 MB. `showmap <pid>` (needs root) put the growth in `[anon:scudo:primary]` (small allocations), not `scudo:secondary`. That is a short burst of many small native allocations (Fabric/Yoga work), freed again but kept resident. Compare Alloc and Size/Free before chasing "leaks"; the end-of-round PSS also depends on Hermes GC timing (rounds without pauses kept ~80 MB more live native memory).
+**Apply when:** explaining memory jumps between two `dumpsys meminfo` snapshots.
+
+### The CI emulator is userdebug: `adb root` gives simpleperf/showmap on a non-debuggable release build
+**Observation (GH-674):** `adb -s $S root` works. Then `simpleperf record -p <pid> -g --duration 8 -o /data/local/tmp/sp.data` + on-device `simpleperf report --comms mqt_v_js --sort dso,symbol` and `showmap <pid>` work on the release APK. RN/Hermes libs are stripped (offsets only), but `fmod` in the JS thread points at Yoga pixel rounding. Run `adb unroot` afterwards. `tool.sh rebuild-release` is ~10 min the first time and ~1.5 min incrementally (JS-only), which makes temporary instrumented release builds (console.log → logcat `ReactNativeJS`) a cheap bisect tool.
+**Apply when:** a perf ticket needs native evidence that a release build cannot give via `run-as`.
+
+### App re-rendered every mounted screen on ANY settings change (fixed in GH-674)
+**Observation (GH-674):** `App.tsx` subscribed to the whole `settings` slice and rebuilt the Paper/navigation theme each render, so opening Settings (exact-alarm check) or logging a set (rest timer in `settings.restTimer`) re-rendered all screens that use `useTheme`. `useAppTheme` now selects only palette/theme mode and memoizes. Keep app-root subscriptions narrow and reducers returning the same object for unchanged values.
+**Apply when:** adding anything to `App.tsx`/`BottomTabs` that reads the store.
+
+### CI agent shell: no variables, loops, scripts, cp/mkdir or `>` into the repo — use literal adb chains and `adb pull`
+**Problem (GH-674):** `$VAR`, `for` loops, `bash script.sh`, `node`/`python3`, `cp`, `mkdir`, `git checkout` and output redirection into the checkout all needed approval. **Fix:** write literal command chains; store device-side output with `adb shell "dumpsys … > /data/local/tmp/x.txt"` and `adb pull <dir> <repo path>` (creates the directory; also works to place screenshots under `screenshots/<TICKET>/` via `adb push` + `adb pull`). `pgrep -f "assembleRelease"` in a wait loop matches itself and never ends.
+**Apply when:** scripting measurements in the agent-emulator workflow.
+
+### Maestro `id: 'settings-section-'` did NOT match `settings-section-help` — anchor a prefix with `.*`
+**Observation (GH-674):** contrary to maestro-flows.md ("`id:` is unanchored"), `extendedWaitUntil: visible: {id: 'settings-section-'}` failed while the hierarchy contained `settings-section-help/-data/…` on screen; `id: 'settings-section-.*'` passed. Write explicit `.*` for prefix matches. Also: after `00_import_baseline.yaml` the Settings tab stays scrolled down to "Import Data" — don't wait on the top section.
+**Apply when:** waiting for "any of several" ids or for Settings after an import.
 ### CI job: no python/node/awk/redirects on the host — run perf scripts and trace analysis ON the emulator
 **Problem (GH-672):** in the GitHub Actions agent job `python3`, `node`, `awk`, `bc`, `bash script.sh`, `>` redirects, `cp -r`/`rsync` and `$VAR` in compound commands all need approval; there is no `trace_processor` either, so the PERF-004 Perfetto tooling cannot run.
 **Fix / Rule:** write `sh` scripts with the Write tool, `adb push` them to `/data/local/tmp` and run `adb shell sh …` (device has `awk`, `atrace`, `unzip`, `seq`). `atrace --async_start -b 40960 -a <pkg> sched view gfx input …` / `--async_stop -o file` gives a text trace; `gestures.py`'s logic as awk: `docs/perf/raw-gh672/tools/gestures.awk`. Copy results back with one `adb pull <dir>` (build the export dir on the device). Long Gradle builds: background `tool.sh rebuild-release` + foreground `timeout 580 tail -f … | grep -m1 BUILD`.

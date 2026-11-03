@@ -1,0 +1,75 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 3099468 Realtime: 3099468
+
+** MEMINFO in pid 11069 [com.powerliftingworkoutplanner] **
+                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap   267045   267016        0       48   268328   292496   266288    17195
+  Dalvik Heap    28422    28264      124      175    29460    29186    14593    14593
+ Dalvik Other     2813     2252        4        7     3664                           
+        Stack      900      900        0        0      908                           
+       Ashmem       18        0        0        0      560                           
+    Other dev       20        4       16        0      264                           
+     .so mmap     4458      272      636       25    37864                           
+    .jar mmap     2686        0      184        0    32732                           
+    .apk mmap    23921      660    22804        0    26500                           
+    .ttf mmap      451        0      224        0     1212                           
+    .dex mmap    20065        4    20032        0    20792                           
+    .oat mmap      917        0      100        0    14784                           
+    .art mmap     1465      608      212      193    20484                           
+   Other mmap     2360        8     2040        0     4232                           
+      Unknown    44513    44508        0        0    44856                           
+        TOTAL   400502   344496    46376      448   506640   321682   280881    31788
+ 
+ Dalvik Details
+        .Heap    25124    25124        0        0    25124                           
+         .LOS     1157     1148        8       43     1228                           
+      .Zygote      785      636      116      132     1752                           
+   .NonMoving     1356     1356        0        0     1356                           
+ .LinearAlloc     1740     1736        0        6     1964                           
+          .GC      489      484        4        1      548                           
+   .ZygoteJIT        0        0        0        0       16                           
+      .AppJIT      576       24        0        0     1128                           
+ .IndirectRef        8        8        0        0        8                           
+   .Boot vdex       29        0        0        0      756                           
+     .App dex      180        4      176        0      180                           
+    .App vdex    19856        0    19856        0    19856                           
+     .App art       40        0       40        0       40                           
+    .Boot art     1425      608      172      193    20444                           
+ 
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:    29084                          49944
+         Native Heap:   267016                         268328
+                Code:    44940                         135028
+               Stack:      900                            908
+            Graphics:        0                              0
+       Private Other:    48932
+              System:     9630
+             Unknown:                                   52432
+ 
+           TOTAL PSS:   400502            TOTAL RSS:   506640       TOTAL SWAP PSS:      448
+ 
+ Objects
+               Views:     2177         ViewRootImpl:        1
+         AppContexts:        5           Activities:        1
+              Assets:       21        AssetManagers:        0
+       Local Binders:       19        Proxy Binders:       42
+       Parcel memory:        8         Parcel count:       33
+    Death Recipients:        0             WebViews:        0
+ 
+ SQL
+         MEMORY_USED:      281
+  PAGECACHE_OVERFLOW:       92          MALLOC_SIZE:       46
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b) cache hits cache misses cache size  Dbname
+PER CONNECTION STATS
+         4      100            123     8    40    10  /data/user/0/com.powerliftingworkoutplanner/no_backup/androidx.work.workdb
+         4        8                    0     0     0    (attached) temp
+         4      100             32     4    15     3  /data/user/0/com.powerliftingworkoutplanner/no_backup/androidx.work.workdb (2)
+POOL STATS
+     cache hits  cache misses    cache size  Dbname
+             14            76            90  /data/user/0/com.powerliftingworkoutplanner/no_backup/androidx.work.workdb

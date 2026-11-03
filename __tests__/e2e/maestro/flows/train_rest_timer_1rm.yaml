@@ -231,3 +231,54 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'rest-timer-target'
     text: 'target 01:30'
+
+# ===== 7. GH-674: a round through all tabs keeps the training and its rest =====
+# Settings stores the exact-alarm permission on every open; before GH-674 that
+# re-rendered every mounted screen. The training must come back unchanged: still
+# running, set 1 still 7 reps, and the rest still counting from where it was
+# (elapsed = elapsed before the round + time away, +-5 s for the reads; a
+# restart would drop it). Let >= 10 s of rest pass first so a restart is
+# distinguishable.
+- extendedWaitUntil:
+    notVisible:
+      id: 'rest-progress-ring-text'
+      text: '01:(2[1-9]|30)'
+    timeout: 30000
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); output.tabsBeforeShown = shown; output.tabsBeforeElapsed = over ? 90 + value : 90 - value; output.tabsAt = Date.now()}"
+- tapOn: 'tab-exercises'
+- extendedWaitUntil:
+    visible:
+      id: 'exercise-searchbar'
+    timeout: 20000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'dashboard-scroll'
+    timeout: 20000
+- tapOn: 'tab-settings'
+# The baseline import left Settings scrolled down to "Import Data": any section.
+- extendedWaitUntil:
+    visible:
+      id: 'settings-section-.*'
+    timeout: 20000
+- tapOn: 'tab-training'
+- extendedWaitUntil:
+    visible:
+      id: 'rest-timer-card'
+    timeout: 20000
+- assertVisible:
+    id: 'header-session-timer'
+- assertVisible:
+    id: '^add-workout-set-reps-input-1$'
+    text: '7'
+- assertVisible:
+    id: '^add-workout-set-logged-1$'
+- assertVisible:
+    id: 'rest-timer-target'
+    text: 'target 01:30'
+- copyTextFrom:
+    id: 'rest-progress-ring-text'
+- evalScript: "${var shown = maestro.copiedText; var over = shown.charAt(0) === '+'; var body = over ? shown.substring(1) : shown; var parts = body.split(':'); var value = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10); var elapsed = over ? 90 + value : 90 - value; var away = Math.floor((Date.now() - output.tabsAt) / 1000); output.tabsVerdict = output.tabsBeforeElapsed >= 10 && elapsed >= output.tabsBeforeElapsed + away - 5 && elapsed <= output.tabsBeforeElapsed + away + 5 ? 'PASS' : 'FAIL before=' + output.tabsBeforeShown + ' after=' + shown + ' away=' + away}"
+- assertTrue: "${output.tabsVerdict == 'PASS'}"

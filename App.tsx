@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo} from 'react';
+import React, {useEffect} from 'react';
 import {PersistGate} from 'redux-persist/integration/react';
 import {Provider} from 'react-redux';
 import configureStore from './configureStore';
@@ -10,9 +10,7 @@ import HealthConnectLifecycle from './app/components/healthConnect/HealthConnect
 import {toastConfig} from './app/components/common/toastConfig';
 import {EventProvider} from 'react-native-outside-press';
 import {registerTranslation} from 'react-native-paper-dates';
-import {useSettingsSelector} from './app/redux/settings/use/useSettings';
-import {useThemeMode} from './app/redux/settings/use/useThemeMode';
-import {buildThemes} from './app/theme/buildThemes';
+import {useAppTheme} from './app/redux/settings/use/useAppTheme';
 import Toast from 'react-native-toast-message';
 import {AppState, LogBox, StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
@@ -67,13 +65,8 @@ const {store, persistor} = configureStore();
 
 
 const AppWithPersist = () => {
-  // GH-671: only the palette, and the themes are built once per palette. The rest timer lives in
-  // the settings, so a whole-settings subscription plus a fresh theme object per render
-  // re-rendered every themed component of the app on each logged set.
-  const palette = useSettingsSelector((settings) => settings?.palette);
-  const {scheme} = useThemeMode();
-  const {DarkTheme, LightThemeCombined} = useMemo(() => buildThemes(palette), [palette]);
-  let paperThemes = scheme === 'light' ? LightThemeCombined : DarkTheme;
+  // GH-674: stable across unrelated settings changes — a new theme object re-renders every mounted screen.
+  const {scheme, theme: paperThemes} = useAppTheme();
 
   // Register foreground event handler for notification taps while the app is active.
   useEffect(() => {
