@@ -10,7 +10,7 @@ jest.mock('react-redux', () => ({
   useSelector: (selector: (state: unknown) => unknown) => selector(mockState),
 }));
 
-const makeWorkout = (id: number, start: Date) => ({id, exerciseId: 1, start, end: start, sets: []}) satisfies Partial<Workout>;
+const makeWorkout = (id: number, start: Date) => ({id, exerciseId: 1, start, end: start, sets: []}) satisfies Workout;
 
 const week = (day: number) => new Range(new Date(2026, 1, day), new Date(2026, 1, day + 6, 23, 59, 59));
 
@@ -21,7 +21,7 @@ describe('useWorkoutsIn (GH-675)', () => {
     const workouts = [makeWorkout(1, new Date(2026, 1, 3)), makeWorkout(2, new Date(2026, 1, 10)), makeWorkout(3, new Date(2026, 1, 17))];
     mockState = {
       workouts: {
-        byId: Object.fromEntries(workouts.map((workout) => [workout.id, workout])) as Record<number, Workout>,
+        byId: Object.fromEntries(workouts.map((workout) => [workout.id, workout])),
         allIds: workouts.map((workout) => workout.id),
       },
     };
