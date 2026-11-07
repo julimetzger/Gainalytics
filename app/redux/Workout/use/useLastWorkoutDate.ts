@@ -1,4 +1,5 @@
-import {createSelector} from '@reduxjs/toolkit';
+import {useMemo} from 'react';
+import {createSelector, lruMemoize} from '@reduxjs/toolkit';
 import {useSelector} from 'react-redux';
 import {Workout} from '../../../models/entities/Workout';
 import {Exercise} from '../../../models/entities/Exercise';
@@ -85,7 +86,37 @@ export const findLastWorkoutDateByMuscle = (workouts: NormalizedState<Workout>, 
   // GH-523: user-added muscles only exist on exercises, so collect them there too.
   const exerciseMuscles = exercises.allIds.flatMap((id) => (exercises.byId[id]?.muscles ?? []).map((pair) => pair.muscle).filter((muscle): muscle is Muscles => !!muscle));
   const muscles = new Set<Muscles>([...BUILT_IN_MUSCLES, ...exerciseMuscles]);
-  return new Map([...muscles].map((muscle) => [muscle, findLastWorkoutDateForMuscle(workouts, exercises, muscle)]));
+  // GH-675: one pass over the workouts for all muscles (same result as findLastWorkoutDateForMuscle per
+  // muscle, which scanned every workout once per muscle on the Dashboard's first open).
+  const musclesByExercise = new Map<number, Muscles[]>();
+  exercises.allIds.forEach((id) => {
+    const exerciseMuscleList = (exercises.byId[id]?.muscles ?? []).map((pair) => pair.muscle).filter((muscle): muscle is Muscles => !!muscle);
+    musclesByExercise.set(id, [...(musclesByExercise.get(id) ?? []), ...exerciseMuscleList]);
+  });
+  const newestByMuscle = new Map<Muscles, number>();
+  workouts.allIds.forEach((workoutId) => {
+    const workout = workouts.byId[workoutId];
+    const workoutMuscles = workout ? musclesByExercise.get(workout.exerciseId) : undefined;
+    if (!workout || !workoutMuscles?.length || !workout.sets?.length) {
+      return;
+    }
+    const timestamp = new Date(workout.end ?? workout.start ?? NaN).getTime();
+    if (!Number.isFinite(timestamp)) {
+      return;
+    }
+    workoutMuscles.forEach((muscle) => {
+      const newest = newestByMuscle.get(muscle);
+      if (newest === undefined || timestamp > newest) {
+        newestByMuscle.set(muscle, timestamp);
+      }
+    });
+  });
+  return new Map(
+    [...muscles].map((muscle) => {
+      const newest = newestByMuscle.get(muscle);
+      return [muscle, newest === undefined ? undefined : new Date(newest)];
+    }),
+  );
 };
 
 /**
@@ -119,13 +150,25 @@ const selector = createSelector(selectWorkouts, findLastWorkoutDate);
 
 export const useLastWorkoutDate = () => useSelector(selector);
 
-export const useLastWorkoutDateForExercises = (exerciseIds: number[]) =>
-  useSelector(
-    (state: GlobalState) => findLastWorkoutDateForExercises(state.workouts, exerciseIds),
+// GH-675: per hook instance, keyed on the id VALUES — the caller derives the list on every render, and the
+// Metrics Overview renders this in all three swipe panes.
+const makeLastWorkoutDateForExercisesSelector = () =>
+  createSelector(
+    [selectWorkouts, (_state: GlobalState, exerciseIdsKey: string) => exerciseIdsKey],
+    (workouts, exerciseIdsKey) => findLastWorkoutDateForExercises(workouts, exerciseIdsKey === '' ? [] : exerciseIdsKey.split(',').map(Number)),
+    {memoize: lruMemoize, argsMemoize: lruMemoize},
+  );
+
+export const useLastWorkoutDateForExercises = (exerciseIds: number[]) => {
+  const lastDateSelector = useMemo(makeLastWorkoutDateForExercisesSelector, []);
+  const exerciseIdsKey = exerciseIds.join(',');
+  return useSelector(
+    (state: GlobalState) => lastDateSelector(state, exerciseIdsKey),
     // The caller derives the id list on every render, so the selector result is
     // a fresh Date each time. Compare by value to keep the screen from looping.
     (left, right) => left?.getTime() === right?.getTime(),
   );
+};
 
 const byMuscleSelector = createSelector(selectWorkouts, selectExercises, findLastWorkoutDateByMuscle);
 

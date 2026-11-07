@@ -1,0 +1,6 @@
+== trace-1.txt
+total 142 max_batch 68
+== trace-2.txt
+total 142 max_batch 68
+== trace-3.txt
+total 142 max_batch 68

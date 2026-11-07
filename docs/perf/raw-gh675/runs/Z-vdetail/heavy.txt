@@ -1,0 +1,4 @@
+trace-1.txt props 0 (0 ms)	draw 0 (0 ms)
+trace-2.txt props 0 (0 ms)	draw 0 (0 ms)
+trace-3.txt props 0 (0 ms)	draw 1 (15 ms)
+trace-4.txt props 0 (0 ms)	draw 2 (87 ms)

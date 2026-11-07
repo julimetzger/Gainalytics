@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {LayoutChangeEvent, LayoutRectangle, useWindowDimensions, View} from 'react-native';
 import Animated, {Easing, ReduceMotion, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming} from 'react-native-reanimated';
 import {Gesture, GestureDetector, GestureHandlerRootView, State} from 'react-native-gesture-handler';
@@ -241,16 +241,21 @@ const RangeSwiper = <T extends any>({nodeFunction, notSwipeableContent, determin
     transform: [{translateX: xPosition.value}],
   }));
 
-  function setRange(t: T) {
-    setFullPosition({
-      activeView: fullPosition.activeView,
-      Upper: {...fullPosition.Upper, range: determineValueByIndex(fullPosition.Upper.position, t)},
-      Middle: {...fullPosition.Middle, range: determineValueByIndex(fullPosition.Middle.position, t)},
-      Lower: {...fullPosition.Lower, range: determineValueByIndex(fullPosition.Lower.position, t)},
+  // GH-675: stable across renders (functional update + latest determineValueByIndex via a ref), so a pane
+  // that skips re-rendering (memoized content, e.g. MetricsNode) never calls a stale setRange.
+  const determineValueByIndexRef = useRef(determineValueByIndex);
+  determineValueByIndexRef.current = determineValueByIndex;
+  const setRange = useCallback((t: T) => {
+    const determine = determineValueByIndexRef.current;
+    setFullPosition((previous) => ({
+      activeView: previous.activeView,
+      Upper: {...previous.Upper, range: determine(previous.Upper.position, t)},
+      Middle: {...previous.Middle, range: determine(previous.Middle.position, t)},
+      Lower: {...previous.Lower, range: determine(previous.Lower.position, t)},
       range: t,
-      traveledIndex: fullPosition.traveledIndex,
-    });
-  }
+      traveledIndex: previous.traveledIndex,
+    }));
+  }, []);
 
   const onScroll = useAnimatedScrollHandler({
     onBeginDrag({contentOffset}) {

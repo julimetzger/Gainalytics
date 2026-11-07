@@ -1,0 +1,164 @@
+# open series (agg.sh)
+== before-ex
+settle_ms   233 [229-262] n=5
+js_busy_ms  224 [212-236] n=5
+views       758 [758-758] n=5
+max_frame   287.4 [280.2-317.0] n=5
+frames>50   4 [3-4] n=5
+max_ui_ms   142.1 [130.5-156.9] n=5
+ui>50       1 [1-1] n=5
+== B2-ex
+settle_ms   233 [223-248] n=5
+js_busy_ms  221 [210-236] n=5
+views       758 [758-758] n=5
+max_frame   295.4 [281.1-329.3] n=5
+frames>50   4 [3-4] n=5
+max_ui_ms   144.4 [136.9-176.3] n=5
+ui>50       1 [1-1] n=5
+== Z-ex
+settle_ms   178 [89-187] n=5
+js_busy_ms  389 [380-399] n=5
+views       758 [758-758] n=5
+max_frame   194.3 [179.6-208.0] n=5
+frames>50   3 [3-6] n=5
+max_ui_ms   64.8 [46.3-94.0] n=5
+ui>50       1 [0-2] n=5
+== F-ex
+settle_ms   168 [149-199] n=5
+js_busy_ms  369 [360-385] n=5
+views       758 [758-758] n=5
+max_frame   193.4 [187.4-218.7] n=3
+frames>50   4 [3-6] n=3
+max_ui_ms   47.3 [46.5-47.4] n=3
+ui>50       0 [0-0] n=3
+== exp-ex-prog
+settle_ms   196 [183-210] n=5
+js_busy_ms  336 [329-346] n=5
+views       758 [758-758] n=5
+max_frame   214.5 [191.7-226.9] n=4
+frames>50   5.5 [4-6] n=4
+max_ui_ms   79.15 [59.6-82.2] n=4
+ui>50       1 [1-2] n=4
+== exp-ex-batch12
+settle_ms   224 [215-339] n=5
+js_busy_ms  136 [132-153] n=5
+views       223 [223-223] n=5
+max_frame   254.3 [207.5-298.7] n=5
+frames>50   4 [4-6] n=5
+max_ui_ms   81.7 [63.1-95.4] n=5
+ui>50       2 [1-2] n=5
+== after-ex
+settle_ms   287 [241-363] n=5
+js_busy_ms  155 [153-160] n=5
+views       223 [223-223] n=5
+max_frame   274.6 [242.7-297.8] n=5
+frames>50   4 [4-6] n=5
+max_ui_ms   103.4 [92.3-106.3] n=5
+ui>50       2 [2-2] n=5
+== before-dash
+settle_ms   154 [141-182] n=5
+js_busy_ms  135 [131-148] n=5
+views       159 [159-159] n=5
+max_frame   532.0 [526.8-539.6] n=5
+frames>50   4 [3-4] n=5
+max_ui_ms   46.4 [45.1-49.1] n=5
+ui>50       0 [0-0] n=5
+== B2-dash
+settle_ms   162 [136-223] n=5
+js_busy_ms  134 [130-141] n=5
+views       159 [159-159] n=5
+max_frame   510.7 [488.5-514.4] n=5
+frames>50   3 [3-4] n=5
+max_ui_ms   44.9 [42.6-54.0] n=5
+ui>50       0 [0-1] n=5
+== Z-dash
+settle_ms   146 [130-161] n=5
+js_busy_ms  131 [127-135] n=5
+views       159 [159-159] n=5
+max_frame   526.8 [507.0-751.5] n=5
+frames>50   3 [3-4] n=5
+max_ui_ms   48.1 [40.8-50.5] n=5
+ui>50       0 [0-1] n=5
+== F-dash
+settle_ms   154 [152-178] n=5
+js_busy_ms  136 [128-139] n=5
+views       159 [159-159] n=5
+max_frame   523.2 [469.9-535.0] n=5
+frames>50   4 [3-4] n=5
+max_ui_ms   46.9 [44.8-49.8] n=5
+ui>50       0 [0-0] n=5
+== exp-dash-stage
+settle_ms   272 [207-359] n=5
+js_busy_ms  148 [143-162] n=5
+views       159 [159-159] n=5
+max_frame   619.45 [585.3-718.1] n=4
+frames>50   5.5 [4-6] n=4
+max_ui_ms   52.65 [36.5-58.1] n=4
+ui>50       1 [0-1] n=4
+== after-dash
+settle_ms   142 [131-155] n=5
+js_busy_ms  129 [122-135] n=5
+views       159 [159-159] n=5
+max_frame   506.2 [485.5-540.7] n=5
+frames>50   4 [4-4] n=5
+max_ui_ms   48.9 [46.4-53.4] n=5
+ui>50       0 [0-1] n=5
+== before-vdetail
+settle_ms   291 [265-536] n=5
+js_busy_ms  238 [214-318] n=5
+views       142 [142-142] n=5
+max_frame   396.1 [353.4-458.1] n=4
+frames>50   6.5 [5-8] n=4
+max_ui_ms   65.4 [56.9-125.7] n=4
+ui>50       1.5 [1-2] n=4
+== B2-vdetail
+settle_ms   282 [263-345] n=7
+js_busy_ms  205 [195-256] n=7
+views       142 [142-142] n=7
+max_frame   341.25 [276.3-483.9] n=6
+frames>50   6 [4-7] n=6
+max_ui_ms   71.6 [31.5-140.7] n=6
+ui>50       1 [0-3] n=6
+== Z-vdetail
+settle_ms   280 [252-360] n=4
+js_busy_ms  226.5 [221-230] n=4
+views       142 [142-142] n=4
+max_frame   415.35 [392.1-496.5] n=4
+frames>50   6 [5-7] n=4
+max_ui_ms   66.4 [40.2-72.9] n=4
+ui>50       1.5 [0-3] n=4
+== F-vdetail
+settle_ms   284.5 [239-425] n=8
+js_busy_ms  225 [215-241] n=8
+views       142 [142-142] n=8
+max_frame   447.5 [269.8-571.1] n=7
+frames>50   5 [4-7] n=7
+max_ui_ms   67.0 [44.5-119.1] n=7
+ui>50       1 [0-2] n=7
+== after-vdetail
+settle_ms   325 [317-532] n=8
+js_busy_ms  224 [196-282] n=8
+views       142 [142-142] n=8
+max_frame   365.9 [226.9-432.4] n=7
+frames>50   7 [5-9] n=7
+max_ui_ms   92.4 [67.1-127.6] n=7
+ui>50       2 [1-3] n=7
+
+# Metrics week swipe (agg5c.sh)
+== before (before-5c-r1 + r2)
+settle_ms   264.5 [105-418] n=40
+js_busy_ms  194 [84-322] n=40
+before-5c-r1 max_ui_ms 8.4 [2.5-35.1] n=20  ui>50 0
+before-5c-r2 max_ui_ms 9 [2.9-56.0] n=20  ui>50 1
+== after, final build (Z-5c-r1 + r2)
+settle_ms   112.5 [0-183] n=40
+js_busy_ms  81 [44-106] n=40
+Z-5c-r1 max_ui_ms 10.1 [4.5-29.2] n=20  ui>50 0
+Z-5c-r2 max_ui_ms 14.95 [6.0-50.0] n=20  ui>50 1
+== after, build 0eab9cd/38f1e29 (after-5c, F-5c)
+settle_ms   115.5 [62-222] n=80
+js_busy_ms  77.5 [44-124] n=80
+after-5c-r1 max_ui_ms 13.65 [3.6-39.4] n=20  ui>50 0
+after-5c-r2 max_ui_ms 10.4 [2.3-53.0] n=20  ui>50 1
+F-5c-r1 max_ui_ms 10.1 [4.6-52.0] n=20  ui>50 1
+F-5c-r2 max_ui_ms 9.1 [3.4-34.0] n=20  ui>50 0

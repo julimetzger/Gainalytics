@@ -1,0 +1,3 @@
+TotalTime: 735
+TotalTime: 662
+TotalTime: 700

@@ -1109,3 +1109,23 @@ With the short header, the readout's rep line (`video-analysis-playback-current-
 **Observation (GH-691):** the CI emulator (API 34, Pixel/Nexus launcher) does not show the Android 15+ white plate around legacy icons, so before/after of the plain icon looks almost the same. Themed icons show whether the adaptive icon is active: a legacy icon stays unthemed, an adaptive icon with `<monochrome>` gets themed. Toggle without the Settings UI: `adb -s <serial> shell content update --uri content://com.google.android.apps.nexuslauncher.grid_control/icon_themed --bind boolean_value:b:true` (`false` turns it off). To pin the app on the home screen, open the drawer (`input swipe 540 2000 540 600`), then `input draganddrop <iconX> <iconY> 300 900 2500`. `tool.sh rebuild` (`install -r`) keeps the home-screen icon and the app data, and the launcher picks up the new icon without a restart.
 **Image work without python/node:** only `ffmpeg` is allowed. Use `cropdetect=skip=0` on a thresholded `geq` image to find bounding boxes, and `crop,scale=1:N:flags=area,format=rgb24 -f rawvideo` + `od -An -tu1` to read pixel colours. ffmpeg refuses an output that is the same file as the input, so copy the input first (`-c copy`).
 **Apply when:** a ticket changes launcher icons or other native image resources.
+### CI emulator: frame times measure the emulated GPU — compare the UI-thread part, and don't trust staged mounts there
+**Observation (GH-675):** the first draw of a screen compiles shaders on the host CPU (`glCreateProgram`, `postAndWait` 100–500 ms), every run, both builds. `docs/perf/raw-gh675/tools/frames.awk` reports `max_ui_ms` (doFrame minus `postAndWait`), `slices.awk` shows what a long frame did. A `ProgressiveMount` stage that lands right after that frame competes for the 2 vCPUs: Dashboard/video staging measured WORSE (busy 154 → 272 ms) while the same pattern helped the Exercises list. A burst of long frames ~1.7–2.1 s after every cold-start tap is app-independent — limit frames to the first 1.5 s.
+**Apply when:** a perf AC talks about frame durations and you only have the CI emulator.
+
+### react-native-charts-wrapper: every prop change = `notifyDataSetChanged` + full redraw, but the chart needs one after layout
+**Problem (GH-675):** the video speed chart's `xAxis.axisMaximum` moves when the player reports its length → one extra 60–70 ms `UPDATE_PROPS` + redraw on the UI thread. Seeding the axis with the final value removed it, but then MPAndroidChart got its only update before it had a size and drew the plot ~20 px too low (configured offsets 8/22 dp). Reverted.
+**Fix / Rule:** never "optimize away" a chart prop update without a before/after screenshot of the chart itself (pixel diff of a mid-scroll position, not only the top of the screen).
+**Apply when:** touching props of `LineChart`/`BarChart` from `react-native-charts-wrapper`.
+
+### FlashList for a ~80-row list with selector-heavy rows makes the FIRST scroll heavy — stage the mount instead
+**Observation (GH-675):** Exercises in a FlashList: open 758 → 223 views, but each recycled row re-ran two workout selectors + a Sparkline, so the first fling cost 412 ms JS / 1.2 s busy (ScrollView: 95 ms / 42 ms). FlashList v2 also renders the first screen 2 rows per pass (`overrideProps={{initialDrawBatchSize}}` raises it). Kept the ScrollView with `ProgressiveMount` + `useProgressiveLimit(12, 6)`: longest UI frame 142 → ~50 ms, busy 233 → ~170 ms, scrolling unchanged. Run the PERF-004 fling control (`scn4a.sh`) before claiming a list change is free.
+**Apply when:** virtualizing a list whose rows compute from the store.
+
+### A shared `createSelector` keyed on a `Range` object recomputes on every call
+**Problem (GH-675):** `useWorkoutsIn(range)` used one module-level selector; callers build a new `Range` each render (Dashboard: 3 calls, Metrics: 9 per render over 3 panes), so every call filtered all workouts again. Per hook instance: `useMemo(() => createSelector([...], fn, {memoize: lruMemoize, argsMemoize: lruMemoize}), [])` with the range VALUES (ms) as args. Test it by reference identity under a `useSelector: (s) => s(mockState)` mock (`__tests__/redux/workout/use/useWorkoutsIn.spec.ts`).
+**Apply when:** a selector takes a non-primitive argument.
+
+### Maestro `scrollUntilVisible` through the full Exercises list needs ~1 min
+**Observation (GH-675):** with 82 rows mounted (~760 views) each scroll step dumps the whole hierarchy; reaching the last row ("Walking lunges", `exercise-row-70`) took > 30 s on the CI emulator — use `timeout: 120000`.
+**Apply when:** asserting the end of a long, non-virtualized list.
