@@ -1,5 +1,6 @@
-import React, {useMemo, useState} from 'react';
+import React, {memo, useCallback, useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {ProgressiveMount, useProgressiveLimit} from '../../components/common/ProgressiveMount';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../../routing/exerciseRouter';
 import {Card, Chip, FAB, Icon, Searchbar, Text, useTheme} from 'react-native-paper';
@@ -12,6 +13,12 @@ import {exerciseMatchesGroup, MUSCLE_GROUPS, MuscleGroupKey, primaryMuscleTag} f
 import {useExerciseWorkoutSummary} from '../../redux/Workout/use/useExerciseWorkoutSummary';
 import {useOneRmSessionHistory} from '../../redux/Workout/use/useOneRmSessionHistory';
 import {formatTimeAgo} from '../../components/exercise/show/formatTimeAgo';
+
+/** Rows in the first commit (one screen) and per following frame while the Exercises tab opens (GH-675). */
+const FIRST_ROWS = 12;
+const ROWS_PER_STAGE = 6;
+/** Enough stages that the last one (which renders everything) adds at most ROWS_PER_STAGE rows. */
+export const exerciseListStages = (rowCount: number) => Math.max(1, Math.ceil((rowCount - FIRST_ROWS) / ROWS_PER_STAGE) + 1);
 
 const ExerciseTab = ({navigation}: Props) => {
   const theme = useTheme();
@@ -39,13 +46,18 @@ const ExerciseTab = ({navigation}: Props) => {
 
   const focusExercises = useMemo(() => filteredExercises.filter((ex) => ex.isFocus), [filteredExercises]);
   const listExercises = filteredExercises;
+  // Fixed at mount: the stage counter only climbs once, when the tab opens; later list changes render at once.
+  const [listStages] = useState(() => exerciseListStages(listExercises.length));
 
-  const goToDetail = (exercise: Exercise) => {
-    navigation.navigate({
-      name: 'AddWorkoutTab',
-      params: {exercise},
-    });
-  };
+  const goToDetail = useCallback(
+    (exercise: Exercise) => {
+      navigation.navigate({
+        name: 'AddWorkoutTab',
+        params: {exercise},
+      });
+    },
+    [navigation],
+  );
 
   return (
     <View style={[styles.root, {backgroundColor: theme.colors.background}]}>
@@ -100,24 +112,12 @@ const ExerciseTab = ({navigation}: Props) => {
         <Text variant="labelMedium" style={[styles.sectionLabel, {color: theme.colors.onSurfaceVariant}]}>
           ALL EXERCISES
         </Text>
-        <View testID="exercise-list">
-          {listExercises.length === 0 ? (
-            <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No exercises found</Text>
-          ) : (
-            listExercises.map((ex) => (
-              <ExerciseRow
-                key={ex.id}
-                exercise={ex}
-                onPress={() => goToDetail(ex)}
-                outlineColor={theme.colors.outlineVariant}
-                surfaceVariantColor={theme.colors.surfaceVariant}
-                onSurfaceColor={theme.colors.onSurface}
-                onSurfaceVariantColor={theme.colors.onSurfaceVariant}
-                primaryColor={theme.colors.primary}
-              />
-            ))
-          )}
-        </View>
+        {/* GH-675: building all rows at once (82 exercises, ~760 native views) was one 261 ms frame on the
+            device when the tab opened. The first screen of rows comes in the first commit, the rest a few rows
+            per frame right after; once mounted, the list scrolls exactly as before (no recycling). */}
+        <ProgressiveMount stages={listStages}>
+          <ExerciseRowList exercises={listExercises} onPress={goToDetail} />
+        </ProgressiveMount>
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
@@ -309,9 +309,40 @@ const FocusCard = ({exercise, onPress, primaryColor}: FocusCardProps) => {
   );
 };
 
+interface ExerciseRowListProps {
+  exercises: Exercise[];
+  onPress: (exercise: Exercise) => void;
+}
+
+/** The "ALL EXERCISES" rows; inside the tab's ProgressiveMount the first FIRST_ROWS come first (GH-675). */
+const ExerciseRowList = ({exercises, onPress}: ExerciseRowListProps) => {
+  const theme = useTheme();
+  const rowLimit = useProgressiveLimit(FIRST_ROWS, ROWS_PER_STAGE);
+  return (
+    <View testID="exercise-list">
+      {exercises.length === 0 ? (
+        <Text style={[styles.emptyText, {color: theme.colors.onSurfaceVariant}]}>No exercises found</Text>
+      ) : (
+        exercises.slice(0, rowLimit).map((ex) => (
+          <ExerciseRow
+            key={ex.id}
+            exercise={ex}
+            onPress={onPress}
+            outlineColor={theme.colors.outlineVariant}
+            surfaceVariantColor={theme.colors.surfaceVariant}
+            onSurfaceColor={theme.colors.onSurface}
+            onSurfaceVariantColor={theme.colors.onSurfaceVariant}
+            primaryColor={theme.colors.primary}
+          />
+        ))
+      )}
+    </View>
+  );
+};
+
 interface ExerciseRowProps {
   exercise: Exercise;
-  onPress: () => void;
+  onPress: (exercise: Exercise) => void;
   outlineColor: string;
   surfaceVariantColor: string;
   onSurfaceColor: string;
@@ -319,7 +350,7 @@ interface ExerciseRowProps {
   primaryColor: string;
 }
 
-const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSurfaceColor, onSurfaceVariantColor, primaryColor}: ExerciseRowProps) => {
+const ExerciseRow = memo(({exercise, onPress, outlineColor, surfaceVariantColor, onSurfaceColor, onSurfaceVariantColor, primaryColor}: ExerciseRowProps) => {
   const muscleList = (exercise.muscles ?? []).map((m) => m.muscle).filter((m): m is Muscles => m != null);
   const tag = primaryMuscleTag(muscleList);
   const oneRm = lastOneRm(exercise);
@@ -331,7 +362,7 @@ const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSu
       : '—';
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => onPress(exercise)}
       testID={`exercise-row-${exercise.id}`}
       style={({pressed}) => [
         styles.row,
@@ -367,6 +398,6 @@ const ExerciseRow = ({exercise, onPress, outlineColor, surfaceVariantColor, onSu
       <Sparkline values={history} width={56} height={20} color={primaryColor} testID={`exercise-row-sparkline-${exercise.id}`} />
     </Pressable>
   );
-};
+});
 
 export default ExerciseTab;

@@ -1,0 +1,2 @@
+== trace.txt
+total 0 max_batch 0

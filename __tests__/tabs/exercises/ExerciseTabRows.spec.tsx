@@ -1,6 +1,7 @@
 import React from 'react';
-import {render} from '@testing-library/react-native';
-import ExerciseTab from '../../../app/tabs/exercises/ExerciseTab';
+import {act, render} from '@testing-library/react-native';
+import type {ReactTestInstance} from 'react-test-renderer';
+import ExerciseTab, {exerciseListStages} from '../../../app/tabs/exercises/ExerciseTab';
 import {Record} from '../../../app/models/entities/Exercise';
 import {useAlleExercises} from '../../../app/redux/Exercises/use/useAllExercises';
 import {useExerciseWorkoutSummary} from '../../../app/redux/Workout/use/useExerciseWorkoutSummary';
@@ -132,5 +133,46 @@ describe('ExerciseTab rows + focus carousel', () => {
       [100, 120, 90],
       [100, 120, 90],
     ]);
+  });
+});
+
+// GH-675: opening the tab used to build all rows in one commit (one 261 ms frame on the device). The first
+// screen of rows comes first, the rest a few rows per frame, until every row is there.
+describe('ExerciseTab staged rows (GH-675)', () => {
+  const navigation = {navigate: jest.fn()} as any;
+  const rowIds = (rows: ReactTestInstance[]) => rows.map((row) => row.props.testID);
+  const ROW_ID = /^exercise-row-\d+$/;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockedSummary.mockReturnValue({lastWorkoutEnd: undefined, totalFinishedWorkouts: 0});
+    const names = Array.from({length: 30}, (_, i) => `Exercise ${String(i + 1).padStart(2, '0')}`);
+    mockedAll.mockReturnValue(names.map((name, i) => ({id: i + 1, name, isFocus: false})));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('renders the first 12 rows first and every row a few frames later, in list order', () => {
+    const {queryAllByTestId} = render(<ExerciseTab navigation={navigation} route={{} as any} />);
+
+    expect(rowIds(queryAllByTestId(ROW_ID))).toEqual(Array.from({length: 12}, (_, i) => `exercise-row-${i + 1}`));
+
+    // one stage per frame; each stage arms the next timer after its render
+    const nextFrame = () =>
+      act(() => {
+        jest.advanceTimersByTime(16);
+      });
+    nextFrame();
+    expect(rowIds(queryAllByTestId(ROW_ID))).toHaveLength(18);
+
+    nextFrame();
+    nextFrame();
+    expect(rowIds(queryAllByTestId(ROW_ID))).toEqual(Array.from({length: 30}, (_, i) => `exercise-row-${i + 1}`));
+  });
+
+  it('uses as many stages as needed so the last one adds at most 6 rows', () => {
+    expect([0, 12, 13, 18, 19, 82].map(exerciseListStages)).toEqual([1, 1, 2, 2, 3, 13]);
   });
 });
