@@ -25,6 +25,13 @@ name: Release
 #
 # Dry run: Run workflow on a branch with an empty `version` builds and signs with a throw-away
 # keystore generated inside the job and never creates a release.
+#
+# Zapstore: after the GitHub Release is published, the `zapstore` job publishes its APK to Zapstore
+# with zsp and zapstore.yaml. It needs the secret ZAPSTORE_SIGN_WITH (NIP-46 bunker URL, or the nsec
+# of a dedicated publisher key) and, for a bunker, ZAPSTORE_BUNKER_CLIENT_KEY in the environment
+# `release`; without ZAPSTORE_SIGN_WITH it is skipped with a notice. To publish an existing release
+# again, Run workflow on the tag with `zapstore_only` checked (dispatch runs the workflow file of
+# that tag, so this works only for tags that contain this job; older ones: see docs/release.md).
 # See docs/release.md.
 
 on:
@@ -38,6 +45,10 @@ on:
         description: 'Version to release, e.g. 0.183 (creates the tag on the selected branch and publishes the release). Empty = dry run with a throw-away keystore.'
         type: string
         default: ''
+      zapstore_only:
+        description: 'Only publish the existing GitHub Release of the selected tag to Zapstore (Use workflow from -> Tags -> the version; no build). Needs a tag that already contains this job. Already published versions are skipped.'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -49,7 +60,7 @@ concurrency:
 jobs:
   tag:
     name: Create tag and start release
-    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'branch' && inputs.version != ''
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'branch' && (inputs.version != '' || inputs.zapstore_only)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -61,8 +72,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          ZAPSTORE_ONLY: ${{ inputs.zapstore_only }}
         run: |
           set -euo pipefail
+          if [ "$ZAPSTORE_ONLY" = "true" ]; then
+            echo "::error::zapstore_only publishes an existing release: start the workflow on its tag (Use workflow from -> Tags -> the version)."
+            exit 1
+          fi
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
             echo "::error::version must look like 0.183 or 1.2.3 (got '$VERSION')"
             exit 1
@@ -86,7 +102,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     # A dispatch with a version on a branch only creates the tag (job `tag`); the build runs on the tag.
-    if: github.ref_type == 'tag' || inputs.version == ''
+    # zapstore_only skips the build and only runs the `zapstore` job for the existing release.
+    if: (github.ref_type == 'tag' || inputs.version == '') && !inputs.zapstore_only
     # The real signing secrets live in the `release` environment; only runs on a tag ref enter it.
     environment: ${{ github.ref_type == 'tag' && 'release' || '' }}
     env:
@@ -271,3 +288,167 @@ jobs:
             android/app/build/outputs/apk/release/app-release.apk \
             android/app/build/outputs/bundle/release/app-release.aab \
             SHA256SUMS
+
+  zapstore:
+    name: Publish to Zapstore
+    needs: publish
+    # After the GitHub Release was published, or alone for an existing release (Run workflow on the
+    # tag with zapstore_only). Re-running is safe: zsp exits 0 without publishing when this version is
+    # already on the relay for the signing key.
+    if: >-
+      !cancelled() && github.ref_type == 'tag' &&
+      (needs.publish.result == 'success' ||
+       (github.event_name == 'workflow_dispatch' && inputs.zapstore_only && needs.publish.result == 'skipped'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Signing secrets live in the tag-restricted `release` environment, like the APK signing key.
+    environment: release
+    permissions:
+      contents: read
+    env:
+      # zsp, the official Zapstore publisher CLI (https://github.com/zapstore/zsp). No checksum file is
+      # published, so the binary's SHA-256 is pinned here (same as the release asset's GitHub digest).
+      ZSP_VERSION: '0.4.17'
+      ZSP_SHA256: 3f241da6a5dc7a85fe851d3b42b77790b651bd36c7029382a701262bda832d20
+    steps:
+      - name: Check Zapstore signer
+        id: signer
+        env:
+          SIGN_WITH: ${{ secrets.ZAPSTORE_SIGN_WITH }}
+          CLIENT_KEY: ${{ secrets.ZAPSTORE_BUNKER_CLIENT_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SIGN_WITH:-}" ]; then
+            echo "::notice::Zapstore publishing skipped: secret ZAPSTORE_SIGN_WITH is not set in the environment 'release' (see docs/release.md, section Zapstore)."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Never print the value; only its kind.
+          case "$SIGN_WITH" in
+            bunker://*)
+              echo "Signer: NIP-46 bunker"
+              if [ -z "${CLIENT_KEY:-}" ]; then
+                echo "::warning::ZAPSTORE_BUNKER_CLIENT_KEY is not set: zsp uses a new NIP-46 client key on every run, so the bunker has to approve a new connection each time (see docs/release.md)."
+              elif ! [[ "$CLIENT_KEY" =~ ^[0-9a-f]{64}$ ]]; then
+                echo "::error::ZAPSTORE_BUNKER_CLIENT_KEY must be 64 lowercase hex characters (openssl rand -hex 32)."
+                exit 1
+              fi
+              ;;
+            nsec1*)
+              echo "Signer: private key (nsec)"
+              ;;
+            *)
+              if ! [[ "$SIGN_WITH" =~ ^[0-9a-fA-F]{64}$ ]]; then
+                echo "::error::ZAPSTORE_SIGN_WITH must be a bunker:// URL, an nsec1... key or a 64-character hex key."
+                exit 1
+              fi
+              echo "Signer: private key (hex)"
+              ;;
+          esac
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      # zapstore.yaml and the icon come from the default branch: the relay verifies the publisher
+      # against that file, and older tags may predate it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.signer.outputs.enabled == 'true'
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Install zsp ${{ env.ZSP_VERSION }}
+        if: steps.signer.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/zsp-bin"
+          mkdir -p "$dir"
+          curl -fsSL --retry 3 -o "$dir/zsp" \
+            "https://github.com/zapstore/zsp/releases/download/v${ZSP_VERSION}/zsp-${ZSP_VERSION}-linux-amd64"
+          echo "$ZSP_SHA256  $dir/zsp" | sha256sum -c -
+          chmod +x "$dir/zsp"
+          echo "$dir" >> "$GITHUB_PATH"
+          "$dir/zsp" --version | tail -n1
+
+      - name: Prepare config for ${{ github.ref_name }}
+        if: steps.signer.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          version="$GITHUB_REF_NAME"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::Tag $version is not a version tag (expected e.g. 0.183)"
+            exit 1
+          fi
+          if grep -qE '^release_filter:' zapstore.yaml; then
+            echo "::error::zapstore.yaml must not set release_filter; CI pins the release to the tag."
+            exit 1
+          fi
+          if ! grep -qE '^pubkey:[[:space:]]*["'"'"']?npub1' zapstore.yaml; then
+            echo "::warning::zapstore.yaml has no pubkey (npub). The Zapstore relay whitelists a new publisher only via that field (see docs/release.md)."
+          fi
+          # zsp otherwise takes the newest GitHub Release; pin it to this tag. The copy stays in the
+          # repository root so the relative icon path still resolves.
+          cp zapstore.yaml .zapstore-release.yaml
+          printf "\n# Added by CI: publish exactly this release.\nrelease_filter: '^%s\$'\n" "${version//./\\.}" >> .zapstore-release.yaml
+          tail -n2 .zapstore-release.yaml
+
+      - name: Check release asset
+        if: steps.signer.outputs.enabled == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        # Read-only: finds the release, downloads and parses the APK (arm64-v8a, package, certificate).
+        run: zsp publish --check --no-color .zapstore-release.yaml
+
+      - name: Publish to Zapstore
+        if: steps.signer.outputs.enabled == 'true'
+        env:
+          SIGN_WITH: ${{ secrets.ZAPSTORE_SIGN_WITH }}
+          CLIENT_KEY: ${{ secrets.ZAPSTORE_BUNKER_CLIENT_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/zsp-config"
+          if [[ "$SIGN_WITH" == bunker://* ]] && [ -n "${CLIENT_KEY:-}" ]; then
+            # zsp keeps its NIP-46 client key per bunker in $XDG_CONFIG_HOME/zsp/bunker-keys/<bunker pubkey>.key.
+            # Installing the paired key lets the bunker recognize CI as the same, already approved client.
+            target="${SIGN_WITH#bunker://}"
+            target="${target%%[/?]*}"
+            if ! [[ "$target" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::ZAPSTORE_SIGN_WITH is not a valid bunker URL (expected bunker://<64 hex pubkey>?relay=...)."
+              exit 1
+            fi
+            (umask 077 && mkdir -p "$XDG_CONFIG_HOME/zsp/bunker-keys" \
+              && printf '%s\n' "$CLIENT_KEY" > "$XDG_CONFIG_HOME/zsp/bunker-keys/$target.key")
+          fi
+          # --quiet: no prompts. Exits 0 without publishing if this version is already on the relay.
+          # --skip-metadata: name, description, icon etc. come from zapstore.yaml.
+          zsp publish --quiet --skip-metadata --no-color .zapstore-release.yaml
+
+      - name: Remove zsp client key
+        if: always() && steps.signer.outputs.enabled == 'true'
+        run: rm -rf "$RUNNER_TEMP/zsp-config"
+
+      # Non-fatal: warns when the APK signing certificate is not (or no longer) linked to the
+      # publisher's Nostr identity. The link (NIP-C1) expires, by default after one year.
+      - name: Check certificate link
+        if: steps.signer.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Non-fatal by design: the default shell runs with -e, switch it off for this step.
+          set +e -uo pipefail
+          npub=$(sed -nE 's/^pubkey:[[:space:]]*["'"'"']?(npub1[0-9a-z]+).*/\1/p' zapstore.yaml | head -n1)
+          if [ -z "$npub" ]; then
+            echo "No pubkey in zapstore.yaml, nothing to verify."
+            exit 0
+          fi
+          dir="$RUNNER_TEMP/zsp-verify"
+          if ! gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern app-release.apk --dir "$dir" --clobber; then
+            echo "::warning::Could not download app-release.apk to verify the certificate link."
+            exit 0
+          fi
+          printf '%s\n' "$npub" | zsp identity --verify "$dir/app-release.apk" --no-color > "$dir/verify.txt" 2>&1
+          status=$?
+          grep -E 'Cert hash|Expiry|Status|Signature|identity proof' "$dir/verify.txt" || true
+          if [ "$status" -ne 0 ] || ! grep -q 'fully verified' "$dir/verify.txt"; then
+            echo "::warning::The APK signing certificate is not linked to $npub, or the link expired. Zapstore then shows the app as unverified. Run zsp identity --link-key once more (see docs/release.md)."
+          fi
+          exit 0
