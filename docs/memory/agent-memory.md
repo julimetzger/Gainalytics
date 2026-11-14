@@ -1129,3 +1129,16 @@ With the short header, the readout's rep line (`video-analysis-playback-current-
 ### Maestro `scrollUntilVisible` through the full Exercises list needs ~1 min
 **Observation (GH-675):** with 82 rows mounted (~760 views) each scroll step dumps the whole hierarchy; reaching the last row ("Walking lunges", `exercise-row-70`) took > 30 s on the CI emulator — use `timeout: 120000`.
 **Apply when:** asserting the end of a long, non-virtualized list.
+
+### Controlled paging ScrollView: a `contentOffset` prop that follows the page breaks the swipe
+**Problem (GH-693):** the onboarding pager reported the page live from `onScroll` (dots follow the drag) and passed `contentOffset={{x: page * width}}`. Every page change mid-drag re-applied the offset on Android/Fabric — Maestro `swipe: LEFT` snapped back to card 1. Programmatic `scrollTo` from Next/Back also feeds `onScroll`.
+**Fix / Rule:** keep `contentOffset` initial-only (`useState(() => …)`), only take `onScroll` pages between `onScrollBeginDrag` and `onMomentumScrollEnd`, and skip the effect's `scrollTo` for a page that came from the swipe (`app/components/onboarding/OnboardingPager.tsx`). Verify swipes with Maestro `swipe` + `id: onboarding-dot-N, selected: true` (`accessibilityState.selected` maps to `selected`).
+**Apply when:** building a pager/carousel whose index is React state.
+
+### RN row `View`s with a testID don't contain their Texts in the Maestro/uiautomator tree
+**Observation (GH-693):** `assertVisible: {id: onboarding-nav-training, text: '.*Training.*'}` and `childOf: {id: …}` both failed: the row node is an empty, self-closing `ViewGroup` (text=""), its Texts are separate nodes. Making the row `accessible` with `accessibilityLabel={`${title}. ${text}`}` gives it `content-desc`, which Maestro's `text:` matches — and screen readers read the row as one item. Use ids for such rows: the tab bar behind an overlay carries the same plain texts.
+**Apply when:** asserting "this label belongs to this row" in a flow.
+
+### Stale CI Metro + a `clearState` flow: test the JS with `tool.sh rebuild-release`
+**Observation (GH-693):** after a JS edit the CI Metro kept serving the old bundle (no watcher; `kill` needs approval — see GH-546/GH-589), and the `debug_http_host` trick does not survive `clearState`. `tool.sh rebuild-release` (6.5 min first, 1.3 min after a JS-only edit) installs over the debug APK with the same key, never contacts Metro, and Maestro (`clearState`, testIDs) works on it. Check the flow's first changed assertion to prove the new JS runs.
+**Apply when:** a flow with `clearState: true` must run against JS edited after `metro-start`.

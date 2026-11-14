@@ -17,6 +17,9 @@ const OnboardingPager = ({page, onPageChange, children}: OnboardingPagerProps) =
   const [width, setWidth] = useState(window.width);
   const ref = useRef<ScrollView>(null);
   const mounted = useRef(false);
+  // Only the start position (e.g. page 4 when coming back from the templates). Updating it with
+  // every page change would re-apply the offset while the finger is still dragging and fight the swipe.
+  const [initialOffset] = useState(() => ({x: page * window.width, y: 0}));
   // True from the finger touching the pager until the page has settled. Only then do scroll
   // events move the page — the animated scrollTo of Next/Back must not feed back into it.
   const userScrolling = useRef(false);
@@ -81,7 +84,7 @@ const OnboardingPager = ({page, onPageChange, children}: OnboardingPagerProps) =
       onScroll={onScroll}
       scrollEventThrottle={32}
       onMomentumScrollEnd={onMomentumScrollEnd}
-      contentOffset={{x: page * width, y: 0}}
+      contentOffset={initialOffset}
       style={styles.pager}
       testID="onboarding-pager"
     >
