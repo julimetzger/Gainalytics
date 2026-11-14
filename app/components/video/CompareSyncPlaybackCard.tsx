@@ -4,6 +4,7 @@ import Animated, {useAnimatedStyle, useDerivedValue, useFrameCallback, useShared
 import {IconButton, MD3Theme, Text, useTheme} from 'react-native-paper';
 import {BarTrackingResult} from '../../models/entities/VideoAnalysis';
 import VideoAnalysisPlayerView, {VideoPlayerLoadEvent, VideoPlayerProgressEvent} from './VideoAnalysisPlayerView';
+import {usePausePlaybackOnBlur} from './usePausePlaybackOnBlur';
 import {
   clampMs,
   computeRepTickFractions,
@@ -392,6 +393,9 @@ const CompareSyncPlaybackCard = forwardRef<CompareSyncPlaybackHandle, Props>((pr
     [setDisplayTimeThrottled, updateCurrentRepForTime], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  // GH-695: leaving the tab (or opening another screen on top) stops both videos.
+  usePausePlaybackOnBlur(!paused, pausePlayback);
+
   // The video whose mapped end defines the timeline end stops the shared playback.
   const onEndA = useCallback(() => {
     if (durationARef.current >= timelineDurationRef.current - 80) {
@@ -635,7 +639,7 @@ const CompareSyncPlaybackCard = forwardRef<CompareSyncPlaybackHandle, Props>((pr
       <View style={styles.transportRow}>
         <IconButton testID="compare-prev-rep" icon="rewind" size={26} iconColor={theme.colors.primary} onPress={onPrevRep} style={styles.transportButton} />
         <IconButton testID="compare-step-back" icon="skip-previous" size={26} iconColor={theme.colors.primary} onPress={onStepBack} style={styles.transportButton} />
-        <IconButton testID="compare-play-pause-button" icon={paused ? 'play' : 'pause'} size={38} iconColor={theme.colors.primary} onPress={onPlayPauseToggle} style={styles.transportButton} />
+        <IconButton testID="compare-play-pause-button" accessibilityLabel={paused ? 'Play' : 'Pause'} icon={paused ? 'play' : 'pause'} size={38} iconColor={theme.colors.primary} onPress={onPlayPauseToggle} style={styles.transportButton} />
         <IconButton testID="compare-step-forward" icon="skip-next" size={26} iconColor={theme.colors.primary} onPress={onStepForward} style={styles.transportButton} />
         <IconButton testID="compare-next-rep" icon="fast-forward" size={26} iconColor={theme.colors.primary} onPress={onNextRep} style={styles.transportButton} />
       </View>

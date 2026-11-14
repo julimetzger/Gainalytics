@@ -11,6 +11,7 @@ import {formatVlReferenceLabel, vlToRirEstimate} from '../../utils/velocityLossR
 import {VelocityLossReference} from '../../models/entities/Exercise';
 import {isSourceUnavailableError} from '../../utils/videoAnalysisSource';
 import {isVideoSourceAvailable} from '../../utils/videoAnalysisNative';
+import {usePausePlaybackOnBlur} from './usePausePlaybackOnBlur';
 
 interface Props {
   analysisId: number;
@@ -972,23 +973,31 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
   // back into JS state so the player and labels stay in sync. On unpause, resets
   // the interpolation anchor so the marker does not jump forward by the wall-clock
   // time elapsed during the pause.
-  const onPlayPauseToggle = useCallback(() => {
-    const nextPaused = !playbackPausedRef.current;
-    playbackPausedRef.current = nextPaused;
-    playbackPausedSV.value = nextPaused; // eslint-disable-line react-hooks/exhaustive-deps
-    setPlaybackPaused(nextPaused);
-
-    if (nextPaused) {
-      const currentMs = Math.round(playbackTimeMsSV.value); // eslint-disable-line react-hooks/exhaustive-deps
-      playbackTimeRef.current = currentMs;
-      setPlaybackTimeMs(currentMs);
-      setSeekPositionMs(currentMs);
-      updateCurrentRepForPlaybackTime(currentMs);
-    } else {
-      playerAnchorTimeMsSV.value = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
-      playerAnchorRecvAtMsSV.value = uiNowMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
-    }
+  const pausePlayback = useCallback(() => {
+    playbackPausedRef.current = true;
+    playbackPausedSV.value = true; // eslint-disable-line react-hooks/exhaustive-deps
+    setPlaybackPaused(true);
+    const currentMs = Math.round(playbackTimeMsSV.value); // eslint-disable-line react-hooks/exhaustive-deps
+    playbackTimeRef.current = currentMs;
+    setPlaybackTimeMs(currentMs);
+    setSeekPositionMs(currentMs);
+    updateCurrentRepForPlaybackTime(currentMs);
   }, [updateCurrentRepForPlaybackTime]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onPlayPauseToggle = useCallback(() => {
+    if (!playbackPausedRef.current) {
+      pausePlayback();
+      return;
+    }
+    playbackPausedRef.current = false;
+    playbackPausedSV.value = false; // eslint-disable-line react-hooks/exhaustive-deps
+    setPlaybackPaused(false);
+    playerAnchorTimeMsSV.value = playbackTimeMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+    playerAnchorRecvAtMsSV.value = uiNowMsSV.value; // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pausePlayback]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // GH-695: leaving the tab (or opening another screen on top) stops playback.
+  usePausePlaybackOnBlur(!playbackPaused, pausePlayback);
 
   useEffect(() => {
     return () => {
@@ -1231,7 +1240,7 @@ const VideoAnalysisPlaybackOverlayCard = ({analysisId, videoUri, result, savedSe
           <View style={[styles.videoControlsOverlay, themedStyles.videoControlsBackground]} pointerEvents="box-none">
             <IconButton testID="video-analysis-step-minus200" icon="rewind" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 200)} style={styles.videoControlButton} />
             <IconButton testID="video-analysis-step-minus50" icon="skip-previous" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current - 50)} style={styles.videoControlButton} />
-            <IconButton testID="video-analysis-playback-toggle" icon={playbackPaused ? 'play' : 'pause'} size={32} iconColor={theme.colors.primary} onPress={onPlayPauseToggle} style={styles.videoControlButton} />
+            <IconButton testID="video-analysis-playback-toggle" accessibilityLabel={playbackPaused ? 'Play' : 'Pause'} icon={playbackPaused ? 'play' : 'pause'} size={32} iconColor={theme.colors.primary} onPress={onPlayPauseToggle} style={styles.videoControlButton} />
             <IconButton testID="video-analysis-step-plus50" icon="skip-next" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 50)} style={styles.videoControlButton} />
             <IconButton testID="video-analysis-step-plus200" icon="fast-forward" size={24} iconColor={theme.colors.primary} onPress={() => applySeekTimeMs(playbackTimeRef.current + 200)} style={styles.videoControlButton} />
           </View>
