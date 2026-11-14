@@ -100,8 +100,12 @@ appId: com.powerliftingworkoutplanner
 - assertVisible:
     id: 'onboarding-dot-0'
     selected: true
-- assertVisible: 'Local first'
-- assertVisible: 'Video analysis'
+- assertVisible:
+    id: 'onboarding-feature-local'
+    text: 'Local first\. Works offline\. Your data stays on your device\.'
+- assertVisible:
+    id: 'onboarding-feature-video'
+    text: 'Video analysis\. .*'
 # GH-693: the cards are swipeable — a swipe moves the step label AND the dots.
 - swipe:
     direction: LEFT
@@ -120,18 +124,19 @@ appId: com.powerliftingworkoutplanner
 - assertVisible: 'Find your way'
 # One row per bottom tab, titled with the nav bar's label (ids, because the real tab bar
 # behind the overlay carries the same texts).
+# Each row is one accessible element labelled "<tab label>. <text>".
 - assertVisible:
     id: 'onboarding-nav-training'
-    text: '.*Training.*'
+    text: 'Training\. Your plans and today’s training\.'
 - assertVisible:
     id: 'onboarding-nav-exercises'
-    text: '.*Exercises.*'
+    text: 'Exercises\. .*'
 - assertVisible:
     id: 'onboarding-nav-analyse'
-    text: '.*Analysis.*'
+    text: 'Analysis\. .*'
 - assertVisible:
     id: 'onboarding-nav-settings'
-    text: '.*Settings.*'
+    text: 'Settings\. .*'
 - swipe:
     direction: LEFT
     duration: 400
@@ -144,7 +149,9 @@ appId: com.powerliftingworkoutplanner
     id: 'onboarding-dot-2'
     selected: true
 - assertVisible: 'Optional extras'
-- assertVisible: 'AI coach'
+- assertVisible:
+    id: 'onboarding-optional-ai'
+    text: 'AI coach\. .*'
 # Swiping back works too.
 - swipe:
     direction: RIGHT

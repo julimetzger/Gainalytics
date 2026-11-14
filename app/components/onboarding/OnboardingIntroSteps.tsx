@@ -14,7 +14,8 @@ interface IconRowProps {
 const IconRow = ({icon, title, text, testID}: IconRowProps) => {
   const theme = useTheme();
   return (
-    <View style={styles.row} testID={testID}>
+    // One accessible element per row, so screen readers (and Maestro) read title and text together.
+    <View style={styles.row} testID={testID} accessible accessibilityLabel={`${title}. ${text}`}>
       <Surface style={[styles.rowIcon, {backgroundColor: theme.colors.primaryContainer}]} elevation={0}>
         <Icon source={icon} size={22} color={theme.colors.onPrimaryContainer} />
       </Surface>
