@@ -401,6 +401,60 @@ appId: com.powerliftingworkoutplanner
 - assertTrue: "${/^(Rep [0-9]+|-)$/.test(output.r2) && /^-?[0-9]+([.][0-9][0-9][0-9] m| px)[/]s$/.test(output.v2) && output.v2 != output.v1}"
 # At least one sample landed inside a rep (the clip is mostly reps; count is device dependent, see GH-312).
 - assertTrue: "${/^Rep [0-9]+$/.test(output.r1) || /^Rep [0-9]+$/.test(output.r2)}"
+
+# GH-695: leaving the tab while the video plays pauses it; it stays paused on
+# return. The toggle's accessibility label is "Pause" while playing, "Play" paused.
+# By now the clip may have played to its end (auto-paused) -> pause it if it still
+# runs, seek to the middle (chart tap) and replay at 0.2x (~20 s left of wall time)
+# so the tab switch below happens during real playback.
+- runFlow:
+    when:
+      visible:
+        id: 'video-analysis-playback-toggle'
+        text: 'Pause'
+    commands:
+      - tapOn:
+          id: 'video-analysis-playback-toggle'
+          waitToSettleTimeoutMs: 500
+- tapOn:
+    id: 'video-analysis-speed-btn-0.2'
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    id: 'video-analysis-playback-speed-chart'
+    waitToSettleTimeoutMs: 500
+- assertVisible:
+    id: 'video-analysis-playback-toggle'
+    text: 'Play'
 - tapOn:
     id: 'video-analysis-playback-toggle'
     waitToSettleTimeoutMs: 500
+- assertVisible:
+    id: 'video-analysis-playback-toggle'
+    text: 'Pause'
+- tapOn: 'tab-training'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: 'tab-analyse'
+- extendedWaitUntil:
+    visible:
+      id: 'video-analysis-playback-toggle'
+    timeout: 15000
+- assertVisible:
+    id: 'video-analysis-playback-toggle'
+    text: 'Play'
+# Paused for real: the readout does not move over ~3 s (playing at 0.5x it
+# changes every few frames, see the GH-439 samples above).
+- copyTextFrom:
+    id: 'video-analysis-playback-current-velocity'
+- evalScript: "${output.vBack1 = maestro.copiedText}"
+# A fixed 3 s pause (waitForAnimationToEnd returns at once on a still screen):
+# the toggle stays visible, so this wait always runs into its timeout.
+- extendedWaitUntil:
+    notVisible:
+      id: 'video-analysis-playback-toggle'
+    timeout: 3000
+    optional: true
+- copyTextFrom:
+    id: 'video-analysis-playback-current-velocity'
+- evalScript: "${output.vBack2 = maestro.copiedText}"
+- assertTrue: "${/^-?[0-9]+([.][0-9][0-9][0-9] m| px)[/]s$/.test(output.vBack1) && output.vBack2 == output.vBack1}"

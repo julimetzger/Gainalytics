@@ -1129,3 +1129,13 @@ With the short header, the readout's rep line (`video-analysis-playback-current-
 ### Maestro `scrollUntilVisible` through the full Exercises list needs ~1 min
 **Observation (GH-675):** with 82 rows mounted (~760 views) each scroll step dumps the whole hierarchy; reaching the last row ("Walking lunges", `exercise-row-70`) took > 30 s on the CI emulator — use `timeout: 120000`.
 **Apply when:** asserting the end of a long, non-virtualized list.
+
+### Video playback state in Maestro: assert the toggle's `Play`/`Pause` label, and replay before the step — the clip ends within ~18 s at 0.5x
+**Problem (GH-695):** the play/pause `IconButton`s had no label, so a flow could not tell playing from paused. After the GH-439 samples in `video_import_playback.yaml` the 9 s clip (0.5x) had already ended and auto-paused, so a follow-up `Pause` assertion raced and failed on old AND new code.
+**Fix / Rule:** the toggles now carry `accessibilityLabel` `Play`/`Pause` (content-desc): assert `{id: 'video-analysis-playback-toggle', text: 'Pause'}` (compare: `compare-play-pause-button`). Before a playback-dependent step: pause if needed, tap `video-analysis-speed-btn-0.2`, tap the speed chart (seeks to mid), press play. For a fixed wait on a still screen use `extendedWaitUntil: {notVisible: {id: <always-visible>}, timeout: 3000, optional: true}` (`waitForAnimationToEnd` returns at once).
+**Apply when:** extending video detail/compare playback flows. (seen in GH-695)
+
+### Jest: re-rendering a memo()ised component does not re-read a mocked hook
+**Problem (GH-695):** mocking `useIsFocused: () => flag` and calling `rerender(sameProps)` left the memo()ised `VideoAnalysisPlaybackOverlayCard` untouched, so a blur was never seen.
+**Fix / Rule:** mock the hook with `React.useSyncExternalStore` over a listener set and notify inside `act()`; like the real hook it re-renders the subscriber itself (see `__tests__/components/video/PausePlaybackOnBlur.test.tsx`).
+**Apply when:** testing focus/blur (or any subscription) behaviour of memoised components. (seen in GH-695)
