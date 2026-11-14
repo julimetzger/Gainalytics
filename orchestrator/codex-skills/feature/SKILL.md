@@ -68,7 +68,7 @@ Even without an explicit `screens` list, consult the relevant screenshots in `or
 7. Before review, run the final checks relevant to the change:
    - `npm test`
    - Android device verification
-   - for UI or flow changes, run Maestro smoke or a relevant flow against the assigned device
+   - for UI or flow changes, **commit the matching Maestro flow change** (see "Maestro flow is part of the change" below) and run that target flow against the assigned device; smoke alone is not enough
    - workspace-wide `typecheck` and `lint` are optional health checks; record them if you run them, but they are not required for `ready_for_review`
 8. **Capture screenshots — this is MANDATORY, not optional.**
    - Take at least one screenshot showing the implemented result on the assigned device.
@@ -274,6 +274,14 @@ For numeric state (counters, record counts, list lengths), read the value with
 **Extend, don't add:** `__tests__/e2e/maestro/FLOW_AUDIT.md` lists the target flows per
 feature (and the shared helpers). Extend the target flow of the affected feature with your
 ticket's assertions instead of adding a new per-ticket flow (`ghNNN_*.yaml`).
+
+**Maestro flow is part of the change (REQUIRED for UI changes):** every change that adds or
+alters UI or a user flow ships with a committed update to the target flow in
+`__tests__/e2e/maestro/flows/` that asserts the new behaviour's resulting values, plus the
+updated "Covers" text of that row in `FLOW_AUDIT.md`. A throwaway flow under `run_dir` /
+`.agent-run/` does not count. Run the updated target flow on the device and cite its result as
+evidence. Only if the change has nothing a flow can assert (e.g. a pure colour or spacing tweak)
+may you skip it — then say so explicitly, with the reason, in the PR body.
 
 **Do not accept a Maestro flow as passing evidence unless it contains at least one
 assertion on the actual resulting value of the changed UI element.**
