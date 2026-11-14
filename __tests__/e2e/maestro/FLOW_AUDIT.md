@@ -15,7 +15,7 @@ themselves. Every file named below must be in `/sdcard/Download` —
 
 | Feature | Flow | Purpose | Data basis |
 |---|---|---|---|
-| F1 Start & Onboarding | `start_onboarding_template.yaml` | Fresh store: onboarding, Skip survives relaunch, empty Analyse dashboard, Help › Show Introduction, template "Strength Block" drives the home | empty store (clearState); ends with one plan only |
+| F1 Start & Onboarding | `start_onboarding_template.yaml` | Fresh store: onboarding (swipeable cards, dots follow the swipe, highlighted Skip on the start choice), Skip survives relaunch, empty Analyse dashboard, Help › Show Introduction, template "Strength Block" drives the home | empty store (clearState); ends with one plan only |
 | | `start_existing_data.yaml` | Filled store cold-starts without onboarding; reopened onboarding's "Create an empty plan" / "Import data" routes | imports baseline (`baseline.gains`) |
 | F2 Training home | `home_dashboard.yaml` | Micro hero values, Next/Last Training cards, plan list + search, cards open trainings (not the add-plan dialog) | baseline, read-only |
 | | `home_new_plan_current.yaml` | A new plan becomes current (snackbar, Undo, star); first plan on an empty store | empty store, then imports baseline |
@@ -89,6 +89,7 @@ instead of a flow with generated fixtures.
 |---|---|---|
 | `00_import_baseline.yaml` | – | Full import of `baseline.gains` from Downloads (SAF folder fix), dismisses the onboarding |
 | `gh497_dismiss_onboarding.yaml` | – | Waits for the tab bar, skips the onboarding if shown |
+| `onboarding_to_start_step.yaml` | – | GH-693: from the onboarding's first card, Next × 3 to the start choice ("Step 4 of 4") |
 | `import_fixture.yaml` | `FIXTURE` (file name in Downloads) | Same as the baseline import for another `.gains` |
 | `goto_micro69_push.yaml` | `MODE` = `planned` (default) \| `running` \| `edit` | Opens plan 1 › micro 69 "Push"; optionally starts it or opens "Edit plan" |
 | `goto_micro2_push.yaml` | – | Opens the Analysis of Micro 2 · "Push squat" (plan "Push pull") |

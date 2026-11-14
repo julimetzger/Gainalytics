@@ -3,7 +3,7 @@ appId: com.powerliftingworkoutplanner
 # F1 Start & Onboarding — T1.1: first start on an EMPTY store.
 # Purpose: onboarding appears on a fresh store; "Skip" creates nothing and stays gone after a
 # relaunch; the empty Analyse dashboard explains itself; Settings › Help › "Show Introduction"
-# reopens the onboarding; the template step lists the three templates with their real
+# reopens the onboarding; its intro cards swipe and the dots follow (GH-693); the template step lists the three templates with their real
 # structure; "Strength Block" creates a plan that drives the Training home.
 # Data basis: empty store (clearState). Leaves the store with ONE plan "Strength Block" —
 # run a flow that imports the baseline afterwards.
@@ -25,7 +25,7 @@ appId: com.powerliftingworkoutplanner
 # PRECONDITION: fresh store -> onboarding step 1.
 - assertVisible:
     id: 'onboarding-step-indicator'
-    text: 'Step 1 of 3'
+    text: 'Step 1 of 4'
 - assertVisible: 'Welcome to Gainalytics'
 
 # --- 1) Skip: nothing is created ----------------------------------------------
@@ -96,30 +96,96 @@ appId: com.powerliftingworkoutplanner
     timeout: 10000
 - assertVisible:
     id: 'onboarding-step-indicator'
-    text: 'Step 1 of 3'
+    text: 'Step 1 of 4'
 - assertVisible:
-    id: 'onboarding-level-meso'
+    id: 'onboarding-dot-0'
+    selected: true
+- assertVisible: 'Local first'
+- assertVisible: 'Video analysis'
+# GH-693: the cards are swipeable — a swipe moves the step label AND the dots.
+- swipe:
+    direction: LEFT
+    duration: 400
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-indicator'
+      text: 'Step 2 of 4'
+    timeout: 5000
 - assertVisible:
-    id: 'onboarding-level-training'
+    id: 'onboarding-dot-1'
+    selected: true
+- assertVisible:
+    id: 'onboarding-dot-0'
+    selected: false
+- assertVisible: 'Find your way'
+# One row per bottom tab, titled with the nav bar's label (ids, because the real tab bar
+# behind the overlay carries the same texts).
+- assertVisible:
+    id: 'onboarding-nav-training'
+    text: '.*Training.*'
+- assertVisible:
+    id: 'onboarding-nav-exercises'
+    text: '.*Exercises.*'
+- assertVisible:
+    id: 'onboarding-nav-analyse'
+    text: '.*Analysis.*'
+- assertVisible:
+    id: 'onboarding-nav-settings'
+    text: '.*Settings.*'
+- swipe:
+    direction: LEFT
+    duration: 400
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-indicator'
+      text: 'Step 3 of 4'
+    timeout: 5000
+- assertVisible:
+    id: 'onboarding-dot-2'
+    selected: true
+- assertVisible: 'Optional extras'
+- assertVisible: 'AI coach'
+# Swiping back works too.
+- swipe:
+    direction: RIGHT
+    duration: 400
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-indicator'
+      text: 'Step 2 of 4'
+    timeout: 5000
+- assertVisible:
+    id: 'onboarding-dot-1'
+    selected: true
+# Next still works and keeps the dots in sync.
 - tapOn:
     id: 'onboarding-next'
-- assertVisible:
-    id: 'onboarding-step-indicator'
-    text: 'Step 2 of 3'
-- assertVisible: 'RIR = Reps in Reserve'
-- assertVisible:
-    id: 'onboarding-rir-example'
-    text: '5 reps @ 2 RIR → you stop with two good reps left'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-indicator'
+      text: 'Step 3 of 4'
+    timeout: 5000
 - tapOn:
     id: 'onboarding-next'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-indicator'
+      text: 'Step 4 of 4'
+    timeout: 5000
 - assertVisible:
-    id: 'onboarding-step-indicator'
-    text: 'Step 3 of 3'
+    id: 'onboarding-dot-3'
+    selected: true
 - assertVisible: 'How do you want to start\?'
 - assertVisible:
     id: 'onboarding-choice-empty'
 - assertVisible:
     id: 'onboarding-choice-import'
+# Skip is the highlighted footer button here; no Next any more.
+- assertVisible:
+    id: 'onboarding-skip'
+    text: 'Skip'
+- assertNotVisible:
+    id: 'onboarding-next'
 
 # --- 5) Templates: real structure, radio selection ------------------------------
 - tapOn:
