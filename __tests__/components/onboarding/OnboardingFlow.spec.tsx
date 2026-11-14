@@ -1,9 +1,10 @@
 import React from 'react';
 import {BackHandler} from 'react-native';
-import {act, fireEvent, render} from '@testing-library/react-native';
+import {act, fireEvent, render, within} from '@testing-library/react-native';
 import {Provider as PaperProvider} from 'react-native-paper';
 import OnboardingFlow from '../../../app/components/onboarding/OnboardingFlow';
 import {PROGRAM_TEMPLATES} from '../../../app/constants/programTemplates';
+import {BOTTOM_TABS} from '../../../app/routing/bottomTabs';
 
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
@@ -20,43 +21,130 @@ const renderFlow = () => {
   return {...utils, props};
 };
 
-describe('OnboardingFlow (GH-497)', () => {
-  it('walks welcome → RIR → start choice with Next and Back', () => {
-    const {getByTestId, queryByTestId, getByText} = renderFlow();
+type Utils = ReturnType<typeof renderFlow>;
 
-    expect(getByTestId('onboarding-step-welcome')).toBeTruthy();
-    expect(getByText('Step 1 of 3')).toBeTruthy();
-    ['plan', 'meso', 'micro', 'training'].forEach((level) => expect(getByTestId(`onboarding-level-${level}`)).toBeTruthy());
+const selectedDots = ({getByTestId}: Utils) => [0, 1, 2, 3].map((i) => getByTestId(`onboarding-dot-${i}`).props.accessibilityState.selected);
+
+/** Simulates a swipe that settles on `page` (the pager reads the offset of the momentum end). */
+const swipeTo = ({getByTestId}: Utils, page: number, width = 750) => {
+  const pager = getByTestId('onboarding-pager');
+  fireEvent(pager, 'layout', {nativeEvent: {layout: {width, height: 1000, x: 0, y: 0}}});
+  fireEvent(pager, 'momentumScrollEnd', {nativeEvent: {contentOffset: {x: page * width, y: 0}}});
+};
+
+const goToStart = ({getByTestId}: Utils) => {
+  fireEvent.press(getByTestId('onboarding-next'));
+  fireEvent.press(getByTestId('onboarding-next'));
+  fireEvent.press(getByTestId('onboarding-next'));
+};
+
+describe('OnboardingFlow (GH-497, GH-693)', () => {
+  it('shows the four cards as pages of one swipeable pager', () => {
+    const utils = renderFlow();
+    const {getByTestId} = utils;
+    // All cards are mounted side by side, so they can be swiped.
+    ['welcome', 'navigation', 'optional', 'start'].forEach((s) => expect(getByTestId(`onboarding-step-${s}`)).toBeTruthy());
+    expect(getByTestId('onboarding-pager').props.pagingEnabled).toBe(true);
+    expect(getByTestId('onboarding-pager').props.horizontal).toBe(true);
+    expect(selectedDots(utils)).toEqual([true, false, false, false]);
+  });
+
+  it('moves the dots and the step label with a swipe', () => {
+    const utils = renderFlow();
+    const {getByText} = utils;
+    expect(getByText('Step 1 of 4')).toBeTruthy();
+
+    swipeTo(utils, 1);
+    expect(getByText('Step 2 of 4')).toBeTruthy();
+    expect(selectedDots(utils)).toEqual([false, true, false, false]);
+
+    swipeTo(utils, 3);
+    expect(getByText('Step 4 of 4')).toBeTruthy();
+    expect(selectedDots(utils)).toEqual([false, false, false, true]);
+
+    swipeTo(utils, 2);
+    expect(getByText('Step 3 of 4')).toBeTruthy();
+    expect(selectedDots(utils)).toEqual([false, false, true, false]);
+  });
+
+  it('moves the dots live while a card is dragged, but not on scrolls caused by Next/Back', () => {
+    const utils = renderFlow();
+    const {getByTestId, getByText} = utils;
+    const pager = getByTestId('onboarding-pager');
+    fireEvent(pager, 'layout', {nativeEvent: {layout: {width: 1000, height: 1000, x: 0, y: 0}}});
+
+    // A programmatic scroll (no drag) halfway does not change the page.
+    fireEvent.scroll(pager, {nativeEvent: {contentOffset: {x: 600, y: 0}}});
+    expect(getByText('Step 1 of 4')).toBeTruthy();
+
+    // A drag past the middle of the next card switches the dots before the page settles.
+    fireEvent(pager, 'scrollBeginDrag', {nativeEvent: {contentOffset: {x: 0, y: 0}}});
+    fireEvent.scroll(pager, {nativeEvent: {contentOffset: {x: 400, y: 0}}});
+    expect(getByText('Step 1 of 4')).toBeTruthy();
+    fireEvent.scroll(pager, {nativeEvent: {contentOffset: {x: 600, y: 0}}});
+    expect(getByText('Step 2 of 4')).toBeTruthy();
+    expect(selectedDots(utils)).toEqual([false, true, false, false]);
+  });
+
+  it('walks the cards with Next and Back', () => {
+    const utils = renderFlow();
+    const {getByTestId, queryByTestId, getByText} = utils;
 
     fireEvent.press(getByTestId('onboarding-next'));
-    expect(getByTestId('onboarding-step-rir')).toBeTruthy();
-    expect(getByText('Step 2 of 3')).toBeTruthy();
-
+    expect(getByText('Step 2 of 4')).toBeTruthy();
     fireEvent.press(getByTestId('onboarding-back'));
-    expect(getByTestId('onboarding-step-welcome')).toBeTruthy();
+    expect(getByText('Step 1 of 4')).toBeTruthy();
 
-    fireEvent.press(getByTestId('onboarding-next'));
-    fireEvent.press(getByTestId('onboarding-next'));
-    expect(getByTestId('onboarding-step-start')).toBeTruthy();
-    expect(getByText('Step 3 of 3')).toBeTruthy();
+    goToStart(utils);
+    expect(getByText('Step 4 of 4')).toBeTruthy();
+    expect(selectedDots(utils)).toEqual([false, false, false, true]);
     // The start step ends in a choice, not in "Next".
     expect(queryByTestId('onboarding-next')).toBeNull();
   });
 
-  it('can be skipped from any step', () => {
-    const {getByTestId, props} = renderFlow();
+  it('explains the app on the first card', () => {
+    const {getByTestId} = renderFlow();
+    ['local', 'tracking', 'analytics', 'video', 'modifications'].forEach((f) => expect(getByTestId(`onboarding-feature-${f}`)).toBeTruthy());
+  });
+
+  it('shows the bottom tabs with the labels and icons of the nav bar', () => {
+    const {getByTestId} = renderFlow();
+    (Object.keys(BOTTOM_TABS) as Array<keyof typeof BOTTOM_TABS>).forEach((key) => {
+      const row = within(getByTestId(`onboarding-nav-${key}`));
+      expect(row.getByText(BOTTOM_TABS[key].label)).toBeTruthy();
+      // The very icon name the tab navigator uses.
+      expect(row.UNSAFE_getAllByProps({source: BOTTOM_TABS[key].icon}).length).toBeGreaterThan(0);
+    });
+    expect(BOTTOM_TABS).toEqual({
+      training: {label: 'Training', icon: 'book-open-variant'},
+      exercises: {label: 'Exercises', icon: 'weight-lifter'},
+      analyse: {label: 'Analysis', icon: 'trending-up'},
+      settings: {label: 'Settings', icon: 'cog'},
+    });
+  });
+
+  it('lists the AI coach among the optional features', () => {
+    const {getByTestId} = renderFlow();
+    expect(within(getByTestId('onboarding-optional-ai')).getByText('AI coach')).toBeTruthy();
+  });
+
+  it('can be skipped from any step; on the start choice Skip is the highlighted footer button', () => {
+    const utils = renderFlow();
+    const {getByTestId, getAllByTestId, props} = utils;
     fireEvent.press(getByTestId('onboarding-skip'));
     expect(props.onSkip).toHaveBeenCalledTimes(1);
 
-    fireEvent.press(getByTestId('onboarding-next'));
+    goToStart(utils);
+    // Only one Skip is rendered there: the contained one in the footer.
+    expect(getAllByTestId('onboarding-skip')).toHaveLength(1);
     fireEvent.press(getByTestId('onboarding-skip'));
     expect(props.onSkip).toHaveBeenCalledTimes(2);
   });
 
   it('routes "empty plan" and "import" to their callbacks', () => {
-    const {getByTestId, props} = renderFlow();
-    fireEvent.press(getByTestId('onboarding-next'));
-    fireEvent.press(getByTestId('onboarding-next'));
+    const utils = renderFlow();
+    const {getByTestId, props} = utils;
+    goToStart(utils);
 
     fireEvent.press(getByTestId('onboarding-choice-empty'));
     fireEvent.press(getByTestId('onboarding-choice-import'));
@@ -67,12 +155,13 @@ describe('OnboardingFlow (GH-497)', () => {
   });
 
   it('creates the plan from the chosen template', () => {
-    const {getByTestId, getByText, props} = renderFlow();
-    fireEvent.press(getByTestId('onboarding-next'));
-    fireEvent.press(getByTestId('onboarding-next'));
+    const utils = renderFlow();
+    const {getByTestId, getByText, props} = utils;
+    swipeTo(utils, 3);
     fireEvent.press(getByTestId('onboarding-choice-template'));
 
     expect(getByTestId('onboarding-step-template')).toBeTruthy();
+    expect(getByText('Templates')).toBeTruthy();
     PROGRAM_TEMPLATES.forEach((t) => expect(getByTestId(`program-template-${t.id}`)).toBeTruthy());
     // The first template is preselected and shows its description.
     expect(getByText(PROGRAM_TEMPLATES[0].description)).toBeTruthy();
@@ -85,13 +174,23 @@ describe('OnboardingFlow (GH-497)', () => {
     expect(props.onSkip).not.toHaveBeenCalled();
   });
 
+  it('Back from the templates returns to the start choice', () => {
+    const utils = renderFlow();
+    const {getByTestId, getByText} = utils;
+    goToStart(utils);
+    fireEvent.press(getByTestId('onboarding-choice-template'));
+    fireEvent.press(getByTestId('onboarding-back'));
+    expect(getByText('Step 4 of 4')).toBeTruthy();
+    expect(selectedDots(utils)).toEqual([false, false, false, true]);
+  });
+
   it('hardware back steps back instead of leaving the onboarding', () => {
     const listeners: Array<() => boolean> = [];
     const spy = jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_, handler) => {
       listeners.push(handler as () => boolean);
       return {remove: jest.fn()};
     });
-    const {getByTestId} = renderFlow();
+    const {getByTestId, getByText} = renderFlow();
     fireEvent.press(getByTestId('onboarding-next'));
 
     let handled = false;
@@ -100,7 +199,7 @@ describe('OnboardingFlow (GH-497)', () => {
     });
 
     expect(handled).toBe(true);
-    expect(getByTestId('onboarding-step-welcome')).toBeTruthy();
+    expect(getByText('Step 1 of 4')).toBeTruthy();
     spy.mockRestore();
   });
 });

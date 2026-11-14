@@ -11,6 +11,7 @@ import Toast from 'react-native-toast-message';
 import {useSettingsSelector} from '../redux/settings/use/useSettings';
 import {useExercise} from '../redux/Exercises/use/useExercise';
 import {useNavigation} from '@react-navigation/native';
+import {BOTTOM_TABS} from './bottomTabs';
 
 const Tab = createMaterialBottomTabNavigator();
 
@@ -50,7 +51,8 @@ export const BottomTabs = () => {
         name="Training"
         component={TrainingRouter}
         options={{
-          tabBarIcon: 'book-open-variant',
+          tabBarLabel: BOTTOM_TABS.training.label,
+          tabBarIcon: BOTTOM_TABS.training.icon,
           tabBarBadge: isTrainingStarted,
           tabBarAccessibilityLabel: 'tab-training',
           tabBarTestID: 'tab-training',
@@ -60,7 +62,8 @@ export const BottomTabs = () => {
         name="Exercises"
         component={ExerciseRouter}
         options={{
-          tabBarIcon: 'weight-lifter',
+          tabBarLabel: BOTTOM_TABS.exercises.label,
+          tabBarIcon: BOTTOM_TABS.exercises.icon,
           tabBarAccessibilityLabel: 'tab-exercises',
           tabBarTestID: 'tab-exercises',
         }}
@@ -69,8 +72,8 @@ export const BottomTabs = () => {
         name="Analyse"
         component={AnalyseRouter}
         options={{
-          tabBarLabel: 'Analysis',
-          tabBarIcon: 'trending-up',
+          tabBarLabel: BOTTOM_TABS.analyse.label,
+          tabBarIcon: BOTTOM_TABS.analyse.icon,
           tabBarAccessibilityLabel: 'tab-analyse',
           tabBarTestID: 'tab-analyse',
         }}
@@ -79,7 +82,8 @@ export const BottomTabs = () => {
         name="Settings"
         component={SettingsRouter}
         options={{
-          tabBarIcon: 'cog',
+          tabBarLabel: BOTTOM_TABS.settings.label,
+          tabBarIcon: BOTTOM_TABS.settings.icon,
           tabBarAccessibilityLabel: 'tab-settings',
           tabBarTestID: 'tab-settings',
         }}

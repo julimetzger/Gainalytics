@@ -54,13 +54,7 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'onboarding-step-welcome'
     timeout: 10000
-- tapOn:
-    id: 'onboarding-next'
-- tapOn:
-    id: 'onboarding-next'
-- assertVisible:
-    id: 'onboarding-step-indicator'
-    text: 'Step 3 of 3'
+- runFlow: onboarding_to_start_step.yaml
 - tapOn:
     id: 'onboarding-choice-empty'
 - extendedWaitUntil:
@@ -119,13 +113,7 @@ appId: com.powerliftingworkoutplanner
     visible:
       id: 'onboarding-step-welcome'
     timeout: 10000
-- tapOn:
-    id: 'onboarding-next'
-- tapOn:
-    id: 'onboarding-next'
-- assertVisible:
-    id: 'onboarding-step-indicator'
-    text: 'Step 3 of 3'
+- runFlow: onboarding_to_start_step.yaml
 - tapOn:
     id: 'onboarding-choice-import'
 - extendedWaitUntil:

@@ -1,0 +1,29 @@
+appId: com.powerliftingworkoutplanner
+---
+# Shared helper (GH-693): from the onboarding's first card, tap Next through the three
+# intro cards to the start choice (step 4 of 4). Each Next waits for the pager to settle.
+- tapOn:
+    id: 'onboarding-next'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-indicator'
+      text: 'Step 2 of 4'
+    timeout: 5000
+- tapOn:
+    id: 'onboarding-next'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-indicator'
+      text: 'Step 3 of 4'
+    timeout: 5000
+- tapOn:
+    id: 'onboarding-next'
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-step-indicator'
+      text: 'Step 4 of 4'
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: 'onboarding-choice-empty'
+    timeout: 5000
