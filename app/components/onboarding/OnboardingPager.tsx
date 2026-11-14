@@ -17,9 +17,19 @@ const OnboardingPager = ({page, onPageChange, children}: OnboardingPagerProps) =
   const [width, setWidth] = useState(window.width);
   const ref = useRef<ScrollView>(null);
   const mounted = useRef(false);
+  // True from the finger touching the pager until the page has settled. Only then do scroll
+  // events move the page — the animated scrollTo of Next/Back must not feed back into it.
+  const userScrolling = useRef(false);
+  // The last page reported by a swipe: the pager already shows it, so no scrollTo is needed.
+  const reportedBySwipe = useRef<number | null>(null);
 
   // Follow the controlled page; jump without animation on mount (e.g. back from the templates).
   useEffect(() => {
+    if (reportedBySwipe.current === page) {
+      reportedBySwipe.current = null;
+      return;
+    }
+    reportedBySwipe.current = null;
     ref.current?.scrollTo({x: page * width, y: 0, animated: mounted.current});
     mounted.current = true;
   }, [page, width]);
@@ -29,13 +39,35 @@ const OnboardingPager = ({page, onPageChange, children}: OnboardingPagerProps) =
     if (w > 0) setWidth(w);
   }, []);
 
-  const onMomentumScrollEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const settled = Math.round(e.nativeEvent.contentOffset.x / width);
-      const clamped = Math.max(0, Math.min(children.length - 1, settled));
-      if (clamped !== page) onPageChange(clamped);
+  const report = useCallback(
+    (x: number) => {
+      const nearest = Math.max(0, Math.min(children.length - 1, Math.round(x / width)));
+      if (nearest !== page) {
+        reportedBySwipe.current = nearest;
+        onPageChange(nearest);
+      }
     },
     [children.length, onPageChange, page, width],
+  );
+
+  const onScrollBeginDrag = useCallback(() => {
+    userScrolling.current = true;
+  }, []);
+
+  // Live: the dots follow the card that is mostly on screen while it is being swiped.
+  const onScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (userScrolling.current) report(e.nativeEvent.contentOffset.x);
+    },
+    [report],
+  );
+
+  const onMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      userScrolling.current = false;
+      report(e.nativeEvent.contentOffset.x);
+    },
+    [report],
   );
 
   return (
@@ -45,6 +77,9 @@ const OnboardingPager = ({page, onPageChange, children}: OnboardingPagerProps) =
       pagingEnabled
       showsHorizontalScrollIndicator={false}
       onLayout={onLayout}
+      onScrollBeginDrag={onScrollBeginDrag}
+      onScroll={onScroll}
+      scrollEventThrottle={32}
       onMomentumScrollEnd={onMomentumScrollEnd}
       contentOffset={{x: page * width, y: 0}}
       style={styles.pager}

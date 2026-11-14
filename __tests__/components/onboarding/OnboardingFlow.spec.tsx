@@ -67,6 +67,25 @@ describe('OnboardingFlow (GH-497, GH-693)', () => {
     expect(selectedDots(utils)).toEqual([false, false, true, false]);
   });
 
+  it('moves the dots live while a card is dragged, but not on scrolls caused by Next/Back', () => {
+    const utils = renderFlow();
+    const {getByTestId, getByText} = utils;
+    const pager = getByTestId('onboarding-pager');
+    fireEvent(pager, 'layout', {nativeEvent: {layout: {width: 1000, height: 1000, x: 0, y: 0}}});
+
+    // A programmatic scroll (no drag) halfway does not change the page.
+    fireEvent.scroll(pager, {nativeEvent: {contentOffset: {x: 600, y: 0}}});
+    expect(getByText('Step 1 of 4')).toBeTruthy();
+
+    // A drag past the middle of the next card switches the dots before the page settles.
+    fireEvent(pager, 'scrollBeginDrag', {nativeEvent: {contentOffset: {x: 0, y: 0}}});
+    fireEvent.scroll(pager, {nativeEvent: {contentOffset: {x: 400, y: 0}}});
+    expect(getByText('Step 1 of 4')).toBeTruthy();
+    fireEvent.scroll(pager, {nativeEvent: {contentOffset: {x: 600, y: 0}}});
+    expect(getByText('Step 2 of 4')).toBeTruthy();
+    expect(selectedDots(utils)).toEqual([false, true, false, false]);
+  });
+
   it('walks the cards with Next and Back', () => {
     const utils = renderFlow();
     const {getByTestId, queryByTestId, getByText} = utils;
