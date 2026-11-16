@@ -46,7 +46,7 @@
     "react-native-nitro-modules": "^0.37.2",
     "react-native-outside-press": "^1.2.2",
     "react-native-paper": "^5.15.4",
-    "react-native-paper-dates": "^0.24.1",
+    "react-native-paper-dates": "^0.24.2",
     "react-native-paper-dropdown": "^2.3.1",
     "react-native-reanimated": "~4.3.4",
     "react-native-safe-area-context": "^5.11.1",
